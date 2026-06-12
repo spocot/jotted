@@ -33,14 +33,14 @@
 - [x] All 12 API endpoints from PLAN.md implemented
 - [x] Validation (`BadRequest`/`NotFound` errors), centralized error middleware, CORS
 
-## Phase 4: Frontend Foundation & Note CRUD ⬜
+## Phase 4: Frontend Foundation & Note CRUD ✅
 
-- [ ] React Router: `/`, `/note/:id`, `/search`, `/graph`, `/tags`
-- [ ] Zustand stores: `useNotesStore`, `useUIStore`, `useTagStore`
-- [ ] API client module
-- [ ] Sidebar: note list, folder tree, create/delete
-- [ ] Note editor page with auto-save
-- [ ] Textarea-based editing (placeholder until TipTap)
+- [x] React Router: `/`, `/note/:id`, `/search`, `/graph`, `/tags`
+- [x] Zustand stores: `useNotesStore`, `useUIStore`, `useTagStore`
+- [x] API client module
+- [x] Sidebar: note list, folder tree, create/delete
+- [x] Note editor page with auto-save
+- [x] Textarea-based editing (placeholder until TipTap)
 
 ## Phase 5: Rich Text Editor (TipTap) ⬜
 

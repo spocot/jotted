@@ -1,26 +1,21 @@
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import NoteListPage from "./pages/NoteListPage";
+import NoteEditorPage from "./pages/NoteEditorPage";
+import SearchPage from "./pages/SearchPage";
+import GraphPage from "./pages/GraphPage";
+import TagsPage from "./pages/TagsPage";
 
 export default function App() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold">Jotted</h1>
-        <nav className="flex gap-4 text-sm">
-          <Link to="/" className="hover:underline">Notes</Link>
-          <Link to="/search" className="hover:underline">Search</Link>
-          <Link to="/graph" className="hover:underline">Graph</Link>
-          <Link to="/tags" className="hover:underline">Tags</Link>
-        </nav>
-      </header>
-      <main className="flex-1 p-4">
-        <Routes>
-          <Route path="/" element={<div className="text-gray-500">Note list coming soon</div>} />
-          <Route path="/note/:id" element={<div className="text-gray-500">Note editor coming soon</div>} />
-          <Route path="/search" element={<div className="text-gray-500">Search coming soon</div>} />
-          <Route path="/graph" element={<div className="text-gray-500">Graph view coming soon</div>} />
-          <Route path="/tags" element={<div className="text-gray-500">Tags coming soon</div>} />
-        </Routes>
-      </main>
-    </div>
+    <Layout>
+      <Routes>
+        <Route path="/" element={<NoteListPage />} />
+        <Route path="/note/:id" element={<NoteEditorPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/graph" element={<GraphPage />} />
+        <Route path="/tags" element={<TagsPage />} />
+      </Routes>
+    </Layout>
   );
 }
