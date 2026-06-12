@@ -30,6 +30,7 @@ export class NoteRepository {
   private deleteNote: Database.Statement;
   private deleteFts: Database.Statement;
   private getNoteById: Database.Statement;
+  private getNoteByTitle: Database.Statement;
   private getAllNotes: Database.Statement;
 
   constructor(private db: Database.Database) {
@@ -50,6 +51,9 @@ export class NoteRepository {
     this.getNoteById = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE id = ?",
     );
+    this.getNoteByTitle = db.prepare(
+      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE title = ? LIMIT 1",
+    );
     this.getAllNotes = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes ORDER BY updated_at DESC",
     );
@@ -61,6 +65,10 @@ export class NoteRepository {
 
   getById(id: string): Note | null {
     return (this.getNoteById.get(id) as Note | null) ?? null;
+  }
+
+  getByTitle(title: string): Note | null {
+    return (this.getNoteByTitle.get(title) as Note | null) ?? null;
   }
 
   create(payload: NoteCreatePayload): Note {

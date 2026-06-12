@@ -27,11 +27,11 @@
 - [x] FTS index rebuilt on note save (via transaction in NoteRepository)
 - [x] Raw `better-sqlite3` prepared statements (no ORM)
 
-## Phase 3: Backend API ⬜
+## Phase 3: Backend API ✅
 
-- [ ] Express router per domain
-- [ ] All API endpoints from PLAN.md
-- [ ] Validation, error handling middleware, CORS
+- [x] Express router per domain (`routes/notes.ts`, `routes/tags.ts`, `routes/search.ts`, `routes/graph.ts`)
+- [x] All 12 API endpoints from PLAN.md implemented
+- [x] Validation (`BadRequest`/`NotFound` errors), centralized error middleware, CORS
 
 ## Phase 4: Frontend Foundation & Note CRUD ⬜
 
