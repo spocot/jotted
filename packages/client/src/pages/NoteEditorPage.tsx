@@ -6,6 +6,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useNoteStore } from "../store/useNoteStore";
+import { api } from "../api/client";
 import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
@@ -19,6 +20,7 @@ export default function NoteEditorPage() {
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loadedNoteIdRef = useRef<string | null>(null);
   const [title, setTitle] = useState("");
+  const [newTag, setNewTag] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -85,6 +87,28 @@ export default function NoteEditorPage() {
     updateNote(id, { title: e.target.value });
   };
 
+  const handleAddTag = async (e: React.KeyboardEvent | React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !newTag.trim()) return;
+    try {
+      const enriched = await api.addNoteTag(id, newTag.trim());
+      useNoteStore.setState({ selectedNote: enriched });
+      setNewTag("");
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRemoveTag = async (tagName: string) => {
+    if (!id) return;
+    try {
+      const enriched = await api.removeNoteTag(id, tagName);
+      useNoteStore.setState({ selectedNote: enriched });
+    } catch {
+      // ignore
+    }
+  };
+
   // Save immediately before navigation
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -133,15 +157,34 @@ export default function NoteEditorPage() {
         className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-gray-300 dark:placeholder-gray-600 mb-4 text-gray-900 dark:text-gray-100"
       />
 
-      <div className="flex items-center gap-2 mb-4 text-xs text-gray-400 dark:text-gray-500">
+      <div className="flex flex-wrap items-center gap-1.5 mb-4">
         {selectedNote?.tags.map((tag) => (
           <span
             key={tag.id}
-            className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full"
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full group"
           >
             #{tag.name}
+            <button
+              onClick={() => handleRemoveTag(tag.name)}
+              className="hover:text-red-500 transition-colors"
+              title={`Remove #${tag.name}`}
+            >
+              ×
+            </button>
           </span>
         ))}
+        <form onSubmit={handleAddTag} className="inline-flex">
+          <input
+            type="text"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            placeholder="Add tag..."
+            className="w-24 px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddTag(e);
+            }}
+          />
+        </form>
       </div>
 
       {/* Toolbar */}

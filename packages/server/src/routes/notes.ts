@@ -118,6 +118,44 @@ export function createNotesRouter(
     }),
   );
 
+  router.post(
+    "/:id/tags",
+    asyncHandler(async (req, res) => {
+      const id = req.params.id as string;
+      const note = noteRepo.getById(id);
+      if (!note) throw new NotFound("Note not found");
+
+      const { name } = req.body;
+      if (!name || typeof name !== "string" || !name.trim()) {
+        throw new BadRequest("Tag name is required");
+      }
+
+      const tag = tagRepo.upsert(name.trim());
+      tagRepo.addToNote(note.id, tag.id);
+
+      const full = enrichNote(id, noteRepo, tagRepo, linkRepo);
+      res.json(full);
+    }),
+  );
+
+  router.delete(
+    "/:id/tags/:tagName",
+    asyncHandler(async (req, res) => {
+      const id = req.params.id as string;
+      const note = noteRepo.getById(id);
+      if (!note) throw new NotFound("Note not found");
+
+      const tag = tagRepo.getByName(req.params.tagName as string);
+      if (!tag) throw new NotFound("Tag not found");
+
+      tagRepo.removeFromNote(note.id, tag.id);
+      tagRepo.deleteUnused();
+
+      const full = enrichNote(id, noteRepo, tagRepo, linkRepo);
+      res.json(full);
+    }),
+  );
+
   return router;
 }
 

@@ -52,12 +52,12 @@
 - [x] Debounced auto-save (500ms)
 - [x] Formatting toolbar: bold, italic, strike, code, headings, lists, blockquote, code block
 
-## Phase 6: Tagging System UI ⬜
+## Phase 6: Tagging System UI ✅
 
-- [ ] Tag chips inline in editor
-- [ ] Tag filter pane in sidebar
-- [ ] Click tag to filter note list
-- [ ] Tag management: rename, delete, view notes
+- [x] Tag chips inline in editor (add/remove via interactive chips + input field)
+- [x] Tag filter pane in sidebar (clickable tags filter the note list)
+- [x] Click tag to filter note list (sidebar + TagsPage)
+- [x] Tag management: rename, delete, view notes (TagsPage with inline rename + delete buttons)
 
 ## Phase 7: Backlinks & Note Connections ⬜
 

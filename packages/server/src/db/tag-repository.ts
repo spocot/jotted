@@ -14,7 +14,10 @@ export class TagRepository {
   private addToNoteStmt: Database.Statement;
   private removeFromNoteStmt: Database.Statement;
   private getNoteIdsStmt: Database.Statement;
+  private getByIdStmt: Database.Statement;
   private deleteUnusedStmt: Database.Statement;
+  private renameStmt: Database.Statement;
+  private deleteTagStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.getAllStmt = db.prepare(`
@@ -23,6 +26,13 @@ export class TagRepository {
       LEFT JOIN note_tags nt ON t.id = nt.tag_id
       GROUP BY t.id
       ORDER BY t.name
+    `);
+    this.getByIdStmt = db.prepare(`
+      SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
+      FROM tags t
+      LEFT JOIN note_tags nt ON t.id = nt.tag_id
+      WHERE t.id = ?
+      GROUP BY t.id
     `);
     this.getByNameStmt = db.prepare(`
       SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
@@ -41,6 +51,8 @@ export class TagRepository {
     this.getNoteIdsStmt = db.prepare(
       "SELECT note_id FROM note_tags WHERE tag_id = ?",
     );
+    this.renameStmt = db.prepare("UPDATE tags SET name = ? WHERE id = ?");
+    this.deleteTagStmt = db.prepare("DELETE FROM tags WHERE id = ?");
     this.deleteUnusedStmt = db.prepare(
       "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM note_tags)",
     );
@@ -50,8 +62,20 @@ export class TagRepository {
     return this.getAllStmt.all() as Tag[];
   }
 
+  getById(id: string): Tag | null {
+    return (this.getByIdStmt.get(id) as Tag | null) ?? null;
+  }
+
   getByName(name: string): Tag | null {
     return (this.getByNameStmt.get(name) as Tag | null) ?? null;
+  }
+
+  rename(id: string, newName: string): void {
+    this.renameStmt.run(newName, id);
+  }
+
+  deleteTag(id: string): void {
+    this.deleteTagStmt.run(id);
   }
 
   upsert(name: string): Tag {

@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNoteStore } from "../store/useNoteStore";
+import { useTagStore } from "../store/useTagStore";
 import { useUIStore } from "../store/useUIStore";
 
 export default function Sidebar() {
   const { notes, fetchNotes, createNote, deleteNote, loading } = useNoteStore();
+  const { tags, fetchTags } = useTagStore();
   const { sidebarOpen } = useUIStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [filter, setFilter] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    fetchNotes(undefined, activeTag ?? undefined);
+  }, [fetchNotes, activeTag]);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   const filtered = notes.filter(
     (n) => n.title.toLowerCase().includes(filter.toLowerCase()),
@@ -86,6 +93,38 @@ export default function Sidebar() {
             </div>
           </button>
         ))}
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-800">
+        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          Tags
+        </div>
+        <div className="px-3 pb-2 flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+          {tags.length === 0 && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">No tags</span>
+          )}
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => setActiveTag(activeTag === tag.name ? null : tag.name)}
+              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                activeTag === tag.name
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40"
+              }`}
+            >
+              #{tag.name}
+            </button>
+          ))}
+          {activeTag && (
+            <button
+              onClick={() => setActiveTag(null)}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="p-3 border-t border-gray-200 dark:border-gray-800">

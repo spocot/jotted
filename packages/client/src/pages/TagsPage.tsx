@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { useTagStore } from "../store/useTagStore";
 import type { Tag, Note } from "../types";
 
 export default function TagsPage() {
-  const [tags, setTags] = useState<Tag[]>([]);
+  const { tags, fetchTags, renameTag, deleteTag } = useTagStore();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagNotes, setTagNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   useEffect(() => {
-    api
-      .getTags()
-      .then(setTags)
-      .finally(() => setLoading(false));
-  }, []);
+    fetchTags().finally(() => setLoading(false));
+  }, [fetchTags]);
 
   useEffect(() => {
     if (selectedTag) {
@@ -22,7 +22,40 @@ export default function TagsPage() {
     } else {
       setTagNotes([]);
     }
-  }, [selectedTag]);
+  }, [selectedTag, tags]);
+
+  const handleStartRename = (tag: Tag) => {
+    setRenaming(tag.name);
+    setRenameValue(tag.name);
+  };
+
+  const handleRename = async (oldName: string) => {
+    if (!renameValue.trim() || renameValue.trim() === oldName) {
+      setRenaming(null);
+      return;
+    }
+    try {
+      await renameTag(oldName, renameValue.trim());
+      setRenaming(null);
+      if (selectedTag === oldName) {
+        setSelectedTag(renameValue.trim());
+      }
+    } catch {
+      // error handled by store
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete tag "#${name}"? It will be removed from all notes.`)) return;
+    try {
+      await deleteTag(name);
+      if (selectedTag === name) {
+        setSelectedTag(null);
+      }
+    } catch {
+      // error handled by store
+    }
+  };
 
   if (loading) {
     return <div className="text-gray-400 dark:text-gray-500">Loading tags...</div>;
@@ -40,18 +73,59 @@ export default function TagsPage() {
 
       <div className="flex flex-wrap gap-2 mb-6">
         {tags.map((tag) => (
-          <button
-            key={tag.id}
-            onClick={() => setSelectedTag(selectedTag === tag.name ? null : tag.name)}
-            className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-              selectedTag === tag.name
-                ? "bg-blue-600 text-white"
-                : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40"
-            }`}
-          >
-            #{tag.name}
-            <span className="ml-1 text-xs opacity-70">({tag.noteCount})</span>
-          </button>
+          <div key={tag.id} className="group relative">
+            {renaming === tag.name ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRename(tag.name);
+                }}
+                className="inline-flex"
+              >
+                <input
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-blue-400 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none"
+                  autoFocus
+                  onBlur={() => handleRename(tag.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setRenaming(null);
+                  }}
+                />
+              </form>
+            ) : (
+              <button
+                onClick={() => setSelectedTag(selectedTag === tag.name ? null : tag.name)}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  selectedTag === tag.name
+                    ? "bg-blue-600 text-white"
+                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40"
+                }`}
+              >
+                #{tag.name}
+                <span className="ml-1 text-xs opacity-70">({tag.noteCount})</span>
+              </button>
+            )}
+            {renaming !== tag.name && (
+              <div className="absolute -top-1 -right-1 hidden group-hover:flex gap-0.5">
+                <button
+                  onClick={() => handleStartRename(tag)}
+                  className="w-4 h-4 text-xs bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center"
+                  title="Rename tag"
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={() => handleDelete(tag.name)}
+                  className="w-4 h-4 text-xs bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-red-200 dark:hover:bg-red-800 flex items-center justify-center"
+                  title="Delete tag"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 

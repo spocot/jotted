@@ -77,6 +77,32 @@ export const api = {
     return request(`/tags/${encodeURIComponent(name)}/notes`);
   },
 
+  renameTag(oldName: string, newName: string): Promise<Tag> {
+    return request(`/tags/${encodeURIComponent(oldName)}`, {
+      method: "PUT",
+      body: JSON.stringify({ name: newName }),
+    });
+  },
+
+  deleteTag(name: string): Promise<void> {
+    return request(`/tags/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  },
+
+  addNoteTag(noteId: string, name: string): Promise<EnrichedNote> {
+    return request(`/notes/${noteId}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  removeNoteTag(noteId: string, tagName: string): Promise<EnrichedNote> {
+    return request(`/notes/${noteId}/tags/${encodeURIComponent(tagName)}`, {
+      method: "DELETE",
+    });
+  },
+
   getGraph(): Promise<GraphData> {
     return request("/graph");
   },
