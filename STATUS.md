@@ -42,14 +42,15 @@
 - [x] Note editor page with auto-save
 - [x] Textarea-based editing (placeholder until TipTap)
 
-## Phase 5: Rich Text Editor (TipTap) ⬜
+## Phase 5: Rich Text Editor (TipTap) ✅
 
-- [ ] TipTap + React wrapper
-- [ ] Core extensions: headings, bold, italic, lists, code, blockquote, tasks
-- [ ] Custom `Wikilink` extension: inline link + autocomplete
-- [ ] Custom `Tag` extension: chip + autocomplete
-- [ ] TipTap JSON ↔ Markdown sync
-- [ ] Debounced auto-save (500ms)
+- [x] TipTap + React wrapper
+- [x] Core extensions: headings, bold, italic, lists, code, blockquote, tasks
+- [x] Custom `Wikilink` extension: inline link rendering
+- [x] Custom `Tag` extension: chip rendering
+- [x] TipTap JSON ↔ Markdown sync (via prosemirror-markdown serializer + marked)
+- [x] Debounced auto-save (500ms)
+- [x] Formatting toolbar: bold, italic, strike, code, headings, lists, blockquote, code block
 
 ## Phase 6: Tagging System UI ⬜
 
