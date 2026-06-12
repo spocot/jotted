@@ -41,14 +41,14 @@ export const Tag = Node.create<TagOptions>({
     return [{ tag: "span[data-tag]" }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return [
       "span",
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
         "data-tag": "",
         class: "inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full",
       }),
-      `#${HTMLAttributes.name ?? ""}`,
+      `#${node.attrs.name ?? ""}`,
     ];
   },
 

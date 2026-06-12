@@ -41,14 +41,14 @@ export const Wikilink = Node.create<WikilinkOptions>({
     return [{ tag: "span[data-wikilink]" }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return [
       "span",
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
         "data-wikilink": "",
         class: "cursor-pointer text-blue-600 dark:text-blue-400 underline decoration-dotted hover:decoration-solid",
       }),
-      `[[${HTMLAttributes.title ?? ""}]]`,
+      `[[${node.attrs.title ?? ""}]]`,
     ];
   },
 
