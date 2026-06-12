@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -18,12 +18,18 @@ export default function NoteEditorPage() {
   const { selectedNote, selectNote, updateNote, loading } = useNoteStore();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loadedNoteIdRef = useRef<string | null>(null);
+  const [title, setTitle] = useState("");
 
   useEffect(() => {
     if (id) {
       selectNote(id);
     }
   }, [id, selectNote]);
+
+  // Sync local title state when navigating to a different note
+  useEffect(() => {
+    setTitle(selectedNote?.title ?? "");
+  }, [selectedNote?.id]);
 
   const editor = useEditor({
     extensions: [
@@ -75,6 +81,7 @@ export default function NoteEditorPage() {
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id) return;
+    setTitle(e.target.value);
     updateNote(id, { title: e.target.value });
   };
 
@@ -120,7 +127,7 @@ export default function NoteEditorPage() {
     <div className="max-w-3xl mx-auto">
       <input
         type="text"
-        defaultValue={selectedNote?.title ?? ""}
+        value={title}
         onChange={handleTitleChange}
         placeholder="Note title"
         className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-gray-300 dark:placeholder-gray-600 mb-4 text-gray-900 dark:text-gray-100"
