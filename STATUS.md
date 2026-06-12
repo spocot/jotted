@@ -1,0 +1,95 @@
+# Jotted — Implementation Status
+
+## Legend
+
+- ✅ Complete
+- 🔄 In progress
+- ⬜ Not started
+
+---
+
+## Phase 1: Project Scaffolding ✅
+
+- [x] Init root `package.json` with npm workspaces
+- [x] `packages/client`: Vite + React + TypeScript + Tailwind CSS + Zustand + React Router
+- [x] `packages/server`: Express + TypeScript + `tsx` + `better-sqlite3`
+- [x] Shared `tsconfig.base.json`, root dev script with `concurrently`
+- [x] `better-sqlite3` cross-platform build config
+- [x] Vite proxy `/api` → `localhost:3000`
+- [x] Verify `npm run dev` starts both client and server
+
+## Phase 2: Database Layer & Content Parser ✅
+
+- [x] SQL schema: `notes`, `tags`, `note_tags`, `links`, `notes_fts` (FTS5)
+- [x] Repository pattern classes (`NoteRepository`, `TagRepository`, `LinkRepository`)
+- [x] Wikilink parser: `[[wikilink]]` in `parser/wikilink-parser.ts`
+- [x] Tag parser: `#tag` → upsert into `note_tags` in `parser/tag-parser.ts`
+- [x] FTS index rebuilt on note save (via transaction in NoteRepository)
+- [x] Raw `better-sqlite3` prepared statements (no ORM)
+
+## Phase 3: Backend API ⬜
+
+- [ ] Express router per domain
+- [ ] All API endpoints from PLAN.md
+- [ ] Validation, error handling middleware, CORS
+
+## Phase 4: Frontend Foundation & Note CRUD ⬜
+
+- [ ] React Router: `/`, `/note/:id`, `/search`, `/graph`, `/tags`
+- [ ] Zustand stores: `useNotesStore`, `useUIStore`, `useTagStore`
+- [ ] API client module
+- [ ] Sidebar: note list, folder tree, create/delete
+- [ ] Note editor page with auto-save
+- [ ] Textarea-based editing (placeholder until TipTap)
+
+## Phase 5: Rich Text Editor (TipTap) ⬜
+
+- [ ] TipTap + React wrapper
+- [ ] Core extensions: headings, bold, italic, lists, code, blockquote, tasks
+- [ ] Custom `Wikilink` extension: inline link + autocomplete
+- [ ] Custom `Tag` extension: chip + autocomplete
+- [ ] TipTap JSON ↔ Markdown sync
+- [ ] Debounced auto-save (500ms)
+
+## Phase 6: Tagging System UI ⬜
+
+- [ ] Tag chips inline in editor
+- [ ] Tag filter pane in sidebar
+- [ ] Click tag to filter note list
+- [ ] Tag management: rename, delete, view notes
+
+## Phase 7: Backlinks & Note Connections ⬜
+
+- [ ] Backlinks panel in note editor
+- [ ] Unlinked mentions detection
+- [ ] Visual indicator for notes with backlinks
+
+## Phase 8: Graph View ⬜
+
+- [ ] D3.js force-directed graph
+- [ ] Global graph + per-note subgraph
+- [ ] Zoom, pan, drag, click-to-navigate
+- [ ] Tag-based filtering
+
+## Phase 9: Full-Text Search ⬜
+
+- [ ] Global search bar with typeahead
+- [ ] Search results page with highlighted snippets
+- [ ] Filters: tag, folder, date, sort order
+- [ ] Keyboard shortcut: `Ctrl+Shift+F`
+
+## Phase 10: Polish & UX ⬜
+
+- [ ] Dark mode (Tailwind `dark:`)
+- [ ] Keyboard shortcuts
+- [ ] Note preview popover on wikilink hover
+- [ ] Resizable sidebar
+- [ ] Loading skeletons, empty states, toasts
+- [ ] Command palette (`Ctrl+P`)
+
+## Phase 11: Testing & Hardening ⬜
+
+- [ ] Unit tests: parser, repositories, API handlers (vitest)
+- [ ] Component tests: Sidebar, NoteEditor, SearchBar, GraphView (RTL)
+- [ ] E2E: Playwright critical paths
+- [ ] Edge cases: cycles, special characters, 10k benchmark
