@@ -17,6 +17,7 @@ export default function NoteEditorPage() {
   const navigate = useNavigate();
   const { selectedNote, selectNote, updateNote, loading } = useNoteStore();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const loadedNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -55,10 +56,11 @@ export default function NoteEditorPage() {
     },
   });
 
-  // Load content into editor when note is selected
+  // Load content into editor when navigating to a note (skip on autosave updates)
   useEffect(() => {
     if (!editor || !selectedNote || selectedNote.id !== id) return;
-    if (editor.getText() === selectedNote.content) return;
+    if (loadedNoteIdRef.current === id) return;
+    loadedNoteIdRef.current = id;
 
     const html = markdownToHtml(selectedNote.content);
     editor.commands.setContent(html);
