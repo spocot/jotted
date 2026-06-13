@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { Note, NoteCreatePayload, NoteUpdatePayload, EnrichedNote } from "../types";
 import { api } from "../api/client";
 
+let selectVersion = 0;
+
 interface NotesState {
   notes: Note[];
   selectedNote: EnrichedNote | null;
@@ -34,18 +36,25 @@ export const useNoteStore = create<NotesState>((set, get) => ({
   },
 
   selectNote: async (id: string | null) => {
+    selectVersion += 1;
+    const version = selectVersion;
     if (!id) {
       set({ selectedNote: null });
       return;
     }
-    set({ loading: true, error: null });
+    set({ selectedNote: null, loading: true, error: null });
     try {
       const selectedNote = await api.getNote(id);
+      if (version !== selectVersion) return;
       set({ selectedNote });
     } catch (err) {
-      set({ error: (err as Error).message });
+      if (version === selectVersion) {
+        set({ error: (err as Error).message });
+      }
     } finally {
-      set({ loading: false });
+      if (version === selectVersion) {
+        set({ loading: false });
+      }
     }
   },
 
@@ -65,16 +74,20 @@ export const useNoteStore = create<NotesState>((set, get) => ({
   },
 
   updateNote: async (id: string, payload: NoteUpdatePayload) => {
+    const version = selectVersion;
     set({ error: null });
     try {
       const enriched = await api.updateNote(id, payload);
+      if (version !== selectVersion) return;
       const { notes, selectedNote } = get();
       set({
         notes: notes.map((n) => (n.id === id ? enriched : n)),
         selectedNote: selectedNote?.id === id ? enriched : selectedNote,
       });
     } catch (err) {
-      set({ error: (err as Error).message });
+      if (version === selectVersion) {
+        set({ error: (err as Error).message });
+      }
     }
   },
 

@@ -16,9 +16,10 @@ const DEBOUNCE_MS = 500;
 export default function NoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { selectedNote, selectNote, updateNote, loading } = useNoteStore();
+  const { selectedNote, selectNote, updateNote, error } = useNoteStore();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loadedNoteIdRef = useRef<string | null>(null);
+  const isInitialLoadRef = useRef(false);
   const [title, setTitle] = useState("");
   const [newTag, setNewTag] = useState("");
 
@@ -54,6 +55,7 @@ export default function NoteEditorPage() {
       },
     },
     onUpdate: () => {
+      if (isInitialLoadRef.current) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         if (editor && id) {
@@ -71,12 +73,15 @@ export default function NoteEditorPage() {
     loadedNoteIdRef.current = id;
 
     const html = markdownToHtml(selectedNote.content);
+    isInitialLoadRef.current = true;
     editor.commands.setContent(html);
+    isInitialLoadRef.current = false;
   }, [editor, selectedNote, id]);
 
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
+      selectNote(null);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
@@ -129,14 +134,14 @@ export default function NoteEditorPage() {
     return <div className="text-gray-400 dark:text-gray-500">Select a note</div>;
   }
 
-  if (loading && !selectedNote) {
-    return <div className="text-gray-400 dark:text-gray-500">Loading note...</div>;
-  }
+  const dataReady = selectedNote && selectedNote.id === id;
 
-  if (!loading && !selectedNote) {
+  if (dataReady) {
+    // Render note below
+  } else if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400 dark:text-gray-500 mb-4">Note not found</p>
+        <p className="text-gray-400 dark:text-gray-500 mb-4">{error}</p>
         <button
           onClick={() => navigate("/")}
           className="text-blue-600 hover:underline"
@@ -145,6 +150,8 @@ export default function NoteEditorPage() {
         </button>
       </div>
     );
+  } else {
+    return <div className="text-gray-400 dark:text-gray-500">Loading note...</div>;
   }
 
   return (

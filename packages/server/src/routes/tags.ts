@@ -4,6 +4,10 @@ import type { NoteRepository } from "../db/note-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, NotFound } from "../lib/errors.js";
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function createTagsRouter(
   tagRepo: TagRepository,
   noteRepo: NoteRepository,
@@ -53,6 +57,24 @@ export function createTagsRouter(
       }
 
       tagRepo.rename(tag.id, newName.trim());
+
+      // Rewrite #oldName → #newName in all affected notes' content
+      const noteIds = tagRepo.getNoteIdsForTag(tag.id);
+      const oldTagRegex = new RegExp(
+        `(?<=^|\\s)#${escapeRegex(oldName)}(?=[\\s.,;:!?]|$)`,
+        "g",
+      );
+
+      for (const noteId of noteIds) {
+        const note = noteRepo.getById(noteId);
+        if (!note) continue;
+
+        const newContent = note.content.replace(oldTagRegex, `#${newName.trim()}`);
+        if (newContent !== note.content) {
+          noteRepo.update(noteId, { content: newContent });
+        }
+      }
+
       const updated = tagRepo.getById(tag.id);
       res.json(updated);
     }),
