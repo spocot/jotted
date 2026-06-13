@@ -65,12 +65,12 @@
 - [x] Unlinked mentions detection (`GET /api/notes/:id/unlinked-mentions` endpoint)
 - [x] Visual indicator for notes with backlinks (blue dot in sidebar + linked references section)
 
-## Phase 8: Graph View ⬜
+## Phase 8: Graph View ✅
 
-- [ ] D3.js force-directed graph
-- [ ] Global graph + per-note subgraph
-- [ ] Zoom, pan, drag, click-to-navigate
-- [ ] Tag-based filtering
+- [x] D3.js force-directed graph (`GraphView.tsx`)
+- [x] Global graph + per-note subgraph (`/graph` with `?note=` param + `SubgraphView.tsx` in editor)
+- [x] Zoom, pan, drag, click-to-navigate (d3.zoom + d3.drag + navigate on click)
+- [x] Tag-based filtering (tag chips in GraphPage filter nodes + color-by-tag)
 
 ## Phase 9: Full-Text Search ⬜
 

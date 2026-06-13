@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
@@ -11,6 +11,7 @@ import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import BacklinksPanel from "../components/BacklinksPanel";
+import SubgraphView from "../components/SubgraphView";
 
 const DEBOUNCE_MS = 500;
 
@@ -314,6 +315,22 @@ export default function NoteEditorPage() {
           noteId={id}
           noteTitle={selectedNote?.title ?? ""}
         />
+      </div>
+
+      {/* Subgraph */}
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Local Graph
+          </h3>
+          <Link
+            to={`/graph?note=${id}`}
+            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Open full graph
+          </Link>
+        </div>
+        <SubgraphView noteId={id} />
       </div>
     </div>
   );

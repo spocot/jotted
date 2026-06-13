@@ -100,6 +100,22 @@ export class TagRepository {
     return rows.map((r) => r.note_id);
   }
 
+  getTagsForNotes(noteIds: string[]): Record<string, string[]> {
+    if (noteIds.length === 0) return {};
+    const placeholders = noteIds.map(() => "?").join(",");
+    const rows = this.db
+      .prepare(
+        `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id IN (${placeholders})`,
+      )
+      .all(...noteIds) as { note_id: string; name: string }[];
+    const result: Record<string, string[]> = {};
+    for (const row of rows) {
+      if (!result[row.note_id]) result[row.note_id] = [];
+      result[row.note_id].push(row.name);
+    }
+    return result;
+  }
+
   deleteUnused(): void {
     this.deleteUnusedStmt.run();
   }

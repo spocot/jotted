@@ -29,7 +29,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo));
 app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
 app.use("/api/search", createSearchRouter(db, noteRepo));
-app.use("/api/graph", createGraphRouter(noteRepo, linkRepo));
+app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {

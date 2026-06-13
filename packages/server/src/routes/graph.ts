@@ -1,12 +1,22 @@
 import { Router } from "express";
 import type { NoteRepository } from "../db/note-repository.js";
 import type { LinkRepository } from "../db/link-repository.js";
+import type { TagRepository } from "../db/tag-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { NotFound } from "../lib/errors.js";
+
+function attachTags(
+  nodes: { id: string; title: string; path: string }[],
+  tagRepo: TagRepository,
+) {
+  const tags = tagRepo.getTagsForNotes(nodes.map((n) => n.id));
+  return nodes.map((n) => ({ ...n, tags: tags[n.id] ?? [] }));
+}
 
 export function createGraphRouter(
   noteRepo: NoteRepository,
   linkRepo: LinkRepository,
+  tagRepo: TagRepository,
 ): Router {
   const router = Router();
 
@@ -16,11 +26,10 @@ export function createGraphRouter(
       const notes = noteRepo.getAll();
       const links = linkRepo.getAllLinks();
 
-      const nodes = notes.map((n) => ({
-        id: n.id,
-        title: n.title,
-        path: n.path,
-      }));
+      const nodes = attachTags(
+        notes.map((n) => ({ id: n.id, title: n.title, path: n.path })),
+        tagRepo,
+      );
 
       res.json({ nodes, links });
     }),
@@ -45,10 +54,13 @@ export function createGraphRouter(
         (l) => connectedIds.has(l.sourceId) && connectedIds.has(l.targetId),
       );
 
-      const nodes = [...connectedIds]
-        .map((id) => noteRepo.getById(id))
-        .filter((n): n is NonNullable<typeof n> => n !== null)
-        .map((n) => ({ id: n.id, title: n.title, path: n.path }));
+      const nodes = attachTags(
+        [...connectedIds]
+          .map((id) => noteRepo.getById(id))
+          .filter((n): n is NonNullable<typeof n> => n !== null)
+          .map((n) => ({ id: n.id, title: n.title, path: n.path })),
+        tagRepo,
+      );
 
       res.json({ nodes, links: edges });
     }),

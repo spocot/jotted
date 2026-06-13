@@ -40,6 +40,7 @@ export interface GraphNode {
   id: string;
   title: string;
   path: string;
+  tags: string[];
 }
 
 export interface GraphData {
