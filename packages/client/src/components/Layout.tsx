@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import SearchBar from "./SearchBar";
 import { useUIStore } from "../store/useUIStore";
 
 interface LayoutProps {
@@ -9,6 +10,18 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { sidebarOpen, toggleSidebar, toggleDarkMode } = useUIStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "f") {
+        e.preventDefault();
+        navigate("/search");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -29,16 +42,14 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav className="flex items-center gap-4 text-sm">
-          <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+          <SearchBar />
+          <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Notes
           </Link>
-          <Link to="/search" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-            Search
-          </Link>
-          <Link to="/graph" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+          <Link to="/graph" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Graph
           </Link>
-          <Link to="/tags" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+          <Link to="/tags" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Tags
           </Link>
           <button

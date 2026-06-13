@@ -52,3 +52,12 @@ export interface SearchSuggestion {
   id: string;
   title: string;
 }
+
+export type SortField = "relevance" | "updatedAt" | "title" | "createdAt";
+export type SortOrder = "ASC" | "DESC";
+
+export interface SearchOptions {
+  tag?: string;
+  sort?: SortField;
+  order?: SortOrder;
+}

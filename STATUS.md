@@ -72,12 +72,12 @@
 - [x] Zoom, pan, drag, click-to-navigate (d3.zoom + d3.drag + navigate on click)
 - [x] Tag-based filtering (tag chips in GraphPage filter nodes + color-by-tag)
 
-## Phase 9: Full-Text Search ⬜
+## Phase 9: Full-Text Search ✅
 
-- [ ] Global search bar with typeahead
-- [ ] Search results page with highlighted snippets
-- [ ] Filters: tag, folder, date, sort order
-- [ ] Keyboard shortcut: `Ctrl+Shift+F`
+- [x] Global search bar with typeahead (`SearchBar.tsx` in Layout header)
+- [x] Search results page with highlighted snippets (`SearchPage.tsx` — snippet extraction + `<mark>` highlighting)
+- [x] Filters: tag (chip filter), sort (relevance/updated/created/title), order toggle
+- [x] Keyboard shortcut: `Ctrl+Shift+F` (global listener in Layout)
 
 ## Phase 10: Polish & UX ⬜
 

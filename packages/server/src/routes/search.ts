@@ -1,12 +1,16 @@
 import { Router } from "express";
 import type Database from "better-sqlite3";
 import type { NoteRepository } from "../db/note-repository.js";
+import type { TagRepository } from "../db/tag-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest } from "../lib/errors.js";
+
+type SortField = "relevance" | "updatedAt" | "title" | "createdAt";
 
 export function createSearchRouter(
   db: Database.Database,
   noteRepo: NoteRepository,
+  tagRepo?: TagRepository,
 ): Router {
   const router = Router();
 
@@ -27,6 +31,13 @@ export function createSearchRouter(
       }
 
       const query = q.trim();
+      const tag = typeof req.query.tag === "string" ? req.query.tag : null;
+      const sort = (typeof req.query.sort === "string"
+        ? req.query.sort
+        : "relevance") as SortField;
+      const order = typeof req.query.order === "string"
+        ? req.query.order.toUpperCase()
+        : "DESC";
 
       const ftsQuery = query
         .split(/\s+/)
@@ -40,9 +51,46 @@ export function createSearchRouter(
         rows = [];
       }
 
-      const notes = rows
+      let notes = rows
         .map((r) => noteRepo.getById(r.note_id))
         .filter((n): n is NonNullable<typeof n> => n !== null);
+
+      // Filter by tag
+      if (tag && tagRepo) {
+        const allTags = tagRepo.getAll();
+        const tagEntry = allTags.find(
+          (t) => t.name.toLowerCase() === tag.toLowerCase(),
+        );
+        if (tagEntry) {
+          const tagNoteIds = new Set(
+            tagRepo.getNoteIdsForTag(tagEntry.id),
+          );
+          notes = notes.filter((n) => tagNoteIds.has(n.id));
+        }
+      }
+
+      // Sort
+      const dir = order === "ASC" ? 1 : -1;
+      if (sort === "updatedAt") {
+        notes.sort(
+          (a, b) =>
+            dir *
+            (new Date(a.updatedAt).getTime() -
+              new Date(b.updatedAt).getTime()),
+        );
+      } else if (sort === "createdAt") {
+        notes.sort(
+          (a, b) =>
+            dir *
+            (new Date(a.createdAt).getTime() -
+              new Date(b.createdAt).getTime()),
+        );
+      } else if (sort === "title") {
+        notes.sort((a, b) =>
+          dir * a.title.localeCompare(b.title),
+        );
+      }
+      // "relevance" = keep FTS rank order (no extra sort)
 
       res.json(notes);
     }),

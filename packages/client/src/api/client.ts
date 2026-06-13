@@ -6,6 +6,7 @@ import type {
   Tag,
   GraphData,
   SearchSuggestion,
+  SearchOptions,
 } from "../types";
 
 const BASE = "/api";
@@ -69,8 +70,12 @@ export const api = {
     return request(`/notes/${id}/unlinked-mentions`);
   },
 
-  searchNotes(q: string): Promise<Note[]> {
-    return request(`/search?q=${encodeURIComponent(q)}`);
+  searchNotes(q: string, options?: SearchOptions): Promise<Note[]> {
+    const params = new URLSearchParams({ q });
+    if (options?.tag) params.set("tag", options.tag);
+    if (options?.sort) params.set("sort", options.sort);
+    if (options?.order) params.set("order", options.order);
+    return request(`/search?${params.toString()}`);
   },
 
   searchSuggest(q: string): Promise<SearchSuggestion[]> {
