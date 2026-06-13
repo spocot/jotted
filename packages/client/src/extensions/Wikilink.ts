@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, InputRule, PasteRule } from "@tiptap/core";
 
 export interface WikilinkOptions {
   HTMLAttributes: Record<string, any>;
@@ -67,5 +67,33 @@ export const Wikilink = Node.create<WikilinkOptions>({
           });
         },
     };
+  },
+
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /\[\[([^\]]+?)\]\]$/,
+        handler: ({ state, range, match }) => {
+          const title = match[1].trim();
+          if (!title) return;
+          const { tr } = state;
+          tr.replaceRangeWith(range.from, range.to, this.type.create({ title }));
+        },
+      }),
+    ];
+  },
+
+  addPasteRules() {
+    return [
+      new PasteRule({
+        find: /\[\[([^\]]+?)\]\]/g,
+        handler: ({ state, range, match }) => {
+          const title = match[1].trim();
+          if (!title) return;
+          const { tr } = state;
+          tr.replaceRangeWith(range.from, range.to, this.type.create({ title }));
+        },
+      }),
+    ];
   },
 });
