@@ -57,8 +57,16 @@ export const api = {
     return request(`/notes/${id}`, { method: "DELETE" });
   },
 
+  getBacklinkCounts(): Promise<Record<string, number>> {
+    return request("/notes/backlink-counts");
+  },
+
   getNoteBacklinks(id: string): Promise<Note[]> {
     return request(`/notes/${id}/backlinks`);
+  },
+
+  getNoteUnlinkedMentions(id: string): Promise<Note[]> {
+    return request(`/notes/${id}/unlinked-mentions`);
   },
 
   searchNotes(q: string): Promise<Note[]> {

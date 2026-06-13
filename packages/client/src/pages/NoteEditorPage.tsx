@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
+import BacklinksPanel from "../components/BacklinksPanel";
 
 const DEBOUNCE_MS = 500;
 
@@ -297,19 +298,22 @@ export default function NoteEditorPage() {
         <div className="text-gray-400 dark:text-gray-500">Loading editor...</div>
       )}
 
-      <div className="mt-4 text-xs text-gray-400 dark:text-gray-500 flex items-center justify-between">
-        <span>
-          Last updated:{" "}
-          {selectedNote?.updatedAt
-            ? new Date(selectedNote.updatedAt).toLocaleString()
-            : "—"}
-        </span>
-        {selectedNote && selectedNote.backlinks.length > 0 && (
-          <span>
-            {selectedNote.backlinks.length} backlink
-            {selectedNote.backlinks.length !== 1 ? "s" : ""}
-          </span>
-        )}
+      <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+        Last updated:{" "}
+        {selectedNote?.updatedAt
+          ? new Date(selectedNote.updatedAt).toLocaleString()
+          : "—"}
+      </div>
+
+      {/* Backlinks & Unlinked Mentions */}
+      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Connections
+        </h3>
+        <BacklinksPanel
+          noteId={id}
+          noteTitle={selectedNote?.title ?? ""}
+        />
       </div>
     </div>
   );

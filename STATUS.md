@@ -59,11 +59,11 @@
 - [x] Click tag to filter note list (sidebar + TagsPage)
 - [x] Tag management: rename, delete, view notes (TagsPage with inline rename + delete buttons)
 
-## Phase 7: Backlinks & Note Connections ⬜
+## Phase 7: Backlinks & Note Connections ✅
 
-- [ ] Backlinks panel in note editor
-- [ ] Unlinked mentions detection
-- [ ] Visual indicator for notes with backlinks
+- [x] Backlinks panel in note editor (BacklinksPanel component, displayed below editor)
+- [x] Unlinked mentions detection (`GET /api/notes/:id/unlinked-mentions` endpoint)
+- [x] Visual indicator for notes with backlinks (blue dot in sidebar + linked references section)
 
 ## Phase 8: Graph View ⬜
 

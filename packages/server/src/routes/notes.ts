@@ -14,6 +14,13 @@ export function createNotesRouter(
   const router = Router();
 
   router.get(
+    "/backlink-counts",
+    asyncHandler(async (_req, res) => {
+      res.json(linkRepo.getBacklinkCounts());
+    }),
+  );
+
+  router.get(
     "/",
     asyncHandler(async (req, res) => {
       const { folder, tag } = req.query;
@@ -84,6 +91,33 @@ export function createNotesRouter(
         .filter((n): n is NonNullable<typeof n> => n !== null);
 
       res.json(notes);
+    }),
+  );
+
+  router.get(
+    "/:id/unlinked-mentions",
+    asyncHandler(async (req, res) => {
+      const id = req.params.id as string;
+      const note = noteRepo.getById(id);
+      if (!note) throw new NotFound("Note not found");
+
+      if (!note.title.trim()) {
+        res.json([]);
+        return;
+      }
+
+      const backlinkIds = new Set(linkRepo.getBacklinks(id));
+      const title = note.title.trim();
+      const titleLower = title.toLowerCase();
+      const candidates = noteRepo.findByContentContaining(title);
+
+      const unlinked = candidates.filter((c) => {
+        if (c.id === id) return false;
+        if (backlinkIds.has(c.id)) return false;
+        return c.content.toLowerCase().includes(titleLower);
+      });
+
+      res.json(unlinked);
     }),
   );
 
@@ -191,6 +225,8 @@ function syncNoteRelations(
   const targetIds: string[] = [];
   for (const wl of wikilinks) {
     const target = noteRepo.getByTitle(wl.target);
+    console.log(`Processing wikilink [[${wl.target}]] in note ${noteId}, found target: ${target?.id}`);
+    console.log(JSON.stringify(target));
     if (target) {
       targetIds.push(target.id);
     }

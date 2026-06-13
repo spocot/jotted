@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useNoteStore } from "../store/useNoteStore";
 import { useTagStore } from "../store/useTagStore";
 import { useUIStore } from "../store/useUIStore";
+import { api } from "../api/client";
 
 export default function Sidebar() {
   const { notes, fetchNotes, createNote, deleteNote, loading } = useNoteStore();
@@ -12,6 +13,7 @@ export default function Sidebar() {
   const location = useLocation();
   const [filter, setFilter] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [backlinkCounts, setBacklinkCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchNotes(undefined, activeTag ?? undefined);
@@ -20,6 +22,10 @@ export default function Sidebar() {
   useEffect(() => {
     fetchTags();
   }, [fetchTags]);
+
+  useEffect(() => {
+    api.getBacklinkCounts().then(setBacklinkCounts).catch(() => {});
+  }, [notes.length]);
 
   const filtered = notes.filter(
     (n) => n.title.toLowerCase().includes(filter.toLowerCase()),
@@ -76,13 +82,19 @@ export default function Sidebar() {
                 : ""
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
                 {note.title || "Untitled"}
+                {backlinkCounts[note.id] > 0 && (
+                  <span
+                    className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0"
+                    title={`${backlinkCounts[note.id]} backlink${backlinkCounts[note.id] !== 1 ? "s" : ""}`}
+                  />
+                )}
               </span>
               <button
                 onClick={(e) => handleDelete(e, note.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity ml-2 shrink-0"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity shrink-0"
                 title="Delete note"
               >
                 ×

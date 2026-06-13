@@ -32,6 +32,7 @@ export class NoteRepository {
   private getNoteById: Database.Statement;
   private getNoteByTitle: Database.Statement;
   private getAllNotes: Database.Statement;
+  private findContentContainingStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.insertNote = db.prepare(
@@ -57,10 +58,17 @@ export class NoteRepository {
     this.getAllNotes = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes ORDER BY updated_at DESC",
     );
+    this.findContentContainingStmt = db.prepare(
+      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE content LIKE ? ORDER BY updated_at DESC",
+    );
   }
 
   getAll(): Note[] {
     return this.getAllNotes.all() as Note[];
+  }
+
+  findByContentContaining(substring: string): Note[] {
+    return this.findContentContainingStmt.all(`%${substring}%`) as Note[];
   }
 
   getById(id: string): Note | null {

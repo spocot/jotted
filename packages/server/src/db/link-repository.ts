@@ -10,6 +10,7 @@ export class LinkRepository {
   private insertLinkStmt: Database.Statement;
   private getBacklinksStmt: Database.Statement;
   private getAllLinksStmt: Database.Statement;
+  private backlinkCountsStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.deleteLinksStmt = db.prepare("DELETE FROM links WHERE source_id = ?");
@@ -21,6 +22,9 @@ export class LinkRepository {
     );
     this.getAllLinksStmt = db.prepare(
       "SELECT source_id AS sourceId, target_id AS targetId FROM links",
+    );
+    this.backlinkCountsStmt = db.prepare(
+      "SELECT target_id AS noteId, COUNT(*) AS count FROM links GROUP BY target_id",
     );
   }
 
@@ -41,5 +45,14 @@ export class LinkRepository {
 
   getAllLinks(): Link[] {
     return this.getAllLinksStmt.all() as Link[];
+  }
+
+  getBacklinkCounts(): Record<string, number> {
+    const rows = this.backlinkCountsStmt.all() as { noteId: string; count: number }[];
+    const result: Record<string, number> = {};
+    for (const row of rows) {
+      result[row.noteId] = row.count;
+    }
+    return result;
   }
 }
