@@ -30,20 +30,15 @@ npm run preview -w packages/client  # Preview production build
 npx -w packages/server tsc --noEmit
 npx -w packages/client tsc --noEmit
 
-# --- Testing (future) ---
+# --- Testing ---
 npm run test -w packages/server     # All server tests
 npm run test -w packages/client     # All client tests
-npx -w packages/server vitest run src/routes/notes.test.ts  # Single test
-npx -w packages/client vitest run src/components/NoteEditor.test.tsx  # Single test
+npx -w packages/server vitest run src/routes/notes.test.ts  # Single test file
+npx -w packages/client vitest run src/components/ToastContainer.test.tsx  # Single test file
 
-# --- E2E (future) ---
-npx playwright test
-npx playwright test --grep "search"
-```
-
-## Commands to Run Before Committing
-
-```bash
+# Commands to run before committing
+npm run build -w packages/server
+npm run build -w packages/client
 npx -w packages/server tsc --noEmit
 npx -w packages/client tsc --noEmit
 ```

@@ -7,6 +7,7 @@ import type {
   GraphData,
   SearchSuggestion,
   SearchOptions,
+  FolderNode,
 } from "../types";
 
 const BASE = "/api";
@@ -126,5 +127,22 @@ export const api = {
 
   getGraphSub(id: string): Promise<GraphData> {
     return request(`/graph/${id}`);
+  },
+
+  getFolders(): Promise<FolderNode[]> {
+    return request("/folders");
+  },
+
+  renameFolder(oldPath: string, newPath: string): Promise<{ moved: number }> {
+    return request("/folders/rename", {
+      method: "PUT",
+      body: JSON.stringify({ oldPath, newPath }),
+    });
+  },
+
+  deleteFolder(path: string): Promise<{ moved: number }> {
+    return request(`/folders?path=${encodeURIComponent(path)}`, {
+      method: "DELETE",
+    });
   },
 };

@@ -3,12 +3,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useNoteStore } from "../store/useNoteStore";
 import { useTagStore } from "../store/useTagStore";
 import { useUIStore } from "../store/useUIStore";
+import { useToastStore } from "../store/useToastStore";
 import { api } from "../api/client";
+import type { FolderNode } from "../types";
+import FolderTree from "./FolderTree";
 
 export default function Sidebar() {
   const { notes, fetchNotes, createNote, deleteNote, loading } = useNoteStore();
   const { tags, fetchTags } = useTagStore();
   const { sidebarOpen, sidebarWidth, setSidebarWidth } = useUIStore();
+  const { addToast } = useToastStore();
   const dragRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -16,15 +20,22 @@ export default function Sidebar() {
   const location = useLocation();
   const [filter, setFilter] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [folders, setFolders] = useState<FolderNode[]>([]);
   const [backlinkCounts, setBacklinkCounts] = useState<Record<string, number>>({});
+  const [newFolderPath, setNewFolderPath] = useState("");
 
   useEffect(() => {
-    fetchNotes(undefined, activeTag ?? undefined);
-  }, [fetchNotes, activeTag]);
+    fetchNotes(activeFolder ?? undefined, activeTag ?? undefined);
+  }, [fetchNotes, activeFolder, activeTag]);
 
   useEffect(() => {
     fetchTags();
   }, [fetchTags]);
+
+  useEffect(() => {
+    api.getFolders().then(setFolders).catch(() => {});
+  }, [notes.length]);
 
   useEffect(() => {
     api.getBacklinkCounts().then(setBacklinkCounts).catch(() => {});
@@ -35,7 +46,10 @@ export default function Sidebar() {
   );
 
   const handleCreate = async () => {
-    const note = await createNote({ title: "Untitled" });
+    const note = await createNote({
+      title: "Untitled",
+      path: activeFolder ?? undefined,
+    });
     navigate(`/note/${note.id}`);
   };
 
@@ -45,6 +59,53 @@ export default function Sidebar() {
     await deleteNote(id);
     if (location.pathname === `/note/${id}`) {
       navigate("/");
+    }
+  };
+
+  const handleRenameFolder = async (oldPath: string, newName: string) => {
+    try {
+      const parentPath = oldPath.split("/").slice(0, -1).join("/");
+      const newPath = parentPath ? `${parentPath}/${newName}` : `/${newName}`;
+      await api.renameFolder(oldPath, newPath);
+      const updatedFolders = await api.getFolders();
+      setFolders(updatedFolders);
+      addToast(`Renamed folder to "${newName}"`, "success");
+    } catch {
+      addToast("Failed to rename folder", "error");
+    }
+  };
+
+  const handleDeleteFolder = async (path: string) => {
+    try {
+      const result = await api.deleteFolder(path);
+      if (result.moved > 0) {
+        addToast(`${result.moved} note(s) moved to parent folder`, "info");
+      }
+      const updatedFolders = await api.getFolders();
+      setFolders(updatedFolders);
+      if (activeFolder === path) {
+        setActiveFolder(null);
+      }
+    } catch {
+      addToast("Failed to delete folder", "error");
+    }
+  };
+
+  const handleCreateFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newFolderPath.trim();
+    if (!name) return;
+    const folderPath = activeFolder
+      ? `${activeFolder}/${name}`
+      : `/${name}`;
+    try {
+      // Create a placeholder note to make the folder appear, or just track it
+      // Folders are derived from note paths, so create a note in the folder
+      await createNote({ title: "Untitled", path: folderPath });
+      setNewFolderPath("");
+      addToast(`Created folder "${name}"`, "success");
+    } catch {
+      addToast("Failed to create folder", "error");
     }
   };
 
@@ -139,12 +200,67 @@ export default function Sidebar() {
               </button>
             </div>
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {note.path !== "/" && (
+                <span className="mr-2">{note.path}</span>
+              )}
               {new Date(note.updatedAt).toLocaleDateString()}
             </div>
           </button>
         ))}
       </div>
 
+      {/* Folders section */}
+      <div className="border-t border-gray-200 dark:border-gray-800">
+        <div className="px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            Folders
+          </span>
+        </div>
+
+        {/* New folder form */}
+        <form onSubmit={handleCreateFolder} className="px-3 pb-1">
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={newFolderPath}
+              onChange={(e) => setNewFolderPath(e.target.value)}
+              placeholder={activeFolder ? `New folder in ${activeFolder}...` : "New folder name..."}
+              className="flex-1 min-w-0 px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors shrink-0"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+
+        <div className="pb-2 max-h-40 overflow-y-auto">
+          {folders.length === 0 && (
+            <div className="px-3 text-xs text-gray-400 dark:text-gray-500">
+              No folders
+            </div>
+          )}
+          <FolderTree
+            folders={folders}
+            activeFolder={activeFolder}
+            onSelectFolder={(path) => setActiveFolder(path)}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+          />
+          {activeFolder && (
+            <button
+              onClick={() => setActiveFolder(null)}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline mt-1 ml-3"
+            >
+              Clear folder filter
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tags section */}
       <div className="border-t border-gray-200 dark:border-gray-800">
         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
           Tags
@@ -182,7 +298,7 @@ export default function Sidebar() {
           onClick={handleCreate}
           className="w-full px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
         >
-          + New Note
+          + New Note{activeFolder ? ` in ${activeFolder}` : ""}
         </button>
       </div>
 

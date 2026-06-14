@@ -90,7 +90,46 @@
 
 ## Phase 11: Testing & Hardening ✅
 
-- [x] Unit tests: parser (14 tests), repositories (note: 8, link: 5), API handlers (10 tests) — vitest + supertest
+- [x] Unit tests: parser, repositories, API handlers (37 tests) — vitest + supertest
 - [x] Component tests: ToastContainer (4 tests) — vitest + React Testing Library + happy-dom
 - [x] Test infrastructure: vitest configs, `npm run test` scripts, test setup files
 - [x] Edge cases: empty content, special characters, backlinks, FTS search, 404/400 errors
+
+## Phase 12: Folder Organization & File System Navigation ✅
+
+- [x] Backend endpoint: `GET /api/folders` — hierarchical folder listing with note counts
+- [x] Tree component in the sidebar with expand/collapse (`FolderTree.tsx`)
+- [x] Create/rename/delete folders from sidebar (inline rename + delete buttons, add-folder form)
+- [x] Breadcrumb in the editor showing note path
+- [x] Filter notes by folder in the note list (via `activeFolder` state)
+
+## Phase 13: Image & File Attachments ⬜
+
+- [ ] Server upload endpoint + static serving
+- [ ] TipTap Image extension rendering uploaded images
+- [ ] Drag-and-drop + paste handler for images
+- [ ] Inline image resizing
+- [ ] File attachment list / gallery view
+
+## Phase 14: Note Templates ⬜
+
+- [ ] Server CRUD for templates
+- [ ] Template picker on new-note creation
+- [ ] Built-in defaults (Daily Note, Meeting Notes, To-Do)
+- [ ] "Save as template" action from editor
+- [ ] Template variables: `{{date}}`, `{{title}}`
+
+## Phase 15: Export / Import ⬜
+
+- [ ] Export single note as Markdown
+- [ ] Export all notes as ZIP of `.md` files
+- [ ] Import from Markdown files
+- [ ] Obsidian vault import (folder structure, wikilinks, tags)
+- [ ] Export as PDF (browser print)
+
+## Phase 16: Code Syntax Highlighting ⬜
+
+- [ ] Add highlight.js or Shiki
+- [ ] TipTap extension for code block highlighting
+- [ ] Language selector
+- [ ] Copy-to-clipboard button

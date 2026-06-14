@@ -53,6 +53,13 @@ export interface SearchSuggestion {
   title: string;
 }
 
+export interface FolderNode {
+  name: string;
+  path: string;
+  noteCount: number;
+  children: FolderNode[];
+}
+
 export type SortField = "relevance" | "updatedAt" | "title" | "createdAt";
 export type SortOrder = "ASC" | "DESC";
 

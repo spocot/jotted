@@ -166,6 +166,46 @@ jotted/
 - E2E: Playwright critical paths
 - Edge cases: cycles, special characters, 10k benchmark
 
+### Phase 12: Folder Organization & File System Navigation
+
+- Backend endpoint: `GET /api/folders` — hierarchical folder listing with note counts
+- Tree component in the sidebar with expand/collapse
+- Drag notes between folders
+- Create/rename/delete folders from sidebar
+- Breadcrumb in the editor showing note path
+- Filter notes by folder in the note list
+
+### Phase 13: Image & File Attachments
+
+- Server upload endpoint + static serving
+- TipTap Image extension rendering uploaded images
+- Drag-and-drop + paste handler for images
+- Inline image resizing
+- File attachment list / gallery view
+
+### Phase 14: Note Templates
+
+- Server CRUD for templates
+- Template picker on new-note creation
+- Built-in defaults (Daily Note, Meeting Notes, To-Do)
+- "Save as template" action from editor
+- Template variables: `{{date}}`, `{{title}}`
+
+### Phase 15: Export / Import
+
+- Export single note as Markdown
+- Export all notes as ZIP of `.md` files
+- Import from Markdown files
+- Obsidian vault import (folder structure, wikilinks, tags)
+- Export as PDF (browser print)
+
+### Phase 16: Code Syntax Highlighting
+
+- Add highlight.js or Shiki
+- TipTap extension for code block highlighting
+- Language selector
+- Copy-to-clipboard button
+
 ---
 
 ## Cross-Platform Build Notes
