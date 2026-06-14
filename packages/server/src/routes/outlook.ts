@@ -16,29 +16,45 @@ interface OutlookEvent {
 }
 
 const POWERShell_SCRIPT = `
+$ErrorActionPreference = "Stop"
 $olFolderCalendar = 9
-$outlook = New-Object -ComObject Outlook.Application
-$namespace = $outlook.GetNamespace("MAPI")
-$calendar = $namespace.GetDefaultFolder($olFolderCalendar)
-$items = $calendar.Items
-$items.Sort("[Start]")
-$result = @()
-foreach ($item in $items) {
-  if ($item.Class -ne 26) { continue }
-  $result += @{
-    id = $item.EntryID
-    title = $item.Subject
-    start = $item.Start.ToString("o")
-    end = $item.End.ToString("o")
-    location = $item.Location
-    isAllDay = $item.AllDayEvent
+$outlook = $null
+$namespace = $null
+$calendar = $null
+
+try {
+  $outlook = New-Object -ComObject Outlook.Application
+  $namespace = $outlook.GetNamespace("MAPI")
+  $calendar = $namespace.GetDefaultFolder($olFolderCalendar)
+  $items = $calendar.Items
+  $items.Sort("[Start]")
+
+  $result = @()
+  foreach ($item in $items) {
+    if ($item.Class -ne 26) { continue }
+    $result += @{
+      id = $item.EntryID
+      title = $item.Subject
+      start = $item.Start.ToString("o")
+      end = $item.End.ToString("o")
+      location = $item.Location
+      isAllDay = $item.AllDayEvent
+    }
   }
+
+  $json = ConvertTo-Json -InputObject $result -Compress
+  if ([string]::IsNullOrWhiteSpace($json)) { $json = "[]" }
+  Write-Output $json
+} catch {
+  Write-Error $_.Exception.Message
+  exit 1
+} finally {
+  if ($calendar -ne $null) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($calendar) }
+  if ($namespace -ne $null) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($namespace) }
+  if ($outlook -ne $null) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($outlook) }
+  [System.GC]::Collect()
+  [System.GC]::WaitForPendingFinalizers()
 }
-$outlook.Quit()
-[System.Runtime.InteropServices.Marshal]::ReleaseComObject($outlook) | Out-Null
-[System.GC]::Collect()
-[System.GC]::WaitForPendingFinalizers()
-Write-Output ($result | ConvertTo-Json -Compress)
 `;
 
 export function createOutlookRouter(): Router {
@@ -60,34 +76,40 @@ export function createOutlookRouter(): Router {
       }
 
       try {
-        const { stdout } = await execFileAsync("powershell.exe", [
+        const { stdout, stderr } = await execFileAsync("powershell.exe", [
           "-NoProfile",
           "-Command",
           POWERShell_SCRIPT,
         ], { timeout: 15000 });
+        if (stderr.trim()) {
+          throw new Error(stderr.trim());
+        }
 
         let events: OutlookEvent[] = [];
         try {
-          events = JSON.parse(stdout.trim());
+          const parsed = JSON.parse(stdout.trim());
+          events = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
         } catch {
           events = [];
         }
 
         if (startDate && endDate) {
-          const start = new Date(startDate).getTime();
-          const end = new Date(endDate).getTime();
+          const start = new Date(`${startDate}T00:00:00`).getTime();
+          const end = new Date(`${endDate}T23:59:59.999`).getTime();
           events = events.filter((e) => {
             const eStart = new Date(e.start).getTime();
-            return eStart >= start && eStart <= end;
+            const eEnd = new Date(e.end).getTime();
+            return eEnd >= start && eStart <= end;
           });
         }
 
         res.json({ events, available: true });
-      } catch {
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "unknown error";
         res.json({
           events: [],
           available: false,
-          message: "Outlook is not available. Make sure Outlook is installed and configured.",
+          message: `Outlook COM is not available. Install/configure classic Outlook desktop. Details: ${reason}`,
         });
       }
     }),
