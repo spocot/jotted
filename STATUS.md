@@ -113,15 +113,15 @@
 - [x] Client API methods: `uploadFile`, `getUploads`, `deleteUpload`
 - [x] Vite proxy for `/uploads` → `localhost:3000`
 
-## Phase 14: Calendar Page & Outlook Calendar Integration ⬜
+## Phase 14: Calendar Page & Outlook Calendar Integration ✅
 
-- [ ] Calendar grid component with month/week/day views
-- [ ] Backend endpoint: `GET /api/notes/calendar` — notes bucketed by day
-- [ ] Hover tooltips with created/modified note lists per day
-- [ ] Visual indicators (dots/icons) on days with note activity
-- [ ] Outlook COM integration via PowerShell subprocess
-- [ ] Merged display: Outlook events + note activity on the same calendar
-- [ ] Graceful fallback when Outlook is unavailable
+- [x] Calendar grid component with month/week/day views
+- [x] Backend endpoint: `GET /api/calendar` — notes bucketed by day
+- [x] Hover tooltips with created/modified note lists per day
+- [x] Visual indicators (dots/icons) on days with note activity
+- [x] Outlook COM integration via PowerShell subprocess (stub on Linux)
+- [x] Merged display: Outlook events + note activity on the same calendar
+- [x] Graceful fallback when Outlook is unavailable
 
 ## Phase 15: Daily Notes / Journal ⬜
 

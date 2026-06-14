@@ -55,6 +55,9 @@ export default function Layout({ children }: LayoutProps) {
           <Link to="/tags" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Tags
           </Link>
+          <Link to="/calendar" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
+            Calendar
+          </Link>
           <button
             onClick={toggleDarkMode}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"

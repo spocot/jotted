@@ -10,6 +10,8 @@ import { createSearchRouter } from "./routes/search.js";
 import { createGraphRouter } from "./routes/graph.js";
 import { createFoldersRouter } from "./routes/folders.js";
 import { createUploadsRouter } from "./routes/uploads.js";
+import { createCalendarRouter } from "./routes/calendar.js";
+import { createOutlookRouter } from "./routes/outlook.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +43,8 @@ app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));
 app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
 app.use("/api/folders", createFoldersRouter(noteRepo));
 app.use("/api/uploads", createUploadsRouter(db));
+app.use("/api/calendar", createCalendarRouter(noteRepo));
+app.use("/api/calendar/outlook", createOutlookRouter());
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {

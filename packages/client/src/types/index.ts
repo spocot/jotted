@@ -78,3 +78,36 @@ export interface SearchOptions {
   sort?: SortField;
   order?: SortOrder;
 }
+
+export interface CalendarDayItem {
+  id: string;
+  title: string;
+  path: string;
+}
+
+export interface CalendarDay {
+  date: string;
+  created: CalendarDayItem[];
+  modified: CalendarDayItem[];
+}
+
+export interface CalendarData {
+  year: number;
+  month: number;
+  days: CalendarDay[];
+}
+
+export interface OutlookEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  location: string;
+  isAllDay: boolean;
+}
+
+export interface OutlookResponse {
+  events: OutlookEvent[];
+  available: boolean;
+  message?: string;
+}

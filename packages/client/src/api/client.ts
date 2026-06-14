@@ -9,6 +9,8 @@ import type {
   SearchOptions,
   FolderNode,
   Upload,
+  CalendarData,
+  OutlookResponse,
 } from "../types";
 
 const BASE = "/api";
@@ -168,5 +170,17 @@ export const api = {
 
   deleteUpload(id: string): Promise<void> {
     return request(`/uploads/${id}`, { method: "DELETE" });
+  },
+
+  getCalendarData(year: number, month: number): Promise<CalendarData> {
+    return request(`/calendar?year=${year}&month=${month}`);
+  },
+
+  getOutlookEvents(start?: string, end?: string): Promise<OutlookResponse> {
+    const params = new URLSearchParams();
+    if (start) params.set("start", start);
+    if (end) params.set("end", end);
+    const qs = params.toString();
+    return request(`/calendar/outlook${qs ? `?${qs}` : ""}`);
   },
 };

@@ -33,6 +33,8 @@ export class NoteRepository {
   private getNoteByTitle: Database.Statement;
   private getAllNotes: Database.Statement;
   private findContentContainingStmt: Database.Statement;
+  private getByDateRangeStmt: Database.Statement;
+  private getCreatedByDateRangeStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.insertNote = db.prepare(
@@ -61,6 +63,12 @@ export class NoteRepository {
     this.findContentContainingStmt = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE content LIKE ? ORDER BY updated_at DESC",
     );
+    this.getByDateRangeStmt = db.prepare(
+      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE date(created_at) >= ? AND date(created_at) <= ? ORDER BY created_at ASC",
+    );
+    this.getCreatedByDateRangeStmt = db.prepare(
+      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE date(updated_at) >= ? AND date(updated_at) <= ? ORDER BY updated_at ASC",
+    );
   }
 
   getAll(): Note[] {
@@ -69,6 +77,14 @@ export class NoteRepository {
 
   findByContentContaining(substring: string): Note[] {
     return this.findContentContainingStmt.all(`%${substring}%`) as Note[];
+  }
+
+  getByDateRange(startDate: string, endDate: string): Note[] {
+    return this.getByDateRangeStmt.all(startDate, endDate) as Note[];
+  }
+
+  getCreatedByDateRange(startDate: string, endDate: string): Note[] {
+    return this.getCreatedByDateRangeStmt.all(startDate, endDate) as Note[];
   }
 
   getById(id: string): Note | null {
