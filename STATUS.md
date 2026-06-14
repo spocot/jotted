@@ -113,7 +113,73 @@
 - [x] Client API methods: `uploadFile`, `getUploads`, `deleteUpload`
 - [x] Vite proxy for `/uploads` → `localhost:3000`
 
-## Phase 14: Note Templates ⬜
+## Phase 14: Calendar Page & Outlook Calendar Integration ⬜
+
+- [ ] Calendar grid component with month/week/day views
+- [ ] Backend endpoint: `GET /api/notes/calendar` — notes bucketed by day
+- [ ] Hover tooltips with created/modified note lists per day
+- [ ] Visual indicators (dots/icons) on days with note activity
+- [ ] Outlook COM integration via PowerShell subprocess
+- [ ] Merged display: Outlook events + note activity on the same calendar
+- [ ] Graceful fallback when Outlook is unavailable
+
+## Phase 15: Daily Notes / Journal ⬜
+
+- [ ] "Open Today" button + keyboard shortcut
+- [ ] Auto-create daily note with `YYYY-MM-DD` title
+- [ ] Journal page (`/journal`) — reverse-chronological timeline
+- [ ] Daily note template with date/day/tasks structure
+- [ ] Calendar integration: date click opens daily note
+- [ ] Streak counter (consecutive days with a daily note)
+
+## Phase 16: Note Version History ⬜
+
+- [ ] `note_versions` table with content snapshots
+- [ ] Auto-snapshot on every note save
+- [ ] Backend CRUD for versions (list, get, restore)
+- [ ] Version history panel in the note editor
+- [ ] Timeline view with timestamps and character diffs
+- [ ] Side-by-side or unified diff viewer
+- [ ] Restore with confirmation dialog
+
+## Phase 17: Mind Map / Canvas View ⬜
+
+- [ ] `canvases` and `canvas_items` tables
+- [ ] Infinite canvas with drag-to-position items
+- [ ] Toolbar: text box, note pin, connector, delete, color picker
+- [ ] Pin existing notes as cards with title + snippet
+- [ ] Connector lines between items (straight/curved)
+- [ ] Auto-save canvas state as JSON
+- [ ] Multiple canvases with sidebar list
+- [ ] Export canvas as PNG/SVG
+
+## Phase 18: DataView / Query Engine ⬜
+
+- [ ] TipTap extension rendering `dataview` code blocks as live tables/lists
+- [ ] Query DSL: `LIST`, `TABLE`, sources (`#tag`, `"folder"`), conditions, sorting
+- [ ] Backend endpoint: `POST /api/dataview/query`
+- [ ] Result caching with cache-busting
+- [ ] Auto-refresh and manual refresh button
+- [ ] Code block language picker includes `dataview`
+
+## Phase 19: Reminders & Alerts ⬜
+
+- [ ] `reminders` table with note_id, remind_at, done flag
+- [ ] Backend CRUD for reminders
+- [ ] Server periodic check (30s interval) for due reminders
+- [ ] Client polling with Browser Notification API + in-app toasts
+- [ ] Snooze and dismiss actions
+- [ ] Reminder picker UI in note editor (datetime picker)
+- [ ] Calendar integration: reminder indicators on calendar days
+
+## Phase 20: Testing & Hardening (New Features) ⬜
+
+- [ ] Unit tests for all new repositories and API handlers
+- [ ] Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView, ReminderPicker
+- [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
+- [ ] Edge cases: Outlook unavailable, large canvas performance, version storage limits, timezone handling
+
+## Phase 21: Note Templates ⬜
 
 - [ ] Server CRUD for templates
 - [ ] Template picker on new-note creation
@@ -121,7 +187,7 @@
 - [ ] "Save as template" action from editor
 - [ ] Template variables: `{{date}}`, `{{title}}`
 
-## Phase 15: Export / Import ⬜
+## Phase 22: Export / Import ⬜
 
 - [ ] Export single note as Markdown
 - [ ] Export all notes as ZIP of `.md` files
@@ -129,7 +195,7 @@
 - [ ] Obsidian vault import (folder structure, wikilinks, tags)
 - [ ] Export as PDF (browser print)
 
-## Phase 16: Code Syntax Highlighting ⬜
+## Phase 23: Code Syntax Highlighting ⬜
 
 - [ ] Add highlight.js or Shiki
 - [ ] TipTap extension for code block highlighting

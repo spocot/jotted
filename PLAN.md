@@ -183,7 +183,85 @@ jotted/
 - Inline image resizing
 - File attachment list / gallery view
 
-### Phase 14: Note Templates
+### Phase 14: Calendar Page & Outlook Calendar Integration
+
+- New route `/calendar` with a month-view calendar grid
+- Backend endpoint `GET /api/notes/calendar` — returns notes bucketed by day (created + modified counts, note IDs per date)
+- Hover tooltip on each day shows lists of notes created and modified on that date, with links to open them
+- Visual indicators (dots/icons) on days that have note activity
+- Toggle between created, modified, or combined view
+- Outlook integration:
+  - Server spawns `powershell.exe` to query Outlook's Calendar folder via COM (`New-Object -ComObject Outlook.Application`)
+  - Returns events as JSON → merged into the calendar view alongside note activity
+  - Graceful fallback if Outlook is not available (note-only mode)
+- Calendar date click opens / creates a Daily Note for that day (ties into Phase 15)
+
+### Phase 15: Daily Notes / Journal
+
+- "Open Today" button in the header and keyboard shortcut — opens or creates a note with title `YYYY-MM-DD`
+- Journal page at `/journal` — a reverse-chronological timeline of daily notes
+- Automatic daily note creation on first open of the day (configurable)
+- Daily note template: pre-populates with date, day of week, and a "## Tasks" / "## Notes" structure
+- Calendar integration: clicking a date on the calendar opens the daily note for that day
+- Streak counter (consecutive days with a daily note)
+
+### Phase 16: Note Version History
+
+- New `note_versions` table: `id, note_id, content, title, created_at` — stores a snapshot on each save
+- Server-side: on every note update, insert a version row (cheap — text snapshots)
+- Backend endpoint: `GET /api/notes/:id/versions` — list versions with timestamps
+- Backend endpoint: `GET /api/notes/:id/versions/:versionId` — get full snapshot content
+- Backend endpoint: `POST /api/notes/:id/versions/:versionId/restore` — restore a version
+- "Version History" panel in the note editor (toggleable sidebar/tab)
+- Timeline view showing versions with formatted timestamps and character-count diffs
+- Side-by-side or unified diff view between selected versions
+- "Restore" button with confirmation dialog
+
+### Phase 17: Mind Map / Canvas View
+
+- New route `/canvas` with a free-form infinite canvas
+- New `canvases` table: `id, title, data (JSON)`, and `canvas_items` table: `id, canvas_id, note_id (nullable), x, y, width, height, color, text, type`
+- Canvas data model: items are nodes (note cards, text boxes, images) positioned absolutely; edges are connectors between items
+- Drag to position items; resize handles on selection
+- Toolbar: add text box, add note pin, draw connector, delete, color picker
+- Pin existing notes into the canvas — displays note title + snippet, click to open
+- Connector lines (straight or curved) between items, draggable endpoints
+- Auto-save canvas state as JSON to the server on changes
+- Multiple canvases with a sidebar list to switch between them
+- Export canvas as PNG/SVG
+
+### Phase 18: DataView / Query Engine
+
+- Custom TipTap extension that renders `dataview` code blocks as live interactive tables/lists
+- Query DSL (simple, not full SQL):
+  - `LIST FROM <source>` — bullet list of notes matching tag/folder
+  - `TABLE <fields> FROM <source> WHERE <condition> SORT <field>` — table view
+  - Sources: `#tag`, `"folder"`, `/calendar` (notes by date range)
+  - Conditionals: `created >= date(...)`, `updated <= date(...)`, `contains(title, ...)`
+- Server endpoint `POST /api/dataview/query` — accepts query AST or raw query string → parses → executes against SQLite
+- Result caching with cache-busting when related notes change
+- Auto-refresh on note open; manual refresh button
+- Editor integration: code block language picker includes `dataview`
+
+### Phase 19: Reminders & Alerts
+
+- New `reminders` table: `id, note_id, remind_at (datetime), title, done (boolean), created_at`
+- Backend CRUD: `POST /api/notes/:id/reminders`, `GET /api/reminders` (due soon), `PUT /api/reminders/:id/done`, `DELETE /api/reminders/:id`
+- Server-side periodic check: `setInterval` every 30s queries for due, undismissed reminders
+- Client polls `/api/reminders` on a timer (every 30s) or uses SSE/WebSocket for push
+- Browser Notification API: request permission, show native notification when a reminder fires
+- In-app toast notification (reuse ToastContainer) with snooze (5 min / 15 min / 1 hr) and dismiss buttons
+- Reminder picker UI in the note editor: datetime picker in a context menu or footer bar
+- Calendar integration: reminder indicators (bell icon) on days in the calendar view
+
+### Phase 20: Testing & Hardening (New Features)
+
+- Unit tests for all new repositories and API handlers (calendar, versions, canvases, dataview query parser, reminders)
+- Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView blocks, ReminderPicker
+- E2E: full calendar workflow, version restore flow, canvas create/edit/export, dataview rendering
+- Edge cases: Outlook unavailable (graceful fallback), large canvas performance, version storage limits (oldest purge), reminder timezone handling
+
+### Phase 21: Note Templates
 
 - Server CRUD for templates
 - Template picker on new-note creation
@@ -191,7 +269,7 @@ jotted/
 - "Save as template" action from editor
 - Template variables: `{{date}}`, `{{title}}`
 
-### Phase 15: Export / Import
+### Phase 22: Export / Import
 
 - Export single note as Markdown
 - Export all notes as ZIP of `.md` files
@@ -199,7 +277,7 @@ jotted/
 - Obsidian vault import (folder structure, wikilinks, tags)
 - Export as PDF (browser print)
 
-### Phase 16: Code Syntax Highlighting
+### Phase 23: Code Syntax Highlighting
 
 - Add highlight.js or Shiki
 - TipTap extension for code block highlighting
@@ -213,3 +291,5 @@ jotted/
 - `better-sqlite3`: uses `prebuild-install` for prebuilt binaries; falls back to `node-gyp`. Document Windows build tools requirement.
 - Vite proxy in dev mode (`vite.config.ts` `server.proxy`)
 - Root `dev` script uses `concurrently` for client + server
+- Outlook COM integration requires Windows + Outlook installed; graceful fallback when unavailable
+- Canvas auto-save uses debounced writes to avoid thrashing the DB
