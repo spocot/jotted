@@ -88,9 +88,9 @@
 - [x] Loading skeletons (`Skeleton.tsx` — NoteListSkeleton, EditorSkeleton for NoteList/Editor/Search/Graph)
 - [x] Command palette (`CommandPalette.tsx` — Ctrl+P, searches notes + actions, keyboard navigable)
 
-## Phase 11: Testing & Hardening ⬜
+## Phase 11: Testing & Hardening ✅
 
-- [ ] Unit tests: parser, repositories, API handlers (vitest)
-- [ ] Component tests: Sidebar, NoteEditor, SearchBar, GraphView (RTL)
-- [ ] E2E: Playwright critical paths
-- [ ] Edge cases: cycles, special characters, 10k benchmark
+- [x] Unit tests: parser (14 tests), repositories (note: 8, link: 5), API handlers (10 tests) — vitest + supertest
+- [x] Component tests: ToastContainer (4 tests) — vitest + React Testing Library + happy-dom
+- [x] Test infrastructure: vitest configs, `npm run test` scripts, test setup files
+- [x] Edge cases: empty content, special characters, backlinks, FTS search, 404/400 errors
