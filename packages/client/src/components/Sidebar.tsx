@@ -191,13 +191,21 @@ export default function Sidebar() {
                   />
                 )}
               </span>
-              <button
+              <span
                 onClick={(e) => handleDelete(e, note.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity shrink-0"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 cursor-pointer transition-opacity shrink-0"
                 title="Delete note"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleDelete(e as unknown as React.MouseEvent, note.id);
+                  }
+                }}
               >
                 ×
-              </button>
+              </span>
             </div>
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {note.path !== "/" && (
