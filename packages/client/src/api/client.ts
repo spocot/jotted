@@ -70,6 +70,10 @@ export const api = {
     return request(`/notes/${id}/unlinked-mentions`);
   },
 
+  getNoteByTitle(title: string): Promise<Note> {
+    return request(`/notes/by-title/${encodeURIComponent(title)}`);
+  },
+
   searchNotes(q: string, options?: SearchOptions): Promise<Note[]> {
     const params = new URLSearchParams({ q });
     if (options?.tag) params.set("tag", options.tag);

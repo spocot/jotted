@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNoteStore } from "../store/useNoteStore";
 import { useTagStore } from "../store/useTagStore";
@@ -8,7 +8,10 @@ import { api } from "../api/client";
 export default function Sidebar() {
   const { notes, fetchNotes, createNote, deleteNote, loading } = useNoteStore();
   const { tags, fetchTags } = useTagStore();
-  const { sidebarOpen } = useUIStore();
+  const { sidebarOpen, sidebarWidth, setSidebarWidth } = useUIStore();
+  const dragRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
   const navigate = useNavigate();
   const location = useLocation();
   const [filter, setFilter] = useState("");
@@ -45,10 +48,45 @@ export default function Sidebar() {
     }
   };
 
+  // Resize handler
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthRef.current = sidebarWidth;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [sidebarWidth],
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = e.clientX - startXRef.current;
+      setSidebarWidth(startWidthRef.current + delta);
+    };
+    const handleMouseUp = () => {
+      dragRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [setSidebarWidth]);
+
   if (!sidebarOpen) return null;
 
   return (
-    <aside className="w-64 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-900">
+    <aside
+      className="border-r border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-900 shrink-0 relative"
+      style={{ width: sidebarWidth }}
+    >
       <div className="p-3 border-b border-gray-200 dark:border-gray-800">
         <input
           type="text"
@@ -147,6 +185,12 @@ export default function Sidebar() {
           + New Note
         </button>
       </div>
+
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500/50 transition-colors"
+      />
     </aside>
   );
 }

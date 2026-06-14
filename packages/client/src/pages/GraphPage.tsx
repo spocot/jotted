@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { GraphData } from "../types";
 import GraphView from "../components/GraphView";
+import { SkeletonBlock } from "../components/Skeleton";
 
 export default function GraphPage() {
   const [data, setData] = useState<GraphData | null>(null);
@@ -36,8 +37,9 @@ export default function GraphPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500">
-        Loading graph...
+      <div className="max-w-6xl mx-auto">
+        <SkeletonBlock className="h-8 w-48 mb-4" />
+        <SkeletonBlock className="h-[60vh] w-full" />
       </div>
     );
   }

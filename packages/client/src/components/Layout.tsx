@@ -2,6 +2,9 @@ import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import SearchBar from "./SearchBar";
+import ToastContainer from "./ToastContainer";
+import CommandPalette from "./CommandPalette";
+import NotePreviewPopover from "./NotePreviewPopover";
 import { useUIStore } from "../store/useUIStore";
 
 interface LayoutProps {
@@ -70,6 +73,9 @@ export default function Layout({ children }: LayoutProps) {
           {children}
         </main>
       </div>
+      <ToastContainer />
+      <CommandPalette />
+      <NotePreviewPopover />
     </div>
   );
 }

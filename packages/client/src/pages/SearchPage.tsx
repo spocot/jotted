@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useTagStore } from "../store/useTagStore";
 import type { Note, SortField, SortOrder } from "../types";
+import { NoteListSkeleton } from "../components/Skeleton";
 
 const SNIPPET_WORDS = 30;
 
@@ -220,11 +221,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-          Searching...
-        </div>
-      )}
+      {loading && <NoteListSkeleton />}
 
       {!loading && searched && results.length === 0 && (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">

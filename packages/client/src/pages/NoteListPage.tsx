@@ -1,4 +1,5 @@
 import { useNoteStore } from "../store/useNoteStore";
+import { NoteListSkeleton } from "../components/Skeleton";
 
 export default function NoteListPage() {
   const { notes, createNote, loading } = useNoteStore();
@@ -19,11 +20,7 @@ export default function NoteListPage() {
         </button>
       </div>
 
-      {loading && notes.length === 0 && (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          Loading notes...
-        </div>
-      )}
+      {loading && notes.length === 0 && <NoteListSkeleton />}
 
       {!loading && notes.length === 0 && (
         <div className="text-center py-12">

@@ -12,6 +12,7 @@ import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import BacklinksPanel from "../components/BacklinksPanel";
 import SubgraphView from "../components/SubgraphView";
+import { EditorSkeleton } from "../components/Skeleton";
 
 const DEBOUNCE_MS = 500;
 
@@ -153,7 +154,7 @@ export default function NoteEditorPage() {
       </div>
     );
   } else {
-    return <div className="text-gray-400 dark:text-gray-500">Loading note...</div>;
+    return <EditorSkeleton />;
   }
 
   return (

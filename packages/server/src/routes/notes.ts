@@ -62,6 +62,16 @@ export function createNotesRouter(
   );
 
   router.get(
+    "/by-title/:title",
+    asyncHandler(async (req, res) => {
+      const title = req.params.title as string;
+      const note = noteRepo.getByTitle(title);
+      if (!note) throw new NotFound("Note not found");
+      res.json(note);
+    }),
+  );
+
+  router.get(
     "/:id",
     asyncHandler(async (req, res) => {
       const id = req.params.id as string;

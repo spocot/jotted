@@ -79,14 +79,14 @@
 - [x] Filters: tag (chip filter), sort (relevance/updated/created/title), order toggle
 - [x] Keyboard shortcut: `Ctrl+Shift+F` (global listener in Layout)
 
-## Phase 10: Polish & UX ⬜
+## Phase 10: Polish & UX ✅
 
-- [ ] Dark mode (Tailwind `dark:`)
-- [ ] Keyboard shortcuts
-- [ ] Note preview popover on wikilink hover
-- [ ] Resizable sidebar
-- [ ] Loading skeletons, empty states, toasts
-- [ ] Command palette (`Ctrl+P`)
+- [x] Dark mode (Tailwind `dark:` — toggle in header, persisted via useUIStore)
+- [x] Keyboard shortcuts (Ctrl+Shift+F → Search, Ctrl+P → Command Palette)
+- [x] Note preview popover on wikilink hover (`NotePreviewPopover.tsx` — fetches note by title, shows snippet)
+- [x] Resizable sidebar (drag handle with min/max bounds, state in useUIStore)
+- [x] Loading skeletons (`Skeleton.tsx` — NoteListSkeleton, EditorSkeleton for NoteList/Editor/Search/Graph)
+- [x] Command palette (`CommandPalette.tsx` — Ctrl+P, searches notes + actions, keyboard navigable)
 
 ## Phase 11: Testing & Hardening ⬜
 
