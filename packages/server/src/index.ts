@@ -9,14 +9,22 @@ import { createTagsRouter } from "./routes/tags.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createGraphRouter } from "./routes/graph.js";
 import { createFoldersRouter } from "./routes/folders.js";
+import { createUploadsRouter } from "./routes/uploads.js";
 import { AppError } from "./lib/errors.js";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 import type { Request, Response, NextFunction } from "express";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(join(__dirname, "../uploads")));
 
 const db = getDb();
 const noteRepo = new NoteRepository(db);
@@ -32,6 +40,7 @@ app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
 app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));
 app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
 app.use("/api/folders", createFoldersRouter(noteRepo));
+app.use("/api/uploads", createUploadsRouter(db));
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {

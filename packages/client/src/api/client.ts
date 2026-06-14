@@ -8,6 +8,7 @@ import type {
   SearchSuggestion,
   SearchOptions,
   FolderNode,
+  Upload,
 } from "../types";
 
 const BASE = "/api";
@@ -144,5 +145,28 @@ export const api = {
     return request(`/folders?path=${encodeURIComponent(path)}`, {
       method: "DELETE",
     });
+  },
+
+  async uploadFile(noteId: string, file: File): Promise<Upload> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("noteId", noteId);
+    const res = await fetch(`${BASE}/uploads`, {
+      method: "POST",
+      body: formData,
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error ?? "Upload failed");
+    }
+    return body as Upload;
+  },
+
+  getUploads(noteId: string): Promise<Upload[]> {
+    return request(`/uploads/${noteId}`);
+  },
+
+  deleteUpload(id: string): Promise<void> {
+    return request(`/uploads/${id}`, { method: "DELETE" });
   },
 };

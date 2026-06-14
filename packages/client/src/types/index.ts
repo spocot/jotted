@@ -60,6 +60,16 @@ export interface FolderNode {
   children: FolderNode[];
 }
 
+export interface Upload {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  createdAt: string;
+}
+
 export type SortField = "relevance" | "updatedAt" | "title" | "createdAt";
 export type SortOrder = "ASC" | "DESC";
 

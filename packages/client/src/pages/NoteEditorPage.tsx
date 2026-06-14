@@ -5,13 +5,16 @@ import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 import { useNoteStore } from "../store/useNoteStore";
+import { useToastStore } from "../store/useToastStore";
 import { api } from "../api/client";
 import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import BacklinksPanel from "../components/BacklinksPanel";
 import SubgraphView from "../components/SubgraphView";
+import AttachmentsPanel from "../components/AttachmentsPanel";
 import { EditorSkeleton } from "../components/Skeleton";
 
 const DEBOUNCE_MS = 500;
@@ -37,6 +40,9 @@ export default function NoteEditorPage() {
     setTitle(selectedNote?.title ?? "");
   }, [selectedNote?.id]);
 
+  const { addToast } = useToastStore();
+  const uploadImageRef = useRef<(file: File) => Promise<void>>(async () => {});
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -49,12 +55,47 @@ export default function NoteEditorPage() {
       Placeholder.configure({
         placeholder: "Start writing...",
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+      }),
       Wikilink,
       Tag,
     ],
     editorProps: {
       attributes: {
         class: "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60vh]",
+      },
+      handleDOMEvents: {
+        drop: (view, event) => {
+          const hasFiles = event.dataTransfer?.files?.length;
+          if (!hasFiles) return false;
+          const file = event.dataTransfer!.files[0];
+          if (!file.type.startsWith("image/")) return false;
+          event.preventDefault();
+          const pos = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          });
+          if (pos) {
+            view.dispatch(view.state.tr.setSelection(view.state.selection));
+          }
+          uploadImageRef.current(file);
+          return true;
+        },
+        paste: (_view, event) => {
+          const items = event.clipboardData?.items;
+          if (!items) return false;
+          for (const item of items) {
+            if (item.type.startsWith("image/")) {
+              event.preventDefault();
+              const file = item.getAsFile();
+              if (file) uploadImageRef.current(file);
+              return true;
+            }
+          }
+          return false;
+        },
       },
     },
     onUpdate: () => {
@@ -68,6 +109,19 @@ export default function NoteEditorPage() {
       }, DEBOUNCE_MS);
     },
   });
+
+  // Set up the upload image function that editorProps handlers use via ref
+  useEffect(() => {
+    uploadImageRef.current = async (file: File) => {
+      if (!id || !editor) return;
+      try {
+        const upload = await api.uploadFile(id, file);
+        editor.chain().focus().setImage({ src: upload.url }).run();
+      } catch {
+        addToast("Failed to upload image", "error");
+      }
+    };
+  }, [id, editor, addToast]);
 
   // Load content into editor when navigating to a note (skip on autosave updates)
   useEffect(() => {
@@ -320,6 +374,9 @@ export default function NoteEditorPage() {
           ? new Date(selectedNote.updatedAt).toLocaleString()
           : "—"}
       </div>
+
+      {/* Attachments */}
+      <AttachmentsPanel noteId={id} />
 
       {/* Backlinks & Unlinked Mentions */}
       <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">

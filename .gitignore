@@ -5,6 +5,9 @@ dist/
 # SQLite database (created at runtime)
 packages/server/data/
 
+# Image / attachment uploads (created at runtime)
+packages/server/uploads/
+
 # Environment files
 .env
 .env.local

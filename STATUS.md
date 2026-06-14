@@ -103,13 +103,15 @@
 - [x] Breadcrumb in the editor showing note path
 - [x] Filter notes by folder in the note list (via `activeFolder` state)
 
-## Phase 13: Image & File Attachments ⬜
+## Phase 13: Image & File Attachments ✅
 
-- [ ] Server upload endpoint + static serving
-- [ ] TipTap Image extension rendering uploaded images
-- [ ] Drag-and-drop + paste handler for images
-- [ ] Inline image resizing
-- [ ] File attachment list / gallery view
+- [x] Server upload endpoint (`POST /api/upload` via multer, 10 MB limit, image-only filter) + static serving at `/uploads`
+- [x] Uploads DB table (`uploads`) with note_id, filename, mime_type, size
+- [x] TipTap Image extension configured for inline rendering
+- [x] Drag-and-drop + paste handler for images (`handleDOMEvents.drop` + `.paste` in editorProps)
+- [x] AttachmentsPanel component with image grid, thumbnail preview, upload/delete, drag-drop zone
+- [x] Client API methods: `uploadFile`, `getUploads`, `deleteUpload`
+- [x] Vite proxy for `/uploads` → `localhost:3000`
 
 ## Phase 14: Note Templates ⬜
 
