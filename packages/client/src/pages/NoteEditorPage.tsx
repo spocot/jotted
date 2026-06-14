@@ -4,6 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import BulletList from "@tiptap/extension-bullet-list";
+import ListItem from "@tiptap/extension-list-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { useNoteStore } from "../store/useNoteStore";
@@ -15,6 +17,19 @@ import { serializer } from "../lib/serializer";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import EditorSidePanel from "../components/EditorSidePanel";
 import { EditorSkeleton } from "../components/Skeleton";
+
+// Give TaskList higher parse priority than BulletList so that
+// <ul data-type="taskList"> parses as taskList, not bulletList.
+const CustomTaskList = TaskList.extend({
+  parseHTML() {
+    return [
+      {
+        tag: 'ul[data-type="taskList"]',
+        priority: 100,
+      },
+    ];
+  },
+});
 
 const DEBOUNCE_MS = 500;
 
@@ -45,12 +60,16 @@ export default function NoteEditorPage() {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        bulletList: false,
+        listItem: false,
         undoRedo: {
           depth: 100,
         },
       }),
-      TaskList,
+      CustomTaskList,
       TaskItem.configure({ nested: true }),
+      BulletList,
+      ListItem,
       Placeholder.configure({
         placeholder: "Start writing...",
       }),
