@@ -44,6 +44,12 @@ export default function CommandPalette() {
       action: () => navigate("/tags"),
     },
     {
+      id: "home",
+      label: "All Notes",
+      shortcut: "H",
+      action: () => navigate("/"),
+    },
+    {
       id: "dark-mode",
       label: "Toggle Dark Mode",
       shortcut: "",
@@ -71,7 +77,7 @@ export default function CommandPalette() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
