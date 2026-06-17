@@ -125,7 +125,24 @@
 - [x] Merge ICS events into calendar view alongside note activity
 - [x] Graceful error handling when a sync fails (note-only fallback, error indicator)
 
-## Phase 15: Daily Notes / Journal ⬜
+## Phase 15: Redux & RTK Query Migration 🔄
+
+- [ ] Install `@reduxjs/toolkit` and `react-redux`
+- [ ] Create Redux store (`store.ts`, `hooks.ts`) with `configureStore`
+- [ ] Create RTK Query API slice with `createApi` + `fetchBaseQuery` and full endpoint set
+- [ ] Define cache tag system: `Note`, `NoteList`, `Tag`, `TagList`, `Folder`, `Upload`, `Calendar`
+- [ ] Implement all query endpoints (GET) with `providesTags`
+- [ ] Implement all mutation endpoints (POST/PUT/DELETE) with `invalidatesTags`
+- [ ] Migrate `useNoteStore` → auto-generated query/mutation hooks
+- [ ] Migrate `useTagStore` → auto-generated query/mutation hooks
+- [ ] Keep `useToastStore` and `useUIStore` as Zustand (client-side only)
+- [ ] Wrap app in `<Provider store={store}>` in `main.tsx`
+- [ ] Remove `api/client.ts` and all direct API call imports
+- [ ] Remove manual race-condition guard (`selectVersion`), handled by RTK Query
+- [ ] Update test files for new store architecture
+- [ ] Run full type check (`tsc --noEmit`) and test suite (`vitest run`)
+
+## Phase 16: Daily Notes / Journal ⬜
 
 - [ ] "Open Today" button + keyboard shortcut
 - [ ] Auto-create daily note with `YYYY-MM-DD` title
@@ -134,7 +151,7 @@
 - [ ] Calendar integration: date click opens daily note
 - [ ] Streak counter (consecutive days with a daily note)
 
-## Phase 16: Note Version History ⬜
+## Phase 17: Note Version History ⬜
 
 - [ ] `note_versions` table with content snapshots
 - [ ] Auto-snapshot on every note save
@@ -144,7 +161,7 @@
 - [ ] Side-by-side or unified diff viewer
 - [ ] Restore with confirmation dialog
 
-## Phase 17: Mind Map / Canvas View ⬜
+## Phase 18: Mind Map / Canvas View ⬜
 
 - [ ] `canvases` and `canvas_items` tables
 - [ ] Infinite canvas with drag-to-position items
@@ -155,7 +172,7 @@
 - [ ] Multiple canvases with sidebar list
 - [ ] Export canvas as PNG/SVG
 
-## Phase 18: DataView / Query Engine ⬜
+## Phase 19: DataView / Query Engine ⬜
 
 - [ ] TipTap extension rendering `dataview` code blocks as live tables/lists
 - [ ] Query DSL: `LIST`, `TABLE`, sources (`#tag`, `"folder"`), conditions, sorting
@@ -164,7 +181,7 @@
 - [ ] Auto-refresh and manual refresh button
 - [ ] Code block language picker includes `dataview`
 
-## Phase 19: Reminders & Alerts ⬜
+## Phase 20: Reminders & Alerts ⬜
 
 - [ ] `reminders` table with note_id, remind_at, done flag
 - [ ] Backend CRUD for reminders
@@ -174,14 +191,14 @@
 - [ ] Reminder picker UI in note editor (datetime picker)
 - [ ] Calendar integration: reminder indicators on calendar days
 
-## Phase 20: Testing & Hardening (New Features) ⬜
+## Phase 21: Testing & Hardening (New Features) ⬜
 
 - [ ] Unit tests for all new repositories and API handlers
 - [ ] Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView, ReminderPicker
 - [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
 - [ ] Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits, timezone handling
 
-## Phase 21: Note Templates ⬜
+## Phase 22: Note Templates ⬜
 
 - [ ] Server CRUD for templates
 - [ ] Template picker on new-note creation
@@ -189,7 +206,7 @@
 - [ ] "Save as template" action from editor
 - [ ] Template variables: `{{date}}`, `{{title}}`
 
-## Phase 22: Export / Import ⬜
+## Phase 23: Export / Import ⬜
 
 - [ ] Export single note as Markdown
 - [ ] Export all notes as ZIP of `.md` files
@@ -197,7 +214,7 @@
 - [ ] Obsidian vault import (folder structure, wikilinks, tags)
 - [ ] Export as PDF (browser print)
 
-## Phase 23: Code Syntax Highlighting ⬜
+## Phase 24: Code Syntax Highlighting ⬜
 
 - [ ] Add highlight.js or Shiki
 - [ ] TipTap extension for code block highlighting

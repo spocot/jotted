@@ -196,9 +196,51 @@ jotted/
   - Settings UI to add/remove ICS URLs (supports CalDAV publish URLs, public calendars, etc.)
   - Periodic background refresh (configurable interval, default 15 minutes)
   - Graceful fallback if sync fails (note-only mode with sync error indicator)
-- Calendar date click opens / creates a Daily Note for that day (ties into Phase 15)
+- Calendar date click opens / creates a Daily Note for that day (ties into Phase 16)
 
-### Phase 15: Daily Notes / Journal
+### Phase 15: Redux & RTK Query Migration
+
+- Install `@reduxjs/toolkit` and `react-redux` dependencies
+- Create Redux store foundation:
+  - `src/store/redux/store.ts` — `configureStore` with reducer map
+  - `src/store/redux/hooks.ts` — typed `useAppSelector` and `useAppDispatch` exports
+- Create RTK Query API slice (`src/store/redux/api.ts`) with `createApi` + `fetchBaseQuery`:
+  - Base query configured for `/api` prefix with JSON `Content-Type` header
+  - **Cache tag system** for automatic invalidation:
+    - `"Note"` (per-id) and `"NoteList"` for notes
+    - `"Tag"` (per-id) and `"TagList"` for tags
+    - `"Folder"` for folder tree
+    - `"Upload"` (per-note-id) for uploads
+    - `"Calendar"` for calendar data
+  - **Query endpoints** (all GET → `query` with `providesTags`):
+    - Notes: `getNotes`, `getNote`, `getNoteBacklinks`, `getNoteUnlinkedMentions`, `getNoteByTitle`, `getBacklinkCounts`
+    - Search: `searchNotes`, `searchSuggest`
+    - Tags: `getTags`, `getTagNotes`
+    - Graph: `getGraph`, `getGraphSub`
+    - Folders: `getFolders`
+    - Uploads: `getUploads`
+    - Calendar: `getCalendarData`, `getOutlookEvents`, `getOutlookStatus`
+  - **Mutation endpoints** (POST/PUT/DELETE → `mutation` with `invalidatesTags`):
+    - `createNote` → invalidates `"NoteList"`
+    - `updateNote` → invalidates [`"NoteList"`, `{type: "Note", id}`]
+    - `deleteNote` → invalidates [`"NoteList"`, `{type: "Note", id}`]
+    - `addNoteTag`, `removeNoteTag` → invalidates `{type: "Note", id: noteId}`
+    - `renameTag`, `deleteTag` → invalidates [`"TagList"`, `"NoteList"`]
+    - `renameFolder`, `deleteFolder` → invalidates `"Folder"`
+    - `uploadFile` → invalidates `{type: "Upload", id: noteId}`
+    - `deleteUpload` → invalidates `"Upload"`
+    - `configureOutlookIcsUrl`, `clearOutlookConfig` → invalidates `"Calendar"`
+- Migrate Zustand stores to RTK Query hooks:
+  - `useNoteStore` → removed; components use `useGetNotesQuery`, `useGetNoteQuery`, and mutation hooks (`useCreateNoteMutation`, `useUpdateNoteMutation`, `useDeleteNoteMutation`)
+  - `useTagStore` → removed; components use `useGetTagsQuery`, `useRenameTagMutation`, `useDeleteTagMutation`
+  - Keep `useToastStore` and `useUIStore` as-is (purely client-side, no API dependency)
+  - Remove manual race-condition guard (`selectVersion` counter) — RTK Query handles stale responses via tag lifecycle
+- Wrap app in `<Provider store={store}>` in `main.tsx`
+- Remove `packages/client/src/api/client.ts` — all call sites migrated to auto-generated hooks
+- Update test files: migrate store-dependent tests to use `setupApiStore` test helper or mock RTK Query hooks
+- Run `npx -w packages/client tsc --noEmit` and `npm run test -w packages/client` to verify no regressions
+
+### Phase 16: Daily Notes / Journal
 
 - "Open Today" button in the header and keyboard shortcut — opens or creates a note with title `YYYY-MM-DD`
 - Journal page at `/journal` — a reverse-chronological timeline of daily notes
@@ -207,7 +249,7 @@ jotted/
 - Calendar integration: clicking a date on the calendar opens the daily note for that day
 - Streak counter (consecutive days with a daily note)
 
-### Phase 16: Note Version History
+### Phase 17: Note Version History
 
 - New `note_versions` table: `id, note_id, content, title, created_at` — stores a snapshot on each save
 - Server-side: on every note update, insert a version row (cheap — text snapshots)
@@ -219,7 +261,7 @@ jotted/
 - Side-by-side or unified diff view between selected versions
 - "Restore" button with confirmation dialog
 
-### Phase 17: Mind Map / Canvas View
+### Phase 18: Mind Map / Canvas View
 
 - New route `/canvas` with a free-form infinite canvas
 - New `canvases` table: `id, title, data (JSON)`, and `canvas_items` table: `id, canvas_id, note_id (nullable), x, y, width, height, color, text, type`
@@ -232,7 +274,7 @@ jotted/
 - Multiple canvases with a sidebar list to switch between them
 - Export canvas as PNG/SVG
 
-### Phase 18: DataView / Query Engine
+### Phase 19: DataView / Query Engine
 
 - Custom TipTap extension that renders `dataview` code blocks as live interactive tables/lists
 - Query DSL (simple, not full SQL):
@@ -245,7 +287,7 @@ jotted/
 - Auto-refresh on note open; manual refresh button
 - Editor integration: code block language picker includes `dataview`
 
-### Phase 19: Reminders & Alerts
+### Phase 20: Reminders & Alerts
 
 - New `reminders` table: `id, note_id, remind_at (datetime), title, done (boolean), created_at`
 - Backend CRUD: `POST /api/notes/:id/reminders`, `GET /api/reminders` (due soon), `PUT /api/reminders/:id/done`, `DELETE /api/reminders/:id`
@@ -256,14 +298,14 @@ jotted/
 - Reminder picker UI in the note editor: datetime picker in a context menu or footer bar
 - Calendar integration: reminder indicators (bell icon) on days in the calendar view
 
-### Phase 20: Testing & Hardening (New Features)
+### Phase 21: Testing & Hardening (New Features)
 
 - Unit tests for all new repositories and API handlers (calendar, versions, canvases, dataview query parser, reminders)
 - Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView blocks, ReminderPicker
 - E2E: full calendar workflow, version restore flow, canvas create/edit/export, dataview rendering
-- Edge cases: Outlook unavailable (graceful fallback), large canvas performance, version storage limits (oldest purge), reminder timezone handling
+- Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits (oldest purge), reminder timezone handling
 
-### Phase 21: Note Templates
+### Phase 22: Note Templates
 
 - Server CRUD for templates
 - Template picker on new-note creation
@@ -271,7 +313,7 @@ jotted/
 - "Save as template" action from editor
 - Template variables: `{{date}}`, `{{title}}`
 
-### Phase 22: Export / Import
+### Phase 23: Export / Import
 
 - Export single note as Markdown
 - Export all notes as ZIP of `.md` files
@@ -279,7 +321,7 @@ jotted/
 - Obsidian vault import (folder structure, wikilinks, tags)
 - Export as PDF (browser print)
 
-### Phase 23: Code Syntax Highlighting
+### Phase 24: Code Syntax Highlighting
 
 - Add highlight.js or Shiki
 - TipTap extension for code block highlighting
