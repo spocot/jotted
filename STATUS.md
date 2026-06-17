@@ -113,15 +113,17 @@
 - [x] Client API methods: `uploadFile`, `getUploads`, `deleteUpload`
 - [x] Vite proxy for `/uploads` → `localhost:3000`
 
-## Phase 14: Calendar Page & Outlook Calendar Integration ✅
+## Phase 14: Calendar Page & ICS Calendar Sync ✅
 
 - [x] Calendar grid component with month/week/day views
 - [x] Backend endpoint: `GET /api/calendar` — notes bucketed by day
 - [x] Hover tooltips with created/modified note lists per day
 - [x] Visual indicators (dots/icons) on days with note activity
-- [x] Outlook COM integration via PowerShell subprocess (stub on Linux)
-- [x] Merged display: Outlook events + note activity on the same calendar
-- [x] Graceful fallback when Outlook is unavailable
+- [x] ICS URL fetcher — fetches and parses iCalendar files from remote URLs
+- [x] Periodic background sync (configurable interval, default 15 min)
+- [x] Settings UI to add/remove ICS URLs
+- [x] Merge ICS events into calendar view alongside note activity
+- [x] Graceful error handling when a sync fails (note-only fallback, error indicator)
 
 ## Phase 15: Daily Notes / Journal ⬜
 
@@ -177,7 +179,7 @@
 - [ ] Unit tests for all new repositories and API handlers
 - [ ] Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView, ReminderPicker
 - [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
-- [ ] Edge cases: Outlook unavailable, large canvas performance, version storage limits, timezone handling
+- [ ] Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits, timezone handling
 
 ## Phase 21: Note Templates ⬜
 

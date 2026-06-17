@@ -108,6 +108,14 @@ export interface OutlookEvent {
 
 export interface OutlookResponse {
   events: OutlookEvent[];
+  method: "ics" | "none";
   available: boolean;
   message?: string;
+  needsConfig?: boolean;
+}
+
+export interface OutlookStatus {
+  method: "ics" | "none";
+  hasIcsUrl: boolean;
+  icsUrl?: string;
 }

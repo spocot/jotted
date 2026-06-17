@@ -36,6 +36,8 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<"all" | "created" | "modified">("all");
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [icsUrl, setIcsUrl] = useState("");
   const navigate = useNavigate();
   const { addToast } = useToastStore();
 
@@ -57,8 +59,12 @@ export default function CalendarPage() {
       const result = await api.getOutlookEvents(start, end);
       setOutlook(result);
     } catch {
-      // Silently fail — Outlook may not be available
-      setOutlook({ events: [], available: false });
+      setOutlook({
+        events: [],
+        method: "none",
+        available: false,
+        message: "Failed to connect",
+      });
     }
   }, [year, month]);
 
@@ -69,6 +75,14 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchOutlook();
   }, [fetchOutlook]);
+
+  // Load current ICS URL into settings when opened
+  useEffect(() => {
+    if (!showSettings) return;
+    api.getOutlookStatus().then((s) => {
+      if (s.icsUrl) setIcsUrl(s.icsUrl);
+    }).catch(() => {});
+  }, [showSettings]);
 
   const prevMonth = () => {
     if (month === 1) {
@@ -100,6 +114,36 @@ export default function CalendarPage() {
 
   const openDailyNote = (dateStr: string) => {
     navigate(`/note/by-date/${dateStr}`);
+  };
+
+  const handleConfigureIcsUrl = async () => {
+    if (!icsUrl.trim()) {
+      addToast("Enter a valid ICS URL", "error");
+      return;
+    }
+    try {
+      await api.configureOutlookIcsUrl(icsUrl.trim());
+      addToast("ICS calendar link configured", "success");
+      setShowSettings(false);
+      fetchOutlook();
+    } catch {
+      addToast("Failed to configure ICS URL", "error");
+    }
+  };
+
+  const handleClearConfig = async () => {
+    try {
+      await api.clearOutlookConfig();
+      setOutlook({
+        events: [],
+        method: "none",
+        available: false,
+        message: "Disconnected",
+      });
+      addToast("Calendar config cleared", "info");
+    } catch {
+      addToast("Failed to clear config", "error");
+    }
   };
 
   const dayMap = new Map<string, { created: CalendarDayItem[]; modified: CalendarDayItem[] }>();
@@ -134,7 +178,7 @@ export default function CalendarPage() {
 
   const hasNotesToday = (dateStr: string): boolean => {
     const entry = dayMap.get(dateStr);
-    if (!entry) return viewMode === "all" ? false : false;
+    if (!entry) return false;
     if (viewMode === "created") return entry.created.length > 0;
     if (viewMode === "modified") return entry.modified.length > 0;
     return entry.created.length > 0 || entry.modified.length > 0;
@@ -152,12 +196,29 @@ export default function CalendarPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Calendar</h1>
-        <button
-          onClick={goToToday}
-          className="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        >
-          Today
-        </button>
+        <div className="flex items-center gap-2">
+          {outlook?.method !== "none" && outlook?.available && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              ICS
+            </span>
+          )}
+          <button
+            onClick={goToToday}
+            className="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title="Calendar settings"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -349,16 +410,84 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Outlook status */}
+      {/* Outlook status / connect prompt */}
       {outlook && !outlook.available && (
-        <div className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
-          {outlook.message ?? "Outlook integration not available"}
+        <div className="mt-6 flex flex-col items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {outlook.message ?? "Outlook integration not available"}
+          </p>
+          {outlook.needsConfig && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+            >
+              Configure ICS Link
+            </button>
+          )}
         </div>
       )}
 
       {loading && (
         <div className="mt-4 text-sm text-gray-400 dark:text-gray-500 text-center">
           Loading calendar data...
+        </div>
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Calendar Settings</h3>
+
+            <div className="space-y-4">
+              {/* Current connection info */}
+              {outlook?.available && outlook?.method === "ics" && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                    Connected via Outlook Web ICS link
+                  </p>
+                  <button
+                    onClick={handleClearConfig}
+                    className="text-xs text-red-600 dark:text-red-400 hover:underline mt-1"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              {/* ICS URL config */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Outlook Web Calendar ICS Link
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  In Outlook Web, go to Calendar → Share → Publish Calendar,
+                  then copy the ICS link here. The calendar is fetched
+                  read-only on each navigation.
+                </p>
+                <input
+                  type="text"
+                  value={icsUrl}
+                  onChange={(e) => setIcsUrl(e.target.value)}
+                  placeholder="https://outlook.live.com/owa/calendar/.../calendar.ics"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+                />
+                <button
+                  onClick={handleConfigureIcsUrl}
+                  className="mt-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                >
+                  Save ICS Link
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowSettings(false)}
+              className="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>

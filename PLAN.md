@@ -183,17 +183,19 @@ jotted/
 - Inline image resizing
 - File attachment list / gallery view
 
-### Phase 14: Calendar Page & Outlook Calendar Integration
+### Phase 14: Calendar Page & ICS Calendar Sync
 
 - New route `/calendar` with a month-view calendar grid
-- Backend endpoint `GET /api/notes/calendar` — returns notes bucketed by day (created + modified counts, note IDs per date)
+- Backend endpoint `GET /api/calendar` — returns notes bucketed by day (created + modified counts, note IDs per date)
 - Hover tooltip on each day shows lists of notes created and modified on that date, with links to open them
 - Visual indicators (dots/icons) on days that have note activity
 - Toggle between created, modified, or combined view
-- Outlook integration:
-  - Server spawns `powershell.exe` to query Outlook's Calendar folder via COM (`New-Object -ComObject Outlook.Application`)
-  - Returns events as JSON → merged into the calendar view alongside note activity
-  - Graceful fallback if Outlook is not available (note-only mode)
+- ICS calendar sync:
+  - Backend fetches and parses ICS files from configured URLs at regular intervals
+  - Events merged into calendar view alongside note activity
+  - Settings UI to add/remove ICS URLs (supports CalDAV publish URLs, public calendars, etc.)
+  - Periodic background refresh (configurable interval, default 15 minutes)
+  - Graceful fallback if sync fails (note-only mode with sync error indicator)
 - Calendar date click opens / creates a Daily Note for that day (ties into Phase 15)
 
 ### Phase 15: Daily Notes / Journal
@@ -291,5 +293,5 @@ jotted/
 - `better-sqlite3`: uses `prebuild-install` for prebuilt binaries; falls back to `node-gyp`. Document Windows build tools requirement.
 - Vite proxy in dev mode (`vite.config.ts` `server.proxy`)
 - Root `dev` script uses `concurrently` for client + server
-- Outlook COM integration requires Windows + Outlook installed; graceful fallback when unavailable
+- ICS calendar sync fetches from URLs and parses iCalendar data; doesn't require platform-specific APIs
 - Canvas auto-save uses debounced writes to avoid thrashing the DB

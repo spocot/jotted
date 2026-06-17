@@ -11,6 +11,7 @@ import type {
   Upload,
   CalendarData,
   OutlookResponse,
+  OutlookStatus,
 } from "../types";
 
 const BASE = "/api";
@@ -176,11 +177,22 @@ export const api = {
     return request(`/calendar?year=${year}&month=${month}`);
   },
 
-  getOutlookEvents(start?: string, end?: string): Promise<OutlookResponse> {
-    const params = new URLSearchParams();
-    if (start) params.set("start", start);
-    if (end) params.set("end", end);
-    const qs = params.toString();
-    return request(`/calendar/outlook${qs ? `?${qs}` : ""}`);
+  getOutlookEvents(start: string, end: string): Promise<OutlookResponse> {
+    return request(`/calendar/outlook?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  },
+
+  getOutlookStatus(): Promise<OutlookStatus> {
+    return request("/calendar/outlook/status");
+  },
+
+  configureOutlookIcsUrl(icsUrl: string): Promise<{ message: string }> {
+    return request("/calendar/outlook/config", {
+      method: "POST",
+      body: JSON.stringify({ icsUrl }),
+    });
+  },
+
+  clearOutlookConfig(): Promise<{ message: string }> {
+    return request("/calendar/outlook/config", { method: "DELETE" });
   },
 };
