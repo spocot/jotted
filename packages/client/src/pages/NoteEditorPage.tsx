@@ -37,7 +37,8 @@ const CustomTaskList = TaskList.extend({
   },
 });
 
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 2000;
+type SaveStatus = "saved" | "saving" | "unsaved";
 
 export default function NoteEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -51,9 +52,11 @@ export default function NoteEditorPage() {
   const [removeNoteTag] = useRemoveNoteTagMutation();
   const [uploadFile] = useUploadFileMutation();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const titleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loadedNoteIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(false);
   const [title, setTitle] = useState("");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [newTag, setNewTag] = useState("");
 
   // Sync local title state when navigating to a different note
@@ -125,11 +128,16 @@ export default function NoteEditorPage() {
     },
     onUpdate: () => {
       if (isInitialLoadRef.current) return;
+      setSaveStatus("unsaved");
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         if (editor && id) {
+          setSaveStatus("saving");
           const md = serializer.serialize(editor.state.doc);
-          updateNote({ id, payload: { content: md } });
+          updateNote({ id, payload: { content: md } })
+            .unwrap()
+            .then(() => setSaveStatus("saved"))
+            .catch(() => setSaveStatus("unsaved"));
         }
       }, DEBOUNCE_MS);
     },
@@ -160,17 +168,27 @@ export default function NoteEditorPage() {
     isInitialLoadRef.current = false;
   }, [editor, selectedNote, id]);
 
-  // Clean up timer on unmount
+  // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
     };
   }, []);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id) return;
-    setTitle(e.target.value);
-    updateNote({ id, payload: { title: e.target.value } });
+    const value = e.target.value;
+    setTitle(value);
+    setSaveStatus("unsaved");
+    if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => {
+      setSaveStatus("saving");
+      updateNote({ id, payload: { title: value } })
+        .unwrap()
+        .then(() => setSaveStatus("saved"))
+        .catch(() => setSaveStatus("unsaved"));
+    }, DEBOUNCE_MS);
   };
 
   const handleAddTag = async (e: React.KeyboardEvent | React.FormEvent) => {
@@ -194,15 +212,27 @@ export default function NoteEditorPage() {
   };
 
   // Save immediately before navigation
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = undefined;
       }
+      if (titleTimerRef.current) {
+        clearTimeout(titleTimerRef.current);
+        titleTimerRef.current = undefined;
+      }
       if (editor && id) {
         const md = serializer.serialize(editor.state.doc);
-        navigator.sendBeacon(`/api/notes/${id}`, JSON.stringify({ content: md }));
+        navigator.sendBeacon(
+          `/api/notes/${id}`,
+          JSON.stringify({ content: md, title: titleRef.current }),
+        );
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -388,6 +418,33 @@ export default function NoteEditorPage() {
               >
                 {`{ }`}
               </ToolbarButton>
+
+              <div className="flex-1" />
+              {saveStatus === "unsaved" && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  Unsaved
+                </span>
+              )}
+              {saveStatus === "saving" && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 shrink-0">
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Saving...
+                </span>
+              )}
+              {saveStatus === "saved" && (
+                <span className="text-xs text-green-500 dark:text-green-400 flex items-center gap-1 shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved
+                </span>
+              )}
             </div>
           )}
 
