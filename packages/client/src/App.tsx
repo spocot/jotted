@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import NoteListPage from "./pages/NoteListPage";
@@ -17,12 +17,16 @@ function NoteByDateRedirect() {
   const navigate = useNavigate();
   const [getNoteByTitle] = useLazyGetNoteByTitleQuery();
   const [createNote] = useCreateNoteMutation();
+  const initiatedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!date) {
       navigate("/", { replace: true });
       return;
     }
+
+    if (initiatedRef.current === date) return;
+    initiatedRef.current = date;
 
     getNoteByTitle(date)
       .unwrap()
