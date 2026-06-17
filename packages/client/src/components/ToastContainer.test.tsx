@@ -1,35 +1,41 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { store } from "../store/redux/store";
+import { addToastAction, clearToasts } from "../store/redux/toastSlice";
 import ToastContainer from "./ToastContainer";
-import { useToastStore } from "../store/useToastStore";
+
+function renderWithProvider(ui: React.ReactElement) {
+  return render(<Provider store={store}>{ui}</Provider>);
+}
 
 describe("ToastContainer", () => {
   beforeEach(() => {
-    useToastStore.setState({ toasts: [] });
+    store.dispatch(clearToasts());
   });
 
   it("renders nothing when no toasts", () => {
-    const { container } = render(<ToastContainer />);
+    const { container } = renderWithProvider(<ToastContainer />);
     expect(container.firstChild).toBeNull();
   });
 
   it("renders toasts", () => {
-    useToastStore.getState().addToast("Hello", "info");
-    render(<ToastContainer />);
+    store.dispatch(addToastAction({ id: "1", message: "Hello", type: "info" }));
+    renderWithProvider(<ToastContainer />);
     expect(screen.getByText("Hello")).toBeInTheDocument();
   });
 
   it("renders different toast types", () => {
-    useToastStore.getState().addToast("Success!", "success");
-    useToastStore.getState().addToast("Error!", "error");
-    render(<ToastContainer />);
+    store.dispatch(addToastAction({ id: "1", message: "Success!", type: "success" }));
+    store.dispatch(addToastAction({ id: "2", message: "Error!", type: "error" }));
+    renderWithProvider(<ToastContainer />);
     expect(screen.getByText("Success!")).toBeInTheDocument();
     expect(screen.getByText("Error!")).toBeInTheDocument();
   });
 
   it("dismisses toast on click", () => {
-    useToastStore.getState().addToast("Dismiss me", "info");
-    render(<ToastContainer />);
+    store.dispatch(addToastAction({ id: "1", message: "Dismiss me", type: "info" }));
+    renderWithProvider(<ToastContainer />);
     const dismissBtn = screen.getByText("×");
     fireEvent.click(dismissBtn);
     expect(screen.queryByText("Dismiss me")).not.toBeInTheDocument();

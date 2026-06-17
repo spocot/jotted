@@ -1,45 +1,52 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useNoteStore } from "../store/useNoteStore";
-import { useTagStore } from "../store/useTagStore";
-import { useUIStore } from "../store/useUIStore";
-import { useToastStore } from "../store/useToastStore";
-import { api } from "../api/client";
-import type { FolderNode } from "../types";
+import {
+  useGetNotesQuery,
+  useCreateNoteMutation,
+  useDeleteNoteMutation,
+  useGetTagsQuery,
+  useGetFoldersQuery,
+  useGetBacklinkCountsQuery,
+  useRenameFolderMutation,
+  useDeleteFolderMutation,
+} from "../store/redux/api";
+import { useAppDispatch, useAppSelector } from "../store/redux/hooks";
+import {
+  selectSidebarOpen,
+  selectSidebarWidth,
+  setSidebarWidth,
+} from "../store/redux/uiSlice";
+import { addToast } from "../store/redux/toastSlice";
 import FolderTree from "./FolderTree";
 
 export default function Sidebar() {
-  const { notes, fetchNotes, createNote, deleteNote, loading } = useNoteStore();
-  const { tags, fetchTags } = useTagStore();
-  const { sidebarOpen, sidebarWidth, setSidebarWidth } = useUIStore();
-  const { addToast } = useToastStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const sidebarOpen = useAppSelector(selectSidebarOpen);
+  const sidebarWidth = useAppSelector(selectSidebarWidth);
+  const dispatch = useAppDispatch();
   const dragRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
-  const navigate = useNavigate();
-  const location = useLocation();
   const [filter, setFilter] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
-  const [folders, setFolders] = useState<FolderNode[]>([]);
-  const [backlinkCounts, setBacklinkCounts] = useState<Record<string, number>>({});
   const [newFolderPath, setNewFolderPath] = useState("");
 
-  useEffect(() => {
-    fetchNotes(activeFolder ?? undefined, activeTag ?? undefined);
-  }, [fetchNotes, activeFolder, activeTag]);
-
-  useEffect(() => {
-    fetchTags();
-  }, [fetchTags]);
-
-  useEffect(() => {
-    api.getFolders().then(setFolders).catch(() => {});
-  }, [notes.length]);
-
-  useEffect(() => {
-    api.getBacklinkCounts().then(setBacklinkCounts).catch(() => {});
-  }, [notes.length]);
+  const {
+    data: notes = [],
+    isLoading: loading,
+  } = useGetNotesQuery({
+    folder: activeFolder ?? undefined,
+    tag: activeTag ?? undefined,
+  });
+  const { data: tags = [] } = useGetTagsQuery();
+  const { data: folders = [] } = useGetFoldersQuery();
+  const { data: backlinkCounts = {} } = useGetBacklinkCountsQuery();
+  const [createNote] = useCreateNoteMutation();
+  const [deleteNote] = useDeleteNoteMutation();
+  const [renameFolder] = useRenameFolderMutation();
+  const [deleteFolder] = useDeleteFolderMutation();
 
   const filtered = notes.filter(
     (n) => n.title.toLowerCase().includes(filter.toLowerCase()),
@@ -49,14 +56,18 @@ export default function Sidebar() {
     const note = await createNote({
       title: "Untitled",
       path: activeFolder ?? undefined,
-    });
+    }).unwrap();
     navigate(`/note/${note.id}`);
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm("Delete this note?")) return;
-    await deleteNote(id);
+    try {
+      await deleteNote(id).unwrap();
+    } catch {
+      // ignore
+    }
     if (location.pathname === `/note/${id}`) {
       navigate("/");
     }
@@ -66,28 +77,24 @@ export default function Sidebar() {
     try {
       const parentPath = oldPath.split("/").slice(0, -1).join("/");
       const newPath = parentPath ? `${parentPath}/${newName}` : `/${newName}`;
-      await api.renameFolder(oldPath, newPath);
-      const updatedFolders = await api.getFolders();
-      setFolders(updatedFolders);
-      addToast(`Renamed folder to "${newName}"`, "success");
+      await renameFolder({ oldPath, newPath }).unwrap();
+      dispatch(addToast(`Renamed folder to "${newName}"`, "success"));
     } catch {
-      addToast("Failed to rename folder", "error");
+      dispatch(addToast("Failed to rename folder", "error"));
     }
   };
 
   const handleDeleteFolder = async (path: string) => {
     try {
-      const result = await api.deleteFolder(path);
+      const result = await deleteFolder(path).unwrap();
       if (result.moved > 0) {
-        addToast(`${result.moved} note(s) moved to parent folder`, "info");
+        dispatch(addToast(`${result.moved} note(s) moved to parent folder`, "info"));
       }
-      const updatedFolders = await api.getFolders();
-      setFolders(updatedFolders);
       if (activeFolder === path) {
         setActiveFolder(null);
       }
     } catch {
-      addToast("Failed to delete folder", "error");
+      dispatch(addToast("Failed to delete folder", "error"));
     }
   };
 
@@ -99,13 +106,11 @@ export default function Sidebar() {
       ? `${activeFolder}/${name}`
       : `/${name}`;
     try {
-      // Create a placeholder note to make the folder appear, or just track it
-      // Folders are derived from note paths, so create a note in the folder
-      await createNote({ title: "Untitled", path: folderPath });
+      await createNote({ title: "Untitled", path: folderPath }).unwrap();
       setNewFolderPath("");
-      addToast(`Created folder "${name}"`, "success");
+      dispatch(addToast(`Created folder "${name}"`, "success"));
     } catch {
-      addToast("Failed to create folder", "error");
+      dispatch(addToast("Failed to create folder", "error"));
     }
   };
 
@@ -126,7 +131,7 @@ export default function Sidebar() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
       const delta = e.clientX - startXRef.current;
-      setSidebarWidth(startWidthRef.current + delta);
+      dispatch(setSidebarWidth(startWidthRef.current + delta));
     };
     const handleMouseUp = () => {
       dragRef.current = false;

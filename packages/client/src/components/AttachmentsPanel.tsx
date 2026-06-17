@@ -1,6 +1,11 @@
-import { useEffect, useState, useRef } from "react";
-import { useToastStore } from "../store/useToastStore";
-import { api } from "../api/client";
+import { useState, useRef } from "react";
+import { useAppDispatch } from "../store/redux/hooks";
+import { addToast } from "../store/redux/toastSlice";
+import {
+  useGetUploadsQuery,
+  useUploadFileMutation,
+  useDeleteUploadMutation,
+} from "../store/redux/api";
 import type { Upload } from "../types";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
@@ -10,39 +15,23 @@ interface AttachmentsPanelProps {
 }
 
 export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
-  const [uploads, setUploads] = useState<Upload[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: uploads = [], isLoading: loading } = useGetUploadsQuery(noteId);
+  const [uploadFile] = useUploadFileMutation();
+  const [deleteUpload] = useDeleteUploadMutation();
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { addToast } = useToastStore();
-
-  const fetchUploads = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getUploads(noteId);
-      setUploads(data);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (noteId) fetchUploads();
-  }, [noteId]);
+  const dispatch = useAppDispatch();
 
   const handleFile = async (file: File) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
-      addToast("Only image files are allowed", "error");
+      dispatch(addToast("Only image files are allowed", "error"));
       return;
     }
     try {
-      await api.uploadFile(noteId, file);
-      addToast("File uploaded", "success");
-      fetchUploads();
+      await uploadFile({ noteId, file }).unwrap();
+      dispatch(addToast("File uploaded", "success"));
     } catch {
-      addToast("Failed to upload file", "error");
+      dispatch(addToast("Failed to upload file", "error"));
     }
   };
 
@@ -56,11 +45,10 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
   const handleDelete = async (upload: Upload) => {
     if (!confirm(`Delete "${upload.originalName}"?`)) return;
     try {
-      await api.deleteUpload(upload.id);
-      setUploads((prev) => prev.filter((u) => u.id !== upload.id));
-      addToast("File deleted", "info");
+      await deleteUpload(upload.id).unwrap();
+      dispatch(addToast("File deleted", "info"));
     } catch {
-      addToast("Failed to delete file", "error");
+      dispatch(addToast("Failed to delete file", "error"));
     }
   };
 

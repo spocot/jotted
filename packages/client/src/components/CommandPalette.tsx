@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNoteStore } from "../store/useNoteStore";
-import { useUIStore } from "../store/useUIStore";
+import { useGetNotesQuery } from "../store/redux/api";
+import { useAppDispatch } from "../store/redux/hooks";
+import { toggleDarkMode } from "../store/redux/uiSlice";
 
 interface Command {
   id: string;
@@ -15,8 +16,8 @@ export default function CommandPalette() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { notes } = useNoteStore();
-  const { toggleDarkMode } = useUIStore();
+  const { data: allNotes = [] } = useGetNotesQuery();
+  const dispatch = useAppDispatch();
 
   const commands: Command[] = [
     {
@@ -53,9 +54,9 @@ export default function CommandPalette() {
       id: "dark-mode",
       label: "Toggle Dark Mode",
       shortcut: "",
-      action: () => toggleDarkMode(),
+      action: () => dispatch(toggleDarkMode()),
     },
-    ...notes.slice(0, 10).map((note) => ({
+    ...allNotes.slice(0, 10).map((note) => ({
       id: `note-${note.id}`,
       label: `Open: ${note.title || "Untitled"}`,
       shortcut: "",

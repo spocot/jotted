@@ -1,8 +1,9 @@
-import { useNoteStore } from "../store/useNoteStore";
+import { useGetNotesQuery, useCreateNoteMutation } from "../store/redux/api";
 import { NoteListSkeleton } from "../components/Skeleton";
 
 export default function NoteListPage() {
-  const { notes, createNote, loading } = useNoteStore();
+  const { data: notes = [], isLoading: loading } = useGetNotesQuery();
+  const [createNote] = useCreateNoteMutation();
 
   const handleCreate = async () => {
     await createNote({ title: "Untitled" });

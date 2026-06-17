@@ -7,11 +7,16 @@ import SearchPage from "./pages/SearchPage";
 import GraphPage from "./pages/GraphPage";
 import TagsPage from "./pages/TagsPage";
 import CalendarPage from "./pages/CalendarPage";
-import { api } from "./api/client";
+import {
+  useLazyGetNoteByTitleQuery,
+  useCreateNoteMutation,
+} from "./store/redux/api";
 
 function NoteByDateRedirect() {
   const { date } = useParams<{ date: string }>();
   const navigate = useNavigate();
+  const [getNoteByTitle] = useLazyGetNoteByTitleQuery();
+  const [createNote] = useCreateNoteMutation();
 
   useEffect(() => {
     if (!date) {
@@ -19,15 +24,20 @@ function NoteByDateRedirect() {
       return;
     }
 
-    api.getNoteByTitle(date)
+    getNoteByTitle(date)
+      .unwrap()
       .then((note) => {
         navigate(`/note/${note.id}`, { replace: true });
       })
       .catch(async () => {
-        const note = await api.createNote({ title: date });
-        navigate(`/note/${note.id}`, { replace: true });
+        try {
+          const note = await createNote({ title: date }).unwrap();
+          navigate(`/note/${note.id}`, { replace: true });
+        } catch {
+          navigate("/", { replace: true });
+        }
       });
-  }, [date, navigate]);
+  }, [date, navigate, getNoteByTitle, createNote]);
 
   return null;
 }

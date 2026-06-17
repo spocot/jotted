@@ -1,35 +1,26 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
+import { useGetGraphQuery, useGetGraphSubQuery } from "../store/redux/api";
 import type { GraphData } from "../types";
 import GraphView from "../components/GraphView";
 import { SkeletonBlock } from "../components/Skeleton";
 
 export default function GraphPage() {
-  const [data, setData] = useState<GraphData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const noteId = searchParams.get("note") || null;
   const navigate = useNavigate();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = noteId
-        ? await api.getGraphSub(noteId)
-        : await api.getGraph();
-      setData(result);
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [noteId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: globalData, isLoading: globalLoading } = useGetGraphQuery(
+    undefined,
+    { skip: !!noteId },
+  );
+  const { data: subData, isLoading: subLoading } = useGetGraphSubQuery(
+    noteId ?? "",
+    { skip: !noteId },
+  );
+  const data: GraphData | undefined = noteId ? subData : globalData;
+  const loading = noteId ? subLoading : globalLoading;
 
   const handleViewGlobal = () => {
     setSearchParams({});

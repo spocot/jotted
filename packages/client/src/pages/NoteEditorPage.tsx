@@ -8,9 +8,15 @@ import BulletList from "@tiptap/extension-bullet-list";
 import ListItem from "@tiptap/extension-list-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { useNoteStore } from "../store/useNoteStore";
-import { useToastStore } from "../store/useToastStore";
-import { api } from "../api/client";
+import {
+  useGetNoteQuery,
+  useUpdateNoteMutation,
+  useAddNoteTagMutation,
+  useRemoveNoteTagMutation,
+  useUploadFileMutation,
+} from "../store/redux/api";
+import { useAppDispatch } from "../store/redux/hooks";
+import { addToast } from "../store/redux/toastSlice";
 import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
@@ -36,25 +42,26 @@ const DEBOUNCE_MS = 500;
 export default function NoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { selectedNote, selectNote, updateNote, error } = useNoteStore();
+  const {
+    data: selectedNote,
+    error,
+  } = useGetNoteQuery(id ?? "", { skip: !id });
+  const [updateNote] = useUpdateNoteMutation();
+  const [addNoteTag] = useAddNoteTagMutation();
+  const [removeNoteTag] = useRemoveNoteTagMutation();
+  const [uploadFile] = useUploadFileMutation();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loadedNoteIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(false);
   const [title, setTitle] = useState("");
   const [newTag, setNewTag] = useState("");
 
-  useEffect(() => {
-    if (id) {
-      selectNote(id);
-    }
-  }, [id, selectNote]);
-
   // Sync local title state when navigating to a different note
   useEffect(() => {
     setTitle(selectedNote?.title ?? "");
   }, [selectedNote?.id]);
 
-  const { addToast } = useToastStore();
+  const dispatch = useAppDispatch();
   const uploadImageRef = useRef<(file: File) => Promise<void>>(async () => {});
 
   const editor = useEditor({
@@ -122,7 +129,7 @@ export default function NoteEditorPage() {
       timerRef.current = setTimeout(() => {
         if (editor && id) {
           const md = serializer.serialize(editor.state.doc);
-          updateNote(id, { content: md });
+          updateNote({ id, payload: { content: md } });
         }
       }, DEBOUNCE_MS);
     },
@@ -133,13 +140,13 @@ export default function NoteEditorPage() {
     uploadImageRef.current = async (file: File) => {
       if (!id || !editor) return;
       try {
-        const upload = await api.uploadFile(id, file);
+        const upload = await uploadFile({ noteId: id, file }).unwrap();
         editor.chain().focus().setImage({ src: upload.url }).run();
       } catch {
-        addToast("Failed to upload image", "error");
+        dispatch(addToast("Failed to upload image", "error"));
       }
     };
-  }, [id, editor, addToast]);
+  }, [id, editor, addToast, uploadFile]);
 
   // Load content into editor when navigating to a note (skip on autosave updates)
   useEffect(() => {
@@ -156,7 +163,6 @@ export default function NoteEditorPage() {
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
-      selectNote(null);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
@@ -164,15 +170,14 @@ export default function NoteEditorPage() {
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id) return;
     setTitle(e.target.value);
-    updateNote(id, { title: e.target.value });
+    updateNote({ id, payload: { title: e.target.value } });
   };
 
   const handleAddTag = async (e: React.KeyboardEvent | React.FormEvent) => {
     e.preventDefault();
     if (!id || !newTag.trim()) return;
     try {
-      const enriched = await api.addNoteTag(id, newTag.trim());
-      useNoteStore.setState({ selectedNote: enriched });
+      await addNoteTag({ noteId: id, name: newTag.trim() }).unwrap();
       setNewTag("");
     } catch {
       // ignore
@@ -182,8 +187,7 @@ export default function NoteEditorPage() {
   const handleRemoveTag = async (tagName: string) => {
     if (!id) return;
     try {
-      const enriched = await api.removeNoteTag(id, tagName);
-      useNoteStore.setState({ selectedNote: enriched });
+      await removeNoteTag({ noteId: id, tagName }).unwrap();
     } catch {
       // ignore
     }
@@ -210,13 +214,18 @@ export default function NoteEditorPage() {
   }
 
   const dataReady = selectedNote && selectedNote.id === id;
+  const errorMessage = error
+    ? typeof error === "object" && "data" in error
+      ? (error.data as string)
+      : "An error occurred"
+    : null;
 
   if (dataReady) {
     // Render note below
-  } else if (error) {
+  } else if (errorMessage) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400 dark:text-gray-500 mb-4">{error}</p>
+        <p className="text-gray-400 dark:text-gray-500 mb-4">{errorMessage}</p>
         <button
           onClick={() => navigate("/")}
           className="text-blue-600 hover:underline"

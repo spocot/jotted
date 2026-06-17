@@ -1,4 +1,5 @@
-import { useToastStore } from "../store/useToastStore";
+import { useAppDispatch, useAppSelector } from "../store/redux/hooks";
+import { selectToasts, removeToast } from "../store/redux/toastSlice";
 
 const TYPE_STYLES = {
   success: "bg-green-600 text-white",
@@ -7,7 +8,8 @@ const TYPE_STYLES = {
 };
 
 export default function ToastContainer() {
-  const { toasts, removeToast } = useToastStore();
+  const toasts = useAppSelector(selectToasts);
+  const dispatch = useAppDispatch();
 
   if (toasts.length === 0) return null;
 
@@ -22,7 +24,7 @@ export default function ToastContainer() {
         >
           <span className="flex-1">{toast.message}</span>
           <button
-            onClick={() => removeToast(toast.id)}
+            onClick={() => dispatch(removeToast(toast.id))}
             className="opacity-70 hover:opacity-100 transition-opacity shrink-0"
           >
             ×

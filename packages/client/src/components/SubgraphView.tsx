@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as d3 from "d3";
-import { api } from "../api/client";
-import type { GraphData } from "../types";
+import { useGetGraphSubQuery } from "../store/redux/api";
 
 const NODE_RADIUS = 5;
 const CHARGE_STRENGTH = -100;
@@ -16,27 +15,7 @@ export default function SubgraphView({ noteId }: SubgraphViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [data, setData] = useState<GraphData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .getGraphSub(noteId)
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [noteId]);
+  const { data, isLoading: loading } = useGetGraphSubQuery(noteId);
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || !data) return;

@@ -1,28 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
-import { useTagStore } from "../store/useTagStore";
-import type { Tag, Note } from "../types";
+import {
+  useGetTagsQuery,
+  useGetTagNotesQuery,
+  useRenameTagMutation,
+  useDeleteTagMutation,
+} from "../store/redux/api";
+import type { Tag } from "../types";
 
 export default function TagsPage() {
-  const { tags, fetchTags, renameTag, deleteTag } = useTagStore();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [tagNotes, setTagNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-
-  useEffect(() => {
-    fetchTags().finally(() => setLoading(false));
-  }, [fetchTags]);
-
-  useEffect(() => {
-    if (selectedTag) {
-      api.getTagNotes(selectedTag).then(setTagNotes).catch(() => setTagNotes([]));
-    } else {
-      setTagNotes([]);
-    }
-  }, [selectedTag, tags]);
+  const { data: tags = [], isLoading } = useGetTagsQuery();
+  const { data: tagNotes = [] } = useGetTagNotesQuery(selectedTag ?? "", {
+    skip: !selectedTag,
+  });
+  const [renameTag] = useRenameTagMutation();
+  const [deleteTag] = useDeleteTagMutation();
 
   const handleStartRename = (tag: Tag) => {
     setRenaming(tag.name);
@@ -34,30 +29,30 @@ export default function TagsPage() {
       setRenaming(null);
       return;
     }
-    try {
-      await renameTag(oldName, renameValue.trim());
-      setRenaming(null);
-      if (selectedTag === oldName) {
-        setSelectedTag(renameValue.trim());
+      try {
+        await renameTag({ oldName, newName: renameValue.trim() }).unwrap();
+        setRenaming(null);
+        if (selectedTag === oldName) {
+          setSelectedTag(renameValue.trim());
+        }
+      } catch {
+        // error handled by RTK Query
       }
-    } catch {
-      // error handled by store
-    }
   };
 
   const handleDelete = async (name: string) => {
     if (!confirm(`Delete tag "#${name}"? It will be removed from all notes.`)) return;
-    try {
-      await deleteTag(name);
-      if (selectedTag === name) {
-        setSelectedTag(null);
+      try {
+        await deleteTag(name).unwrap();
+        if (selectedTag === name) {
+          setSelectedTag(null);
+        }
+      } catch {
+        // error handled by RTK Query
       }
-    } catch {
-      // error handled by store
-    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return <div className="text-gray-400 dark:text-gray-500">Loading tags...</div>;
   }
 

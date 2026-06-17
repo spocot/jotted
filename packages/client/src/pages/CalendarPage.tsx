@@ -1,8 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
-import { useToastStore } from "../store/useToastStore";
-import type { CalendarData, OutlookResponse, CalendarDayItem } from "../types";
+import {
+  useGetCalendarDataQuery,
+  useGetOutlookEventsQuery,
+  useConfigureOutlookIcsUrlMutation,
+  useClearOutlookConfigMutation,
+  useGetOutlookStatusQuery,
+} from "../store/redux/api";
+import { useAppDispatch } from "../store/redux/hooks";
+import { addToast } from "../store/redux/toastSlice";
+import type { OutlookResponse, CalendarDayItem } from "../types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -31,58 +38,31 @@ export default function CalendarPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [data, setData] = useState<CalendarData | null>(null);
-  const [outlook, setOutlook] = useState<OutlookResponse | null>(null);
   const [viewMode, setViewMode] = useState<"all" | "created" | "modified">("all");
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [icsUrl, setIcsUrl] = useState("");
   const navigate = useNavigate();
-  const { addToast } = useToastStore();
+  const dispatch = useAppDispatch();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const calData = await api.getCalendarData(year, month);
-      setData(calData);
-    } catch {
-      addToast("Failed to load calendar data", "error");
-    }
-    setLoading(false);
-  }, [year, month, addToast]);
-
-  const fetchOutlook = useCallback(async () => {
-    try {
-      const start = formatDate(year, month, 1);
-      const end = formatDate(year, month, daysInMonth(year, month));
-      const result = await api.getOutlookEvents(start, end);
-      setOutlook(result);
-    } catch {
-      setOutlook({
-        events: [],
-        method: "none",
-        available: false,
-        message: "Failed to connect",
-      });
-    }
-  }, [year, month]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    fetchOutlook();
-  }, [fetchOutlook]);
+  const { data: calData, isLoading: loading } = useGetCalendarDataQuery(
+    { year, month },
+  );
+  const outlookStart = formatDate(year, month, 1);
+  const outlookEnd = formatDate(year, month, daysInMonth(year, month));
+  const { data: outlook } = useGetOutlookEventsQuery(
+    { start: outlookStart, end: outlookEnd },
+  );
+  const { data: outlookStatus } = useGetOutlookStatusQuery();
+  const [saveIcsUrl] = useConfigureOutlookIcsUrlMutation();
+  const [removeConfig] = useClearOutlookConfigMutation();
 
   // Load current ICS URL into settings when opened
   useEffect(() => {
-    if (!showSettings) return;
-    api.getOutlookStatus().then((s) => {
-      if (s.icsUrl) setIcsUrl(s.icsUrl);
-    }).catch(() => {});
-  }, [showSettings]);
+    if (showSettings && outlookStatus?.icsUrl) {
+      setIcsUrl(outlookStatus.icsUrl);
+    }
+  }, [showSettings, outlookStatus]);
 
   const prevMonth = () => {
     if (month === 1) {
@@ -118,51 +98,43 @@ export default function CalendarPage() {
 
   const handleConfigureIcsUrl = async () => {
     if (!icsUrl.trim()) {
-      addToast("Enter a valid ICS URL", "error");
+      dispatch(addToast("Enter a valid ICS URL", "error"));
       return;
     }
     try {
-      await api.configureOutlookIcsUrl(icsUrl.trim());
-      addToast("ICS calendar link configured", "success");
+      await saveIcsUrl(icsUrl.trim()).unwrap();
+      dispatch(addToast("ICS calendar link configured", "success"));
       setShowSettings(false);
-      fetchOutlook();
     } catch {
-      addToast("Failed to configure ICS URL", "error");
+      dispatch(addToast("Failed to configure ICS URL", "error"));
     }
   };
 
   const handleClearConfig = async () => {
     try {
-      await api.clearOutlookConfig();
-      setOutlook({
-        events: [],
-        method: "none",
-        available: false,
-        message: "Disconnected",
-      });
-      addToast("Calendar config cleared", "info");
+      await removeConfig().unwrap();
+      dispatch(addToast("Calendar config cleared", "info"));
     } catch {
-      addToast("Failed to clear config", "error");
+      dispatch(addToast("Failed to clear config", "error"));
     }
   };
 
   const dayMap = new Map<string, { created: CalendarDayItem[]; modified: CalendarDayItem[] }>();
-  if (data) {
-    for (const day of data.days) {
+  if (calData) {
+    for (const day of calData.days) {
       if (day.created.length > 0 || day.modified.length > 0) {
         dayMap.set(day.date, { created: day.created, modified: day.modified });
       }
     }
   }
 
+  const outlookEvents = outlook?.events ?? [];
   const outlookMap = new Map<string, OutlookResponse["events"]>();
-  if (outlook?.events) {
-    for (const event of outlook.events) {
-      const day = event.start.slice(0, 10);
-      const existing = outlookMap.get(day) ?? [];
-      existing.push(event);
-      outlookMap.set(day, existing);
-    }
+  for (const event of outlookEvents) {
+    const day = event.start.slice(0, 10);
+    const existing = outlookMap.get(day) ?? [];
+    existing.push(event);
+    outlookMap.set(day, existing);
   }
 
   const numDays = daysInMonth(year, month);
@@ -197,7 +169,7 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Calendar</h1>
         <div className="flex items-center gap-2">
-          {outlook?.method !== "none" && outlook?.available && (
+          {outlook?.available && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
               ICS
             </span>
@@ -335,7 +307,7 @@ export default function CalendarPage() {
                       }`}
                     />
                   )}
-                  {hasOutlook && outlook?.available && (
+                  {hasOutlook && (
                     <span
                       className="inline-block w-2 h-2 rounded-full bg-purple-500"
                       title="Outlook events"
@@ -414,16 +386,14 @@ export default function CalendarPage() {
       {outlook && !outlook.available && (
         <div className="mt-6 flex flex-col items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {outlook.message ?? "Outlook integration not available"}
+            {outlook.message ?? "Calendar integration not available"}
           </p>
-          {outlook.needsConfig && (
-            <button
-              onClick={() => setShowSettings(true)}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-            >
-              Configure ICS Link
-            </button>
-          )}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+          >
+            Configure ICS Link
+          </button>
         </div>
       )}
 
@@ -441,7 +411,7 @@ export default function CalendarPage() {
 
             <div className="space-y-4">
               {/* Current connection info */}
-              {outlook?.available && outlook?.method === "ics" && (
+              {outlook?.available && (
                 <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <p className="text-sm text-green-700 dark:text-green-300 font-medium">
                     Connected via Outlook Web ICS link

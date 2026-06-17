@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { useLazySearchSuggestQuery } from "../store/redux/api";
 import type { SearchSuggestion } from "../types";
 
 export default function SearchBar() {
@@ -9,6 +9,7 @@ export default function SearchBar() {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const [searchSuggest] = useLazySearchSuggestQuery();
 
   useEffect(() => {
     if (query.trim().length === 0) {
@@ -17,8 +18,8 @@ export default function SearchBar() {
     }
     const timer = setTimeout(async () => {
       try {
-        const data = await api.searchSuggest(query);
-        setSuggestions(data);
+        const data = await searchSuggest(query).unwrap();
+        setSuggestions(data ?? []);
       } catch {
         // ignore
       }

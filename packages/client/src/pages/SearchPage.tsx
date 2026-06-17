@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
-import { useTagStore } from "../store/useTagStore";
+import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
 import type { Note, SortField, SortOrder } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 
@@ -60,11 +59,8 @@ export default function SearchPage() {
   const [results, setResults] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const { tags, fetchTags } = useTagStore();
-
-  useEffect(() => {
-    fetchTags();
-  }, [fetchTags]);
+  const { data: tags = [] } = useGetTagsQuery();
+  const [searchNotes] = useLazySearchNotesQuery();
 
   // Auto-search on mount if q param present
   useEffect(() => {
@@ -84,8 +80,8 @@ export default function SearchPage() {
     setLoading(true);
     setSearched(true);
     try {
-      const data = await api.searchNotes(q.trim(), { tag, sort, order });
-      setResults(data);
+      const data = await searchNotes({ q: q.trim(), tag, sort, order }).unwrap();
+      setResults(data ?? []);
     } catch {
       setResults([]);
     } finally {

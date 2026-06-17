@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { useLazyGetNoteByTitleQuery } from "../store/redux/api";
 import type { Note } from "../types";
 
 const POPOVER_DELAY = 400;
@@ -13,6 +13,7 @@ export default function NotePreviewPopover() {
   const currentTitleRef = useRef<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [getNoteByTitle] = useLazyGetNoteByTitleQuery();
 
   useEffect(() => {
     const handleMouseOver = (e: MouseEvent) => {
@@ -33,8 +34,8 @@ export default function NotePreviewPopover() {
       timerRef.current = setTimeout(async () => {
         if (currentTitleRef.current !== title) return;
         try {
-          const data = await api.getNoteByTitle(title);
-          if (currentTitleRef.current === title) {
+          const data = await getNoteByTitle(title).unwrap();
+          if (currentTitleRef.current === title && data) {
             setNote(data);
             setVisible(true);
           }

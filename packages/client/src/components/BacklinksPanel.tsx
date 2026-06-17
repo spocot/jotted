@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
-import type { Note } from "../types";
+import {
+  useGetNoteBacklinksQuery,
+  useGetNoteUnlinkedMentionsQuery,
+} from "../store/redux/api";
 
 interface BacklinksPanelProps {
   noteId: string;
@@ -10,27 +11,11 @@ interface BacklinksPanelProps {
 
 export default function BacklinksPanel({ noteId, noteTitle }: BacklinksPanelProps) {
   const navigate = useNavigate();
-  const [backlinks, setBacklinks] = useState<Note[]>([]);
-  const [unlinked, setUnlinked] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      api.getNoteBacklinks(noteId),
-      api.getNoteUnlinkedMentions(noteId),
-    ]).then(([bl, um]) => {
-      if (cancelled) return;
-      setBacklinks(bl);
-      setUnlinked(um);
-    }).catch(() => {
-      // ignore
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [noteId]);
+  const { data: backlinks = [], isLoading: loadingBacklinks } =
+    useGetNoteBacklinksQuery(noteId);
+  const { data: unlinked = [], isLoading: loadingUnlinked } =
+    useGetNoteUnlinkedMentionsQuery(noteId);
+  const loading = loadingBacklinks || loadingUnlinked;
 
   if (loading) {
     return (

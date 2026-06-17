@@ -5,15 +5,27 @@ import SearchBar from "./SearchBar";
 import ToastContainer from "./ToastContainer";
 import CommandPalette from "./CommandPalette";
 import NotePreviewPopover from "./NotePreviewPopover";
-import { useUIStore } from "../store/useUIStore";
+import { useAppDispatch, useAppSelector } from "../store/redux/hooks";
+import {
+  toggleSidebar,
+  toggleDarkMode as toggleDarkModeAction,
+  selectSidebarOpen,
+  selectDarkMode,
+} from "../store/redux/uiSlice";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { sidebarOpen, toggleSidebar, toggleDarkMode } = useUIStore();
+  const sidebarOpen = useAppSelector(selectSidebarOpen);
+  const darkMode = useAppSelector(selectDarkMode);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -31,7 +43,7 @@ export default function Layout({ children }: LayoutProps) {
       <header className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={toggleSidebar}
+            onClick={() => dispatch(toggleSidebar())}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           >
@@ -59,7 +71,7 @@ export default function Layout({ children }: LayoutProps) {
             Calendar
           </Link>
           <button
-            onClick={toggleDarkMode}
+            onClick={() => dispatch(toggleDarkModeAction())}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title="Toggle dark mode"
           >

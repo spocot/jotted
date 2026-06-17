@@ -125,22 +125,22 @@
 - [x] Merge ICS events into calendar view alongside note activity
 - [x] Graceful error handling when a sync fails (note-only fallback, error indicator)
 
-## Phase 15: Redux & RTK Query Migration 🔄
+## Phase 15: Redux & RTK Query Migration ✅
 
-- [ ] Install `@reduxjs/toolkit` and `react-redux`
-- [ ] Create Redux store (`store.ts`, `hooks.ts`) with `configureStore`
-- [ ] Create RTK Query API slice with `createApi` + `fetchBaseQuery` and full endpoint set
-- [ ] Define cache tag system: `Note`, `NoteList`, `Tag`, `TagList`, `Folder`, `Upload`, `Calendar`
-- [ ] Implement all query endpoints (GET) with `providesTags`
-- [ ] Implement all mutation endpoints (POST/PUT/DELETE) with `invalidatesTags`
-- [ ] Migrate `useNoteStore` → auto-generated query/mutation hooks
-- [ ] Migrate `useTagStore` → auto-generated query/mutation hooks
-- [ ] Keep `useToastStore` and `useUIStore` as Zustand (client-side only)
-- [ ] Wrap app in `<Provider store={store}>` in `main.tsx`
-- [ ] Remove `api/client.ts` and all direct API call imports
-- [ ] Remove manual race-condition guard (`selectVersion`), handled by RTK Query
-- [ ] Update test files for new store architecture
-- [ ] Run full type check (`tsc --noEmit`) and test suite (`vitest run`)
+- [x] Install `@reduxjs/toolkit` and `react-redux`
+- [x] Create Redux store (`store.ts`, `hooks.ts`) with `configureStore`
+- [x] Create RTK Query API slice with `createApi` + `fetchBaseQuery` and full endpoint set
+- [x] Define cache tag system: `Note`, `NoteList`, `Tag`, `TagList`, `Folder`, `Upload`, `Calendar`
+- [x] Implement all query endpoints (GET) with `providesTags`
+- [x] Implement all mutation endpoints (POST/PUT/DELETE) with `invalidatesTags`
+- [x] Migrate `useNoteStore` → auto-generated query/mutation hooks
+- [x] Migrate `useTagStore` → auto-generated query/mutation hooks
+- [x] Keep `useToastStore` and `useUIStore` as Zustand (client-side only)
+- [x] Wrap app in `<Provider store={store}>` in `main.tsx`
+- [x] Remove `api/client.ts` and all direct API call imports
+- [x] Remove manual race-condition guard (`selectVersion`), handled by RTK Query
+- [x] Update test files for new store architecture
+- [x] Run full type check (`tsc --noEmit`) and test suite (`vitest run`)
 
 ## Phase 16: Daily Notes / Journal ⬜
 
