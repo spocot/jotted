@@ -18,6 +18,7 @@ import {
 } from "../store/redux/uiSlice";
 import { addToast } from "../store/redux/toastSlice";
 import FolderTree from "./FolderTree";
+import Modal from "./Modal";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -32,6 +33,9 @@ export default function Sidebar() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [newFolderPath, setNewFolderPath] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [createError, setCreateError] = useState("");
 
   const {
     data: notes = [],
@@ -52,12 +56,41 @@ export default function Sidebar() {
     (n) => n.title.toLowerCase().includes(filter.toLowerCase()),
   );
 
-  const handleCreate = async () => {
-    const note = await createNote({
-      title: "Untitled",
-      path: activeFolder ?? undefined,
-    }).unwrap();
-    navigate(`/note/${note.id}`);
+  const handleCreate = () => {
+    setNewNoteTitle("");
+    setCreateError("");
+    setShowCreateModal(true);
+  };
+
+  const handleCreateFromModal = async () => {
+    const trimmed = newNoteTitle.trim();
+    if (!trimmed) return;
+
+    const conflict = notes.some(
+      (n) => n.title.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (conflict) {
+      setCreateError(`A note with the title "${trimmed}" already exists`);
+      return;
+    }
+
+    try {
+      const note = await createNote({
+        title: trimmed,
+        path: activeFolder ?? undefined,
+      }).unwrap();
+      setShowCreateModal(false);
+      navigate(`/note/${note.id}`);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const data = (err as { data?: string })?.data;
+      if (status === 409) {
+        setCreateError(data ?? `A note with the title "${trimmed}" already exists`);
+      } else {
+        setShowCreateModal(false);
+        dispatch(addToast("Failed to create note", "error"));
+      }
+    }
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -320,6 +353,49 @@ export default function Sidebar() {
         onMouseDown={handleMouseDown}
         className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500/50 transition-colors"
       />
+
+      <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Note">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateFromModal();
+          }}
+        >
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Note name
+          </label>
+          <input
+            type="text"
+            value={newNoteTitle}
+            onChange={(e) => {
+              setNewNoteTitle(e.target.value);
+              setCreateError("");
+            }}
+            placeholder="Enter note name..."
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+            autoFocus
+          />
+          {createError && (
+            <p className="mt-2 text-sm text-red-500">{createError}</p>
+          )}
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!newNoteTitle.trim()}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        </form>
+      </Modal>
     </aside>
   );
 }

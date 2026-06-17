@@ -4,7 +4,7 @@ import type { TagRepository } from "../db/tag-repository.js";
 import type { LinkRepository } from "../db/link-repository.js";
 import { parseContent } from "../parser/index.js";
 import { asyncHandler } from "../lib/async-handler.js";
-import { BadRequest, NotFound } from "../lib/errors.js";
+import { BadRequest, Conflict, NotFound } from "../lib/errors.js";
 
 export function createNotesRouter(
   noteRepo: NoteRepository,
@@ -139,6 +139,10 @@ export function createNotesRouter(
       if (!existing) throw new NotFound("Note not found");
 
       const { title, content, path } = req.body;
+
+      if (title !== undefined && title !== existing.title && noteRepo.titleExists(title, id)) {
+        throw new Conflict(`A note with the title "${title}" already exists`);
+      }
 
       const note = noteRepo.update(id, { title, content, path });
       if (!note) throw new NotFound("Note not found");

@@ -187,7 +187,14 @@ export default function NoteEditorPage() {
       updateNote({ id, payload: { title: value } })
         .unwrap()
         .then(() => setSaveStatus("saved"))
-        .catch(() => setSaveStatus("unsaved"));
+        .catch((err) => {
+          setSaveStatus("unsaved");
+          const status = (err as { status?: number })?.status;
+          const data = (err as { data?: string })?.data;
+          if (status === 409) {
+            dispatch(addToast(data ?? "A note with this title already exists", "error"));
+          }
+        });
     }, DEBOUNCE_MS);
   };
 

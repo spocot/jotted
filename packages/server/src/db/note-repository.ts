@@ -35,6 +35,8 @@ export class NoteRepository {
   private findContentContainingStmt: Database.Statement;
   private getByDateRangeStmt: Database.Statement;
   private getCreatedByDateRangeStmt: Database.Statement;
+  private titleExistsStmt: Database.Statement;
+  private titleExistsExcludeStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.insertNote = db.prepare(
@@ -69,6 +71,8 @@ export class NoteRepository {
     this.getCreatedByDateRangeStmt = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE date(updated_at) >= ? AND date(updated_at) <= ? ORDER BY updated_at ASC",
     );
+    this.titleExistsStmt = db.prepare("SELECT 1 FROM notes WHERE title = ?");
+    this.titleExistsExcludeStmt = db.prepare("SELECT 1 FROM notes WHERE title = ? AND id != ?");
   }
 
   getAll(): Note[] {
@@ -93,6 +97,13 @@ export class NoteRepository {
 
   getByTitle(title: string): Note | null {
     return (this.getNoteByTitle.get(title) as Note | null) ?? null;
+  }
+
+  titleExists(title: string, excludeId?: string): boolean {
+    if (excludeId) {
+      return !!this.titleExistsExcludeStmt.get(title, excludeId);
+    }
+    return !!this.titleExistsStmt.get(title);
   }
 
   create(payload: NoteCreatePayload): Note {
