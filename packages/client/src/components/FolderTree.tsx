@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { FolderNode, Note } from "../types";
 
+function folderHasMatchingNotes(node: FolderNode, notes: Note[]): boolean {
+  if (notes.some((n) => n.path === node.path)) return true;
+  return node.children.some((child) => folderHasMatchingNotes(child, notes));
+}
+
 function FolderItem({
   node,
   depth,
@@ -32,6 +37,8 @@ function FolderItem({
   const hasChildren = node.children.length > 0;
   const isActive = activeFolder === node.path;
   const folderNotes = notes.filter((n) => n.path === node.path);
+
+  if (!folderHasMatchingNotes(node, notes)) return null;
 
   const handleRename = async () => {
     const trimmed = renameValue.trim();
