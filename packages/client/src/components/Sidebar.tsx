@@ -35,13 +35,13 @@ export default function Sidebar() {
   const [newFolderPath, setNewFolderPath] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteFolder, setNewNoteFolder] = useState("/Unsorted");
   const [createError, setCreateError] = useState("");
 
   const {
-    data: notes = [],
+    data: allNotes = [],
     isLoading: loading,
   } = useGetNotesQuery({
-    folder: activeFolder ?? undefined,
     tag: activeTag ?? undefined,
   });
   const { data: tags = [] } = useGetTagsQuery();
@@ -52,12 +52,13 @@ export default function Sidebar() {
   const [renameFolder] = useRenameFolderMutation();
   const [deleteFolder] = useDeleteFolderMutation();
 
-  const filtered = notes.filter(
-    (n) => n.title.toLowerCase().includes(filter.toLowerCase()),
+  const filteredNotes = allNotes.filter((n) =>
+    n.title.toLowerCase().includes(filter.toLowerCase()),
   );
 
   const handleCreate = () => {
     setNewNoteTitle("");
+    setNewNoteFolder("/Unsorted");
     setCreateError("");
     setShowCreateModal(true);
   };
@@ -66,7 +67,7 @@ export default function Sidebar() {
     const trimmed = newNoteTitle.trim();
     if (!trimmed) return;
 
-    const conflict = notes.some(
+    const conflict = allNotes.some(
       (n) => n.title.toLowerCase() === trimmed.toLowerCase(),
     );
     if (conflict) {
@@ -77,7 +78,7 @@ export default function Sidebar() {
     try {
       const note = await createNote({
         title: trimmed,
-        path: activeFolder ?? undefined,
+        path: newNoteFolder,
       }).unwrap();
       setShowCreateModal(false);
       navigate(`/note/${note.id}`);
@@ -189,82 +190,29 @@ export default function Sidebar() {
       <div className="p-3 border-b border-gray-200 dark:border-gray-800">
         <input
           type="text"
-          placeholder="Filter notes..."
+          placeholder="Filter..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
         />
       </div>
 
+      {/* Folders section - main focus */}
       <div className="flex-1 overflow-y-auto">
-        {loading && notes.length === 0 && (
+        {loading && allNotes.length === 0 && (
           <div className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
             Loading...
           </div>
         )}
 
-        {!loading && filtered.length === 0 && (
+        {!loading && folders.length === 0 && filteredNotes.length === 0 && (
           <div className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-            {filter ? "No notes match filter" : "No notes yet"}
+            No notes yet
           </div>
         )}
 
-        {filtered.map((note) => (
-          <button
-            key={note.id}
-            onClick={() => navigate(`/note/${note.id}`)}
-            className={`w-full text-left px-3 py-2 text-sm border-b border-gray-100 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors group ${
-              location.pathname === `/note/${note.id}`
-                ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500"
-                : ""
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                {note.title || "Untitled"}
-                {backlinkCounts[note.id] > 0 && (
-                  <span
-                    className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0"
-                    title={`${backlinkCounts[note.id]} backlink${backlinkCounts[note.id] !== 1 ? "s" : ""}`}
-                  />
-                )}
-              </span>
-              <span
-                onClick={(e) => handleDelete(e, note.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 cursor-pointer transition-opacity shrink-0"
-                title="Delete note"
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleDelete(e as unknown as React.MouseEvent, note.id);
-                  }
-                }}
-              >
-                ×
-              </span>
-            </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              {note.path !== "/" && (
-                <span className="mr-2">{note.path}</span>
-              )}
-              {new Date(note.updatedAt).toLocaleDateString()}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Folders section */}
-      <div className="border-t border-gray-200 dark:border-gray-800">
-        <div className="px-3 py-2 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            Folders
-          </span>
-        </div>
-
         {/* New folder form */}
-        <form onSubmit={handleCreateFolder} className="px-3 pb-1">
+        <form onSubmit={handleCreateFolder} className="px-3 pt-2 pb-1">
           <div className="flex gap-1">
             <input
               type="text"
@@ -282,27 +230,24 @@ export default function Sidebar() {
           </div>
         </form>
 
-        <div className="pb-2 max-h-40 overflow-y-auto">
-          {folders.length === 0 && (
+        <div className="pb-2">
+          {folders.length === 0 && filteredNotes.length > 0 && (
             <div className="px-3 text-xs text-gray-400 dark:text-gray-500">
               No folders
             </div>
           )}
           <FolderTree
             folders={folders}
+            notes={filteredNotes}
             activeFolder={activeFolder}
             onSelectFolder={(path) => setActiveFolder(path)}
+            onSelectNote={(id) => navigate(`/note/${id}`)}
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
+            onDeleteNote={handleDelete}
+            backlinkCounts={backlinkCounts}
+            activeNoteId={location.pathname.startsWith("/note/") ? location.pathname.split("/note/")[1] : null}
           />
-          {activeFolder && (
-            <button
-              onClick={() => setActiveFolder(null)}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline mt-1 ml-3"
-            >
-              Clear folder filter
-            </button>
-          )}
         </div>
       </div>
 
@@ -344,7 +289,7 @@ export default function Sidebar() {
           onClick={handleCreate}
           className="w-full px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
         >
-          + New Note{activeFolder ? ` in ${activeFolder}` : ""}
+          + New Note
         </button>
       </div>
 
@@ -375,6 +320,18 @@ export default function Sidebar() {
             className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-400 dark:focus:border-blue-500"
             autoFocus
           />
+
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4 mb-2">
+            Folder
+          </label>
+          <input
+            type="text"
+            value={newNoteFolder}
+            onChange={(e) => setNewNoteFolder(e.target.value)}
+            placeholder="/Unsorted"
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+          />
+
           {createError && (
             <p className="mt-2 text-sm text-red-500">{createError}</p>
           )}

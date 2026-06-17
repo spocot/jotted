@@ -25,7 +25,7 @@ describe("NoteRepository", () => {
     expect(note.title).toBe("Test");
     expect(note.content).toBe("Hello");
     expect(note.id).toBeTruthy();
-    expect(note.path).toBe("/");
+    expect(note.path).toBe("/Unsorted");
   });
 
   it("retrieves a note by id", () => {

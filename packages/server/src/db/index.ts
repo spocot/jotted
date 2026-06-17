@@ -29,7 +29,7 @@ function initSchema(database: Database.Database): void {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL DEFAULT '',
       content TEXT NOT NULL DEFAULT '',
-      path TEXT NOT NULL DEFAULT '/',
+      path TEXT NOT NULL DEFAULT '/Unsorted',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -67,4 +67,7 @@ function initSchema(database: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Migrate existing notes at root path to /Unsorted
+  database.exec("UPDATE notes SET path = '/Unsorted' WHERE path = '/'");
 }

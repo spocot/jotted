@@ -1,34 +1,37 @@
 import { useState } from "react";
-import type { FolderNode } from "../types";
-
-interface FolderTreeProps {
-  folders: FolderNode[];
-  activeFolder: string | null;
-  onSelectFolder: (path: string | null) => void;
-  onRenameFolder: (oldPath: string, newName: string) => Promise<void>;
-  onDeleteFolder: (path: string) => Promise<void>;
-}
+import type { FolderNode, Note } from "../types";
 
 function FolderItem({
   node,
   depth,
   activeFolder,
   onSelectFolder,
+  onSelectNote,
   onRenameFolder,
   onDeleteFolder,
+  onDeleteNote,
+  backlinkCounts,
+  activeNoteId,
+  notes,
 }: {
   node: FolderNode;
   depth: number;
   activeFolder: string | null;
   onSelectFolder: (path: string | null) => void;
+  onSelectNote: (id: string) => void;
   onRenameFolder: (oldPath: string, newName: string) => Promise<void>;
   onDeleteFolder: (path: string) => Promise<void>;
+  onDeleteNote: (e: React.MouseEvent, id: string) => void;
+  backlinkCounts: Record<string, number>;
+  activeNoteId: string | null;
+  notes: Note[];
 }) {
   const [open, setOpen] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.name);
   const hasChildren = node.children.length > 0;
   const isActive = activeFolder === node.path;
+  const folderNotes = notes.filter((n) => n.path === node.path);
 
   const handleRename = async () => {
     const trimmed = renameValue.trim();
@@ -51,7 +54,7 @@ function FolderItem({
         style={{ paddingLeft: `${8 + depth * 16}px` }}
       >
         {/* Expand/collapse */}
-        {hasChildren ? (
+        {(hasChildren || folderNotes.length > 0) ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -141,7 +144,7 @@ function FolderItem({
       </div>
 
       {/* Children */}
-      {hasChildren && open && (
+      {open && (
         <div>
           {node.children.map((child) => (
             <FolderItem
@@ -150,9 +153,48 @@ function FolderItem({
               depth={depth + 1}
               activeFolder={activeFolder}
               onSelectFolder={onSelectFolder}
+              onSelectNote={onSelectNote}
               onRenameFolder={onRenameFolder}
               onDeleteFolder={onDeleteFolder}
+              onDeleteNote={onDeleteNote}
+              backlinkCounts={backlinkCounts}
+              activeNoteId={activeNoteId}
+              notes={notes}
             />
+          ))}
+
+          {/* Notes in this folder */}
+          {folderNotes.map((note) => (
+            <button
+              key={note.id}
+              onClick={() => onSelectNote(note.id)}
+              className={`w-full text-left pl-6 pr-2 py-1.5 text-sm flex items-center justify-between gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 group ${
+                activeNoteId === note.id
+                  ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500 text-blue-700 dark:text-blue-300"
+                  : "text-gray-700 dark:text-gray-300"
+              }`}
+              style={{ paddingLeft: `${16 + depth * 16}px` }}
+            >
+              <span className="truncate flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="truncate">{note.title || "Untitled"}</span>
+                {backlinkCounts[note.id] > 0 && (
+                  <span
+                    className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0"
+                    title={`${backlinkCounts[note.id]} backlink${backlinkCounts[note.id] !== 1 ? "s" : ""}`}
+                  />
+                )}
+              </span>
+              <span
+                onClick={(e) => onDeleteNote(e, note.id)}
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 cursor-pointer transition-opacity shrink-0"
+                title="Delete note"
+              >
+                ×
+              </span>
+            </button>
           ))}
         </div>
       )}
@@ -160,7 +202,20 @@ function FolderItem({
   );
 }
 
-export default function FolderTree(props: FolderTreeProps) {
+interface FolderTreeWrapperProps {
+  folders: FolderNode[];
+  notes: Note[];
+  activeFolder: string | null;
+  onSelectFolder: (path: string | null) => void;
+  onSelectNote: (id: string) => void;
+  onRenameFolder: (oldPath: string, newName: string) => Promise<void>;
+  onDeleteFolder: (path: string) => Promise<void>;
+  onDeleteNote: (e: React.MouseEvent, id: string) => void;
+  backlinkCounts: Record<string, number>;
+  activeNoteId: string | null;
+}
+
+export default function FolderTree(props: FolderTreeWrapperProps) {
   const { folders } = props;
 
   if (folders.length === 0) return null;

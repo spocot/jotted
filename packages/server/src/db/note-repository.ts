@@ -113,7 +113,7 @@ export class NoteRepository {
     const content = payload.content ?? "";
 
     const transaction = this.db.transaction(() => {
-      this.insertNote.run(id, title, content, payload.path ?? "/", now, now);
+      this.insertNote.run(id, title, content, payload.path ?? "/Unsorted", now, now);
       this.insertFts.run(id, title, content);
     });
     transaction();
