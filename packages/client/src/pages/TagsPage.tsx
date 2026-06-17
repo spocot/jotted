@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import {
   useGetTagsQuery,
   useGetTagNotesQuery,
@@ -7,6 +6,8 @@ import {
   useDeleteTagMutation,
 } from "../store/redux/api";
 import type { Tag } from "../types";
+import TagPill from "../components/TagPill";
+import NoteCard from "../components/NoteCard";
 
 export default function TagsPage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -90,17 +91,14 @@ export default function TagsPage() {
                 />
               </form>
             ) : (
-              <button
+              <TagPill
+                name={tag.name}
+                active={selectedTag === tag.name}
                 onClick={() => setSelectedTag(selectedTag === tag.name ? null : tag.name)}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-                  selectedTag === tag.name
-                    ? "bg-blue-600 text-white"
-                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40"
-                }`}
               >
                 #{tag.name}
                 <span className="ml-1 text-xs opacity-70">({tag.noteCount})</span>
-              </button>
+              </TagPill>
             )}
             {renaming !== tag.name && (
               <div className="absolute -top-1 -right-1 hidden group-hover:flex gap-0.5">
@@ -134,18 +132,7 @@ export default function TagsPage() {
           )}
           <div className="grid gap-2">
             {tagNotes.map((note) => (
-              <Link
-                key={note.id}
-                to={`/note/${note.id}`}
-                className="block p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-              >
-                <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                  {note.title || "Untitled"}
-                </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-                  {note.content || "No content"}
-                </p>
-              </Link>
+              <NoteCard key={note.id} note={note} />
             ))}
           </div>
         </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
 import type { Note, SortField, SortOrder } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
+import NoteCard from "../components/NoteCard";
+import TagPill from "../components/TagPill";
 
 const SNIPPET_WORDS = 30;
 
@@ -164,17 +166,12 @@ export default function SearchPage() {
             </span>
           )}
           {tags.map((tag) => (
-            <button
+            <TagPill
               key={tag.id}
+              name={tag.name}
+              active={tagParam === tag.name}
               onClick={() => handleTagFilter(tag.name)}
-              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                tagParam === tag.name
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40"
-              }`}
-            >
-              #{tag.name}
-            </button>
+            />
           ))}
           {tagParam && (
             <button
@@ -246,20 +243,16 @@ function SearchResultItem({ note, query }: { note: Note; query: string }) {
   );
 
   return (
-    <Link
-      to={`/note/${note.id}`}
-      className="block p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-    >
-      <h3 className="font-medium text-gray-900 dark:text-gray-100">
-        <HighlightedText text={note.title || "Untitled"} query={query} />
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">
-        <SnippetRenderer html={snippetHtml} />
-      </p>
-      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-        {new Date(note.updatedAt).toLocaleDateString()}
-      </div>
-    </Link>
+    <NoteCard
+      note={note}
+      title={<HighlightedText text={note.title || "Untitled"} query={query} />}
+      content={<SnippetRenderer html={snippetHtml} />}
+      footer={
+        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+          {new Date(note.updatedAt).toLocaleDateString()}
+        </div>
+      }
+    />
   );
 }
 
