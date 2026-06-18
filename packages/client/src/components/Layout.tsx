@@ -35,6 +35,11 @@ export default function Layout({ children }: LayoutProps) {
         e.preventDefault();
         navigate("/search");
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "t") {
+        e.preventDefault();
+        const today = new Date().toISOString().slice(0, 10);
+        navigate(`/note/by-date/${today}`);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -72,6 +77,19 @@ export default function Layout({ children }: LayoutProps) {
           <Link to="/calendar" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Calendar
           </Link>
+          <Link to="/journal" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
+            Journal
+          </Link>
+          <button
+            onClick={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              navigate(`/note/by-date/${today}`);
+            }}
+            className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors shrink-0"
+            title="Open today's daily note (Ctrl+Shift+T)"
+          >
+            Today
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"

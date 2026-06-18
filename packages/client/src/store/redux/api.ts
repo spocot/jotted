@@ -15,6 +15,7 @@ import type {
   OutlookResponse,
   OutlookStatus,
   PageResponse,
+  StreakInfo,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -176,6 +177,26 @@ export const apiSlice = createApi({
 
     searchSuggest: builder.query<SearchSuggestion[], string>({
       query: (q) => `/search/suggest?q=${encodeURIComponent(q)}`,
+    }),
+
+    // ---- Daily Notes / Journal ----
+    getDailyNotes: builder.query<
+      PageResponse<Note>,
+      { limit?: number; offset?: number } | void
+    >({
+      query: (params) => {
+        const sp = new URLSearchParams();
+        if (params?.limit) sp.set("limit", String(params.limit));
+        if (params?.offset) sp.set("offset", String(params.offset));
+        const qs = sp.toString();
+        return `/notes/daily${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: ["NoteList"],
+    }),
+
+    getDailyStreak: builder.query<StreakInfo, void>({
+      query: () => "/notes/daily/streak",
+      providesTags: ["NoteList"],
     }),
 
     // ---- Tags ----
@@ -395,4 +416,7 @@ export const {
   useGetOutlookStatusQuery,
   useConfigureOutlookIcsUrlMutation,
   useClearOutlookConfigMutation,
+  useGetDailyNotesQuery,
+  useLazyGetDailyNotesQuery,
+  useGetDailyStreakQuery,
 } = apiSlice;

@@ -66,6 +66,23 @@ export function createNotesRouter(
   );
 
   router.get(
+    "/daily/streak",
+    asyncHandler(async (_req, res) => {
+      res.json({ streak: noteRepo.getDailyStreak() });
+    }),
+  );
+
+  router.get(
+    "/daily",
+    asyncHandler(async (req, res) => {
+      const limit = clampLimit(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const result = noteRepo.getDailyNotes(limit, offset);
+      res.json(result);
+    }),
+  );
+
+  router.get(
     "/by-title/:title",
     asyncHandler(async (req, res) => {
       const title = req.params.title as string;

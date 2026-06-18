@@ -47,6 +47,8 @@ export class NoteRepository {
   private getCreatedByDateRangeStmt: Database.Statement;
   private titleExistsStmt: Database.Statement;
   private titleExistsExcludeStmt: Database.Statement;
+  private dailyNotesStmt: Database.Statement;
+  private dailyNotesCountStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.insertNote = db.prepare(
@@ -80,6 +82,12 @@ export class NoteRepository {
     );
     this.titleExistsStmt = db.prepare("SELECT 1 FROM notes WHERE title = ?");
     this.titleExistsExcludeStmt = db.prepare("SELECT 1 FROM notes WHERE title = ? AND id != ?");
+    this.dailyNotesStmt = db.prepare(
+      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' ORDER BY title DESC LIMIT ? OFFSET ?",
+    );
+    this.dailyNotesCountStmt = db.prepare(
+      "SELECT COUNT(*) AS count FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'",
+    );
   }
 
   list(params: NoteListParams): PageResponse<Note> {
@@ -164,6 +172,37 @@ export class NoteRepository {
       return !!this.titleExistsExcludeStmt.get(title, excludeId);
     }
     return !!this.titleExistsStmt.get(title);
+  }
+
+  getDailyNotes(limit: number, offset: number): PageResponse<Note> {
+    const items = this.dailyNotesStmt.all(limit, offset) as Note[];
+    const countRow = this.dailyNotesCountStmt.get() as { count: number };
+    return buildPageResponse(items, countRow.count, limit, offset);
+  }
+
+  getDailyStreak(): number {
+    const titles = this.db
+      .prepare(
+        "SELECT title FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' ORDER BY title DESC",
+      )
+      .all() as { title: string }[];
+
+    const today = new Date().toISOString().slice(0, 10);
+    let streak = 0;
+    let expected = today;
+
+    for (const row of titles) {
+      if (row.title === expected) {
+        streak++;
+        const d = new Date(expected);
+        d.setDate(d.getDate() - 1);
+        expected = d.toISOString().slice(0, 10);
+      } else if (row.title < expected) {
+        break;
+      }
+    }
+
+    return streak;
   }
 
   create(payload: NoteCreatePayload): Note {

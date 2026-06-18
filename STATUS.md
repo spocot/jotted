@@ -154,14 +154,14 @@
 - [x] GitHub Actions workflow: build client → deploy to GitHub Pages
 - [x] Documentation in README.md for the deployment model
 
-## Phase 17: Daily Notes / Journal ⬜
+## Phase 17: Daily Notes / Journal ✅
 
-- [ ] "Open Today" button + keyboard shortcut
-- [ ] Auto-create daily note with `YYYY-MM-DD` title
-- [ ] Journal page (`/journal`) — reverse-chronological timeline
-- [ ] Daily note template with date/day/tasks structure
-- [ ] Calendar integration: date click opens daily note
-- [ ] Streak counter (consecutive days with a daily note)
+- [x] "Open Today" button in header + keyboard shortcut (Ctrl+Shift+T)
+- [x] Auto-create daily note with `YYYY-MM-DD` title (via `/note/by-date/:date`)
+- [x] Journal page (`/journal`) — reverse-chronological timeline grouped by month
+- [x] Daily note template with date, day of week, "## Tasks" / "## Notes" structure
+- [x] Calendar integration: date click opens daily note via `/note/by-date/:date`
+- [x] Streak counter (consecutive days with a daily note) — displayed in Journal header
 
 ## Phase 18: Note Version History ⬜
 

@@ -7,10 +7,25 @@ import SearchPage from "./pages/SearchPage";
 import GraphPage from "./pages/GraphPage";
 import TagsPage from "./pages/TagsPage";
 import CalendarPage from "./pages/CalendarPage";
+import DailyJournalPage from "./pages/DailyJournalPage";
 import {
   useLazyGetNoteByTitleQuery,
   useCreateNoteMutation,
 } from "./store/redux/api";
+
+function getDailyTemplate(date: string): string {
+  const d = new Date(date + "T12:00:00");
+  const dayOfWeek = d.toLocaleDateString("en-US", { weekday: "long" });
+  return `# ${date} (${dayOfWeek})
+
+## Tasks
+
+- [ ]
+
+## Notes
+
+`;
+}
 
 function NoteByDateRedirect() {
   const { date } = useParams<{ date: string }>();
@@ -35,7 +50,8 @@ function NoteByDateRedirect() {
       })
       .catch(async () => {
         try {
-          const note = await createNote({ title: date }).unwrap();
+          const content = getDailyTemplate(date);
+          const note = await createNote({ title: date, content }).unwrap();
           navigate(`/note/${note.id}`, { replace: true });
         } catch {
           navigate("/", { replace: true });
@@ -57,6 +73,7 @@ export default function App() {
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/journal" element={<DailyJournalPage />} />
       </Routes>
     </Layout>
   );

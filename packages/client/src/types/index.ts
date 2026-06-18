@@ -136,3 +136,7 @@ export interface OutlookStatus {
   hasIcsUrl: boolean;
   icsUrl?: string;
 }
+
+export interface StreakInfo {
+  streak: number;
+}

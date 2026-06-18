@@ -9,7 +9,6 @@ import {
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import CalendarDayPanel from "../components/CalendarDayPanel";
 import type { OutlookResponse, CalendarDayItem } from "../types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -41,7 +40,6 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [viewMode, setViewMode] = useState<"all" | "created" | "modified">("all");
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [icsUrl, setIcsUrl] = useState("");
   const navigate = useNavigate();
@@ -95,7 +93,7 @@ export default function CalendarPage() {
   };
 
   const handleDayClick = (dateStr: string) => {
-    setSelectedDay((prev) => (prev === dateStr ? null : dateStr));
+    navigate(`/note/by-date/${dateStr}`);
   };
 
   const handleConfigureIcsUrl = async () => {
@@ -403,16 +401,6 @@ export default function CalendarPage() {
         <div className="mt-4 text-sm text-gray-400 dark:text-gray-500 text-center">
           Loading calendar data...
         </div>
-      )}
-
-      {selectedDay && (
-        <CalendarDayPanel
-          dateStr={selectedDay}
-          created={dayMap.get(selectedDay)?.created ?? []}
-          modified={dayMap.get(selectedDay)?.modified ?? []}
-          outlookEvents={outlookMap.get(selectedDay) ?? []}
-          onClose={() => setSelectedDay(null)}
-        />
       )}
 
       {/* Settings modal */}
