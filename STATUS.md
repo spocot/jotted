@@ -142,7 +142,19 @@
 - [x] Update test files for new store architecture
 - [x] Run full type check (`tsc --noEmit`) and test suite (`vitest run`)
 
-## Phase 16: Daily Notes / Journal ⬜
+## Phase 16: Remote Client / Docker Server Deployment ⬜
+
+- [ ] Dockerfile for server (multi-stage, Alpine, native better-sqlite3 build)
+- [ ] Server env vars: `PORT`, `HOST`, `DB_PATH`, `UPLOADS_DIR`
+- [ ] Client runtime server URL config (localStorage-backed `server-config.ts`)
+- [ ] Dynamic base URL in RTK Query (reads from config on every request)
+- [ ] Settings modal for server URL configuration (input + test connection)
+- [ ] Fix upload image URLs to use absolute paths
+- [ ] Settings button in app header
+- [ ] GitHub Actions workflow: build client → deploy to GitHub Pages
+- [ ] Documentation in README.md for the deployment model
+
+## Phase 17: Daily Notes / Journal ⬜
 
 - [ ] "Open Today" button + keyboard shortcut
 - [ ] Auto-create daily note with `YYYY-MM-DD` title
@@ -151,7 +163,7 @@
 - [ ] Calendar integration: date click opens daily note
 - [ ] Streak counter (consecutive days with a daily note)
 
-## Phase 17: Note Version History ⬜
+## Phase 18: Note Version History ⬜
 
 - [ ] `note_versions` table with content snapshots
 - [ ] Auto-snapshot on every note save
@@ -161,7 +173,7 @@
 - [ ] Side-by-side or unified diff viewer
 - [ ] Restore with confirmation dialog
 
-## Phase 18: Mind Map / Canvas View ⬜
+## Phase 19: Mind Map / Canvas View ⬜
 
 - [ ] `canvases` and `canvas_items` tables
 - [ ] Infinite canvas with drag-to-position items
@@ -172,7 +184,7 @@
 - [ ] Multiple canvases with sidebar list
 - [ ] Export canvas as PNG/SVG
 
-## Phase 19: DataView / Query Engine ⬜
+## Phase 20: DataView / Query Engine ⬜
 
 - [ ] TipTap extension rendering `dataview` code blocks as live tables/lists
 - [ ] Query DSL: `LIST`, `TABLE`, sources (`#tag`, `"folder"`), conditions, sorting
@@ -181,7 +193,7 @@
 - [ ] Auto-refresh and manual refresh button
 - [ ] Code block language picker includes `dataview`
 
-## Phase 20: Reminders & Alerts ⬜
+## Phase 21: Reminders & Alerts ⬜
 
 - [ ] `reminders` table with note_id, remind_at, done flag
 - [ ] Backend CRUD for reminders
@@ -191,14 +203,14 @@
 - [ ] Reminder picker UI in note editor (datetime picker)
 - [ ] Calendar integration: reminder indicators on calendar days
 
-## Phase 21: Testing & Hardening (New Features) ⬜
+## Phase 22: Testing & Hardening (New Features) ⬜
 
 - [ ] Unit tests for all new repositories and API handlers
 - [ ] Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView, ReminderPicker
 - [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
 - [ ] Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits, timezone handling
 
-## Phase 22: Note Templates ⬜
+## Phase 23: Note Templates ⬜
 
 - [ ] Server CRUD for templates
 - [ ] Template picker on new-note creation
@@ -206,7 +218,7 @@
 - [ ] "Save as template" action from editor
 - [ ] Template variables: `{{date}}`, `{{title}}`
 
-## Phase 23: Export / Import ⬜
+## Phase 24: Export / Import ⬜
 
 - [ ] Export single note as Markdown
 - [ ] Export all notes as ZIP of `.md` files
@@ -214,9 +226,10 @@
 - [ ] Obsidian vault import (folder structure, wikilinks, tags)
 - [ ] Export as PDF (browser print)
 
-## Phase 24: Code Syntax Highlighting ⬜
+## Phase 25: Code Syntax Highlighting ⬜
 
 - [ ] Add highlight.js or Shiki
 - [ ] TipTap extension for code block highlighting
 - [ ] Language selector
 - [ ] Copy-to-clipboard button
+

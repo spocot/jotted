@@ -54,6 +54,54 @@ packages/
     └── package.json
 ```
 
+## Deployment
+
+Jotted uses a **split deployment model**: the client UI is hosted on a public URL (e.g., GitHub Pages), while the server runs locally on your machine via Docker. Your data stays on your machine — the client never sends notes to any remote server.
+
+### Running the Server (Docker)
+
+```bash
+docker run -d \
+  --name jotted-server \
+  -p 3000:3000 \
+  -v $(pwd)/jotted-data:/data \
+  ghcr.io/<your-org>/jotted-server:latest
+```
+
+The server stores the SQLite database and uploaded files in the mounted `/data` directory. Customize with environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3000` | Server port |
+| `HOST` | `0.0.0.0` | Bind address |
+| `DB_PATH` | `/data/jotted.db` | SQLite database path |
+| `UPLOADS_DIR` | `/data/uploads` | File upload directory |
+
+### Deploying the Client (GitHub Pages)
+
+1. Fork the repository
+2. Go to **Settings → Pages** and set source to **GitHub Actions**
+3. The included workflow (`.github/workflows/deploy-client.yml`) builds and deploys on every push to `main`
+4. Your client will be available at `https://<username>.github.io/jotted`
+
+### Connecting Client to Server
+
+1. Open the deployed client in your browser
+2. Click the **Settings** (gear) icon in the header
+3. The server URL defaults to `http://localhost:3000` — this works if you're running the Docker container on the same machine
+4. Click **Test Connection** to verify, then **Save**
+5. If you change the port or run the server on a different machine, update the URL accordingly
+
+> **Note:** GitHub Pages serves over HTTPS, but all modern browsers allow `http://localhost` requests from HTTPS pages as a security exception for local development tools.
+
+### Building from Source
+
+```bash
+npm install
+npm run build
+npm run dev   # Dev mode: client :5173, server :3000
+```
+
 ## Development Plan
 
 See [PLAN.md](PLAN.md) for the full implementation roadmap.

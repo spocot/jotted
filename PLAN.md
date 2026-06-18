@@ -240,7 +240,19 @@ jotted/
 - Update test files: migrate store-dependent tests to use `setupApiStore` test helper or mock RTK Query hooks
 - Run `npx -w packages/client tsc --noEmit` and `npm run test -w packages/client` to verify no regressions
 
-### Phase 16: Daily Notes / Journal
+### Phase 16: Remote Client / Docker Server Deployment
+
+- Deploy client as a static SPA on GitHub Pages (or any static host)
+- Package server as a Docker container for users to run locally
+- Runtime-configurable server URL in the client (settings UI + localStorage)
+- Dynamic base URL in RTK Query so API calls go to the user's local server
+- Fix upload image URLs to use absolute paths (prefixed with configured server URL)
+- Server reads PORT/HOST/DB_PATH/UPLOADS_DIR from environment variables
+- GitHub Actions workflow to build client and deploy to GitHub Pages on push to main
+- CORS: server's existing `app.use(cors())` already allows all origins, no change needed
+- Mixed-content note: GitHub Pages serves HTTPS, but modern browsers allow `http://localhost` from HTTPS pages as a special case
+
+### Phase 17: Daily Notes / Journal
 
 - "Open Today" button in the header and keyboard shortcut — opens or creates a note with title `YYYY-MM-DD`
 - Journal page at `/journal` — a reverse-chronological timeline of daily notes
@@ -249,7 +261,7 @@ jotted/
 - Calendar integration: clicking a date on the calendar opens the daily note for that day
 - Streak counter (consecutive days with a daily note)
 
-### Phase 17: Note Version History
+### Phase 18: Note Version History
 
 - New `note_versions` table: `id, note_id, content, title, created_at` — stores a snapshot on each save
 - Server-side: on every note update, insert a version row (cheap — text snapshots)
@@ -261,7 +273,7 @@ jotted/
 - Side-by-side or unified diff view between selected versions
 - "Restore" button with confirmation dialog
 
-### Phase 18: Mind Map / Canvas View
+### Phase 19: Mind Map / Canvas View
 
 - New route `/canvas` with a free-form infinite canvas
 - New `canvases` table: `id, title, data (JSON)`, and `canvas_items` table: `id, canvas_id, note_id (nullable), x, y, width, height, color, text, type`
@@ -274,7 +286,7 @@ jotted/
 - Multiple canvases with a sidebar list to switch between them
 - Export canvas as PNG/SVG
 
-### Phase 19: DataView / Query Engine
+### Phase 20: DataView / Query Engine
 
 - Custom TipTap extension that renders `dataview` code blocks as live interactive tables/lists
 - Query DSL (simple, not full SQL):
@@ -287,7 +299,7 @@ jotted/
 - Auto-refresh on note open; manual refresh button
 - Editor integration: code block language picker includes `dataview`
 
-### Phase 20: Reminders & Alerts
+### Phase 21: Reminders & Alerts
 
 - New `reminders` table: `id, note_id, remind_at (datetime), title, done (boolean), created_at`
 - Backend CRUD: `POST /api/notes/:id/reminders`, `GET /api/reminders` (due soon), `PUT /api/reminders/:id/done`, `DELETE /api/reminders/:id`
@@ -298,14 +310,14 @@ jotted/
 - Reminder picker UI in the note editor: datetime picker in a context menu or footer bar
 - Calendar integration: reminder indicators (bell icon) on days in the calendar view
 
-### Phase 21: Testing & Hardening (New Features)
+### Phase 22: Testing & Hardening (New Features)
 
 - Unit tests for all new repositories and API handlers (calendar, versions, canvases, dataview query parser, reminders)
 - Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView blocks, ReminderPicker
 - E2E: full calendar workflow, version restore flow, canvas create/edit/export, dataview rendering
 - Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits (oldest purge), reminder timezone handling
 
-### Phase 22: Note Templates
+### Phase 23: Note Templates
 
 - Server CRUD for templates
 - Template picker on new-note creation
@@ -313,7 +325,7 @@ jotted/
 - "Save as template" action from editor
 - Template variables: `{{date}}`, `{{title}}`
 
-### Phase 23: Export / Import
+### Phase 24: Export / Import
 
 - Export single note as Markdown
 - Export all notes as ZIP of `.md` files
@@ -321,7 +333,7 @@ jotted/
 - Obsidian vault import (folder structure, wikilinks, tags)
 - Export as PDF (browser print)
 
-### Phase 24: Code Syntax Highlighting
+### Phase 25: Code Syntax Highlighting
 
 - Add highlight.js or Shiki
 - TipTap extension for code block highlighting
