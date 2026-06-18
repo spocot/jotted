@@ -94,7 +94,7 @@ export default function Sidebar() {
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name = newFolderPath.trim();
+    const name = newFolderPath.trim().replace(/^\/+|\/+$/g, "");
     if (!name) return;
     const folderPath = activeFolder
       ? `${activeFolder}/${name}`

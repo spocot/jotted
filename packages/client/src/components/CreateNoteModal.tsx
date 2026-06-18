@@ -38,10 +38,12 @@ export default function CreateNoteModal({
       return;
     }
 
+    const normalizedFolder = folder.startsWith("/") ? folder : `/${folder}`;
+
     try {
       const note = await createNote({
         title: trimmed,
-        path: folder,
+        path: normalizedFolder,
       }).unwrap();
       onCreated(note);
     } catch (err) {

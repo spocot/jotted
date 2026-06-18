@@ -53,6 +53,10 @@ export function createNotesRouter(
         throw new BadRequest("title or content is required");
       }
 
+      if (path !== undefined && (typeof path !== "string" || !path.startsWith("/"))) {
+        throw new BadRequest("path must be a string starting with /");
+      }
+
       const note = noteRepo.create({ title, content, path });
       syncNoteRelations(note.id, content ?? "", noteRepo, tagRepo, linkRepo);
 
@@ -142,6 +146,10 @@ export function createNotesRouter(
 
       if (title !== undefined && title !== existing.title && noteRepo.titleExists(title, id)) {
         throw new Conflict(`A note with the title "${title}" already exists`);
+      }
+
+      if (path !== undefined && (typeof path !== "string" || !path.startsWith("/"))) {
+        throw new BadRequest("path must be a string starting with /");
       }
 
       const note = noteRepo.update(id, { title, content, path });
