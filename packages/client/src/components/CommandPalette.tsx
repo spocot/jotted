@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGetNotesQuery } from "../store/redux/api";
+import { useLazySearchSuggestQuery } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { toggleDarkMode } from "../store/redux/uiSlice";
 
@@ -16,8 +16,9 @@ export default function CommandPalette() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { data: allNotes = [] } = useGetNotesQuery();
   const dispatch = useAppDispatch();
+  const [trigger] = useLazySearchSuggestQuery();
+  const [suggestions, setSuggestions] = useState<{ id: string; title: string }[]>([]);
 
   const commands: Command[] = [
     {
@@ -56,13 +57,26 @@ export default function CommandPalette() {
       shortcut: "",
       action: () => dispatch(toggleDarkMode()),
     },
-    ...allNotes.slice(0, 10).map((note) => ({
-      id: `note-${note.id}`,
-      label: `Open: ${note.title || "Untitled"}`,
+    ...suggestions.map((s) => ({
+      id: `note-${s.id}`,
+      label: `Open: ${s.title || "Untitled"}`,
       shortcut: "",
-      action: () => navigate(`/note/${note.id}`),
+      action: () => navigate(`/note/${s.id}`),
     })),
   ];
+
+  // Fetch suggestions when query changes
+  useEffect(() => {
+    if (query.trim()) {
+      trigger(query.trim()).then((result) => {
+        if (result.data) {
+          setSuggestions(result.data.slice(0, 10));
+        }
+      });
+    } else {
+      setSuggestions([]);
+    }
+  }, [query, trigger]);
 
   const filtered = query.trim()
     ? commands.filter((c) =>

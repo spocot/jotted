@@ -4,6 +4,11 @@ import type { LinkRepository } from "../db/link-repository.js";
 import type { TagRepository } from "../db/tag-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { NotFound } from "../lib/errors.js";
+import {
+  clampLimit,
+  GRAPH_DEFAULT_LIMIT,
+  GRAPH_MAX_LIMIT,
+} from "../lib/pagination.js";
 
 function attachTags(
   nodes: { id: string; title: string; path: string }[],
@@ -22,16 +27,29 @@ export function createGraphRouter(
 
   router.get(
     "/",
-    asyncHandler(async (_req, res) => {
-      const notes = noteRepo.getAll();
-      const links = linkRepo.getAllLinks();
+    asyncHandler(async (req, res) => {
+      const limit = clampLimit(req.query.limit, GRAPH_DEFAULT_LIMIT, GRAPH_MAX_LIMIT);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+
+      const result = noteRepo.list({ limit, offset });
+      const notes = result.items;
 
       const nodes = attachTags(
         notes.map((n) => ({ id: n.id, title: n.title, path: n.path })),
         tagRepo,
       );
 
-      res.json({ nodes, links });
+      const nodeIds = new Set(notes.map((n) => n.id));
+      const links = linkRepo.getAllLinks().filter(
+        (l) => nodeIds.has(l.sourceId) && nodeIds.has(l.targetId),
+      );
+
+      res.json({
+        nodes,
+        links,
+        total: result.total,
+        hasMore: result.hasMore,
+      });
     }),
   );
 
@@ -42,21 +60,18 @@ export function createGraphRouter(
       const note = noteRepo.getById(id);
       if (!note) throw new NotFound("Note not found");
 
-      const allLinks = linkRepo.getAllLinks();
+      const connectedLinks = linkRepo.getLinksForNote(id);
       const connectedIds = new Set<string>([note.id]);
-
-      for (const link of allLinks) {
-        if (link.sourceId === note.id) connectedIds.add(link.targetId);
-        if (link.targetId === note.id) connectedIds.add(link.sourceId);
+      for (const link of connectedLinks) {
+        connectedIds.add(link.sourceId);
+        connectedIds.add(link.targetId);
       }
 
-      const edges = allLinks.filter(
-        (l) => connectedIds.has(l.sourceId) && connectedIds.has(l.targetId),
-      );
+      const edges = connectedLinks;
 
       const nodes = attachTags(
         [...connectedIds]
-          .map((id) => noteRepo.getById(id))
+          .map((nid) => noteRepo.getById(nid))
           .filter((n): n is NonNullable<typeof n> => n !== null)
           .map((n) => ({ id: n.id, title: n.title, path: n.path })),
         tagRepo,

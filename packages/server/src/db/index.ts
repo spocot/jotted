@@ -70,4 +70,13 @@ function initSchema(database: Database.Database): void {
 
   // Migrate existing notes at root path to /Unsorted
   database.exec("UPDATE notes SET path = '/Unsorted' WHERE path = '/'");
+
+  // Performance indexes for pagination, filtering, and sorting
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notes_path ON notes(path);
+    CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id ON note_tags(tag_id, note_id);
+    CREATE INDEX IF NOT EXISTS idx_links_target_id ON links(target_id, source_id);
+    CREATE INDEX IF NOT EXISTS idx_links_source_id ON links(source_id, target_id);
+  `);
 }

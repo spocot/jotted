@@ -1,12 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  useGetNotesQuery,
   useCreateNoteMutation,
   useDeleteNoteMutation,
   useGetTagsQuery,
   useGetFoldersQuery,
-  useGetBacklinkCountsQuery,
   useRenameFolderMutation,
   useDeleteFolderMutation,
 } from "../store/redux/api";
@@ -30,32 +28,19 @@ export default function Sidebar() {
   const dragRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
-  const [filter, setFilter] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [newFolderPath, setNewFolderPath] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const {
-    data: allNotes = [],
-    isLoading: loading,
-  } = useGetNotesQuery({
-    tag: activeTag ?? undefined,
-  });
   const { data: tags = [] } = useGetTagsQuery();
   const { data: folders = [] } = useGetFoldersQuery();
-  const { data: backlinkCounts = {} } = useGetBacklinkCountsQuery();
   const [createNote] = useCreateNoteMutation();
   const [deleteNote] = useDeleteNoteMutation();
   const [renameFolder] = useRenameFolderMutation();
   const [deleteFolder] = useDeleteFolderMutation();
 
-  const filteredNotes = allNotes.filter((n) =>
-    n.title.toLowerCase().includes(filter.toLowerCase()),
-  );
-
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const handleDelete = async (id: string) => {
     if (!confirm("Delete this note?")) return;
     try {
       await deleteNote(id).unwrap();
@@ -147,27 +132,10 @@ export default function Sidebar() {
       className="border-r border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-900 shrink-0 relative"
       style={{ width: sidebarWidth }}
     >
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800">
-        <input
-          type="text"
-          placeholder="Filter..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-        />
-      </div>
-
-      {/* Folders section - main focus */}
       <div className="flex-1 overflow-y-auto">
-        {loading && allNotes.length === 0 && (
+        {folders.length === 0 && (
           <div className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-            Loading...
-          </div>
-        )}
-
-        {!loading && folders.length === 0 && filteredNotes.length === 0 && (
-          <div className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-            No notes yet
+            No folders yet
           </div>
         )}
 
@@ -191,21 +159,19 @@ export default function Sidebar() {
         </form>
 
         <div className="pb-2">
-          {folders.length === 0 && filteredNotes.length > 0 && (
+          {folders.length === 0 && (
             <div className="px-3 text-xs text-gray-400 dark:text-gray-500">
               No folders
             </div>
           )}
           <FolderTree
             folders={folders}
-            notes={filteredNotes}
             activeFolder={activeFolder}
             onSelectFolder={(path) => setActiveFolder(path)}
             onSelectNote={(id) => navigate(`/note/${id}`)}
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
             onDeleteNote={handleDelete}
-            backlinkCounts={backlinkCounts}
             activeNoteId={location.pathname.startsWith("/note/") ? location.pathname.split("/note/")[1] : null}
           />
         </div>
@@ -261,7 +227,7 @@ export default function Sidebar() {
           setShowCreateModal(false);
           navigate(`/note/${note.id}`);
         }}
-        existingTitles={allNotes.map((n) => n.title)}
+        existingTitles={[]}
       />
     </aside>
   );

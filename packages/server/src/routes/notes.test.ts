@@ -41,7 +41,9 @@ describe("GET /api/notes", () => {
     const { app } = createApp();
     const res = await request(app).get("/api/notes");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.items).toEqual([]);
+    expect(res.body.total).toBe(0);
+    expect(res.body.hasMore).toBe(false);
   });
 
   it("returns created notes", async () => {
@@ -49,8 +51,9 @@ describe("GET /api/notes", () => {
     noteRepo.create({ title: "Test" });
     const res = await request(app).get("/api/notes");
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(1);
-    expect(res.body[0].title).toBe("Test");
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].title).toBe("Test");
+    expect(res.body.total).toBe(1);
   });
 });
 

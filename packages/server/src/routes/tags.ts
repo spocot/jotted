@@ -2,11 +2,12 @@ import { Router } from "express";
 import type { TagRepository } from "../db/tag-repository.js";
 import type { NoteRepository } from "../db/note-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
-import { BadRequest, NotFound } from "../lib/errors.js";
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { NotFound } from "../lib/errors.js";
+import {
+  clampLimit,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from "../lib/pagination.js";
 
 export function createTagsRouter(
   tagRepo: TagRepository,
@@ -29,54 +30,42 @@ export function createTagsRouter(
       const tag = tagRepo.getByName(name);
       if (!tag) throw new NotFound("Tag not found");
 
-      const noteIds = tagRepo.getNoteIdsForTag(tag.id);
-      const notes = noteIds
-        .map((id) => noteRepo.getById(id))
-        .filter((n): n is NonNullable<typeof n> => n !== null);
+      const limit = clampLimit(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const result = tagRepo.getNotesForTag(tag.id, limit, offset);
 
-      res.json(notes);
+      res.json(result);
     }),
   );
 
   router.put(
     "/:name",
     asyncHandler(async (req, res) => {
-      const oldName = req.params.name as string;
-      const { name: newName } = req.body;
-
-      if (!newName || typeof newName !== "string" || !newName.trim()) {
-        throw new BadRequest("New tag name is required");
-      }
-
-      const tag = tagRepo.getByName(oldName);
+      const name = req.params.name as string;
+      const tag = tagRepo.getByName(name);
       if (!tag) throw new NotFound("Tag not found");
 
-      const existing = tagRepo.getByName(newName.trim());
-      if (existing && existing.id !== tag.id) {
-        throw new BadRequest("A tag with that name already exists");
+      const { name: newName } = req.body;
+      if (!newName || typeof newName !== "string" || !newName.trim()) {
+        throw new NotFound("New name is required");
       }
 
       tagRepo.rename(tag.id, newName.trim());
 
-      // Rewrite #oldName → #newName in all affected notes' content
-      const noteIds = tagRepo.getNoteIdsForTag(tag.id);
-      const oldTagRegex = new RegExp(
-        `(?<=^|\\s)#${escapeRegex(oldName)}(?=[\\s.,;:!?]|$)`,
-        "g",
-      );
-
-      for (const noteId of noteIds) {
-        const note = noteRepo.getById(noteId);
-        if (!note) continue;
-
-        const newContent = note.content.replace(oldTagRegex, `#${newName.trim()}`);
-        if (newContent !== note.content) {
-          noteRepo.update(noteId, { content: newContent });
+      // Update tag references in note content — replace old #tag with new #tag
+      const { getNotesForTag } = tagRepo;
+      const notes = getNotesForTag(tag.id, 10000, 0).items;
+      for (const note of notes) {
+        const updatedContent = note.content.replace(
+          new RegExp(`#${escapeRegex(name)}(?!\\w)`, "g"),
+          `#${newName.trim()}`,
+        );
+        if (updatedContent !== note.content) {
+          noteRepo.update(note.id, { content: updatedContent });
         }
       }
 
-      const updated = tagRepo.getById(tag.id);
-      res.json(updated);
+      res.json({ ...tag, name: newName.trim() });
     }),
   );
 
@@ -88,9 +77,14 @@ export function createTagsRouter(
       if (!tag) throw new NotFound("Tag not found");
 
       tagRepo.deleteTag(tag.id);
+      tagRepo.deleteUnused();
       res.status(204).end();
     }),
   );
 
   return router;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

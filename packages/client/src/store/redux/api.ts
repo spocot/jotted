@@ -14,6 +14,7 @@ import type {
   CalendarData,
   OutlookResponse,
   OutlookStatus,
+  PageResponse,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -59,18 +60,25 @@ export const apiSlice = createApi({
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
-    getNotes: builder.query<Note[], { folder?: string; tag?: string } | void>({
+    getNotes: builder.query<
+      PageResponse<Note>,
+      { folder?: string; tag?: string; sort?: SortField; order?: SortOrder; limit?: number; offset?: number } | void
+    >({
       query: (params) => {
         const sp = new URLSearchParams();
         if (params?.folder) sp.set("folder", params.folder);
         if (params?.tag) sp.set("tag", params.tag);
+        if (params?.sort) sp.set("sort", params.sort);
+        if (params?.order) sp.set("order", params.order);
+        if (params?.limit) sp.set("limit", String(params.limit));
+        if (params?.offset) sp.set("offset", String(params.offset));
         const qs = sp.toString();
         return `/notes${qs ? `?${qs}` : ""}`;
       },
       providesTags: (result) =>
-        result
+        result?.items
           ? [
-              ...result.map(({ id }) => ({ type: "Note" as const, id })),
+              ...result.items.map(({ id }) => ({ type: "Note" as const, id })),
               "NoteList",
             ]
           : ["NoteList"],
@@ -120,12 +128,30 @@ export const apiSlice = createApi({
       query: () => "/notes/backlink-counts",
     }),
 
-    getNoteBacklinks: builder.query<Note[], string>({
-      query: (id) => `/notes/${id}/backlinks`,
+    getNoteBacklinks: builder.query<
+      PageResponse<Note>,
+      { id: string; limit?: number; offset?: number }
+    >({
+      query: ({ id, limit, offset }) => {
+        const sp = new URLSearchParams();
+        if (limit) sp.set("limit", String(limit));
+        if (offset) sp.set("offset", String(offset));
+        const qs = sp.toString();
+        return `/notes/${id}/backlinks${qs ? `?${qs}` : ""}`;
+      },
     }),
 
-    getNoteUnlinkedMentions: builder.query<Note[], string>({
-      query: (id) => `/notes/${id}/unlinked-mentions`,
+    getNoteUnlinkedMentions: builder.query<
+      PageResponse<Note>,
+      { id: string; limit?: number; offset?: number }
+    >({
+      query: ({ id, limit, offset }) => {
+        const sp = new URLSearchParams();
+        if (limit) sp.set("limit", String(limit));
+        if (offset) sp.set("offset", String(offset));
+        const qs = sp.toString();
+        return `/notes/${id}/unlinked-mentions${qs ? `?${qs}` : ""}`;
+      },
     }),
 
     getNoteByTitle: builder.query<Note, string>({
@@ -134,14 +160,16 @@ export const apiSlice = createApi({
 
     // ---- Search ----
     searchNotes: builder.query<
-      Note[],
-      { q: string; tag?: string; sort?: SortField; order?: SortOrder }
+      PageResponse<Note>,
+      { q: string; tag?: string; sort?: SortField; order?: SortOrder; limit?: number; offset?: number }
     >({
-      query: ({ q, tag, sort, order }) => {
+      query: ({ q, tag, sort, order, limit, offset }) => {
         const params = new URLSearchParams({ q });
         if (tag) params.set("tag", tag);
         if (sort) params.set("sort", sort);
         if (order) params.set("order", order);
+        if (limit) params.set("limit", String(limit));
+        if (offset) params.set("offset", String(offset));
         return `/search?${params.toString()}`;
       },
     }),
@@ -156,8 +184,17 @@ export const apiSlice = createApi({
       providesTags: ["TagList"],
     }),
 
-    getTagNotes: builder.query<Note[], string>({
-      query: (name) => `/tags/${encodeURIComponent(name)}/notes`,
+    getTagNotes: builder.query<
+      PageResponse<Note>,
+      { name: string; limit?: number; offset?: number }
+    >({
+      query: ({ name, limit, offset }) => {
+        const sp = new URLSearchParams();
+        if (limit) sp.set("limit", String(limit));
+        if (offset) sp.set("offset", String(offset));
+        const qs = sp.toString();
+        return `/tags/${encodeURIComponent(name)}/notes${qs ? `?${qs}` : ""}`;
+      },
     }),
 
     renameTag: builder.mutation<Tag, { oldName: string; newName: string }>({
@@ -207,8 +244,17 @@ export const apiSlice = createApi({
     }),
 
     // ---- Graph ----
-    getGraph: builder.query<GraphData, void>({
-      query: () => "/graph",
+    getGraph: builder.query<
+      GraphData & { total?: number; hasMore?: boolean },
+      { limit?: number; offset?: number } | void
+    >({
+      query: (params) => {
+        const sp = new URLSearchParams();
+        if (params?.limit) sp.set("limit", String(params.limit));
+        if (params?.offset) sp.set("offset", String(params.offset));
+        const qs = sp.toString();
+        return `/graph${qs ? `?${qs}` : ""}`;
+      },
       providesTags: ["Graph"],
     }),
 
@@ -316,6 +362,7 @@ export const apiSlice = createApi({
 
 export const {
   useGetNotesQuery,
+  useLazyGetNotesQuery,
   useGetNoteQuery,
   useCreateNoteMutation,
   useUpdateNoteMutation,
@@ -329,11 +376,13 @@ export const {
   useLazySearchSuggestQuery,
   useGetTagsQuery,
   useGetTagNotesQuery,
+  useLazyGetTagNotesQuery,
   useRenameTagMutation,
   useDeleteTagMutation,
   useAddNoteTagMutation,
   useRemoveNoteTagMutation,
   useGetGraphQuery,
+  useLazyGetGraphQuery,
   useGetGraphSubQuery,
   useGetFoldersQuery,
   useRenameFolderMutation,

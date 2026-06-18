@@ -5,6 +5,14 @@ import type { LinkRepository } from "../db/link-repository.js";
 import { parseContent } from "../parser/index.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, Conflict, NotFound } from "../lib/errors.js";
+import {
+  clampLimit,
+  parseSort,
+  parseOrder,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+  BACKLINK_DEFAULT_LIMIT,
+} from "../lib/pagination.js";
 
 export function createNotesRouter(
   noteRepo: NoteRepository,
@@ -23,24 +31,16 @@ export function createNotesRouter(
   router.get(
     "/",
     asyncHandler(async (req, res) => {
-      const { folder, tag } = req.query;
-      let notes = noteRepo.getAll();
-
-      if (typeof folder === "string" && folder) {
-        notes = notes.filter((n) => n.path.startsWith(folder));
-      }
-
-      if (typeof tag === "string" && tag) {
-        const tagObj = tagRepo.getByName(tag);
-        if (tagObj) {
-          const noteIds = new Set(tagRepo.getNoteIdsForTag(tagObj.id));
-          notes = notes.filter((n) => noteIds.has(n.id));
-        } else {
-          notes = [];
-        }
-      }
-
-      res.json(notes);
+      const { folder, tag, sort, order, limit, offset } = req.query;
+      const result = noteRepo.list({
+        limit: clampLimit(limit, DEFAULT_LIMIT, MAX_LIMIT),
+        offset: Math.max(0, Number(offset) || 0),
+        folder: typeof folder === "string" && folder ? folder : undefined,
+        tag: typeof tag === "string" && tag ? tag : undefined,
+        sort: parseSort(sort),
+        order: parseOrder(order),
+      });
+      res.json(result);
     }),
   );
 
@@ -82,11 +82,9 @@ export function createNotesRouter(
       const note = noteRepo.getById(id);
       if (!note) throw new NotFound("Note not found");
 
-      const tags = tagRepo.getAll().filter((t) =>
-        tagRepo.getNoteIdsForTag(t.id).includes(note.id),
-      );
+      const tags = tagRepo.getTagsForNote(id);
       const backlinks = linkRepo.getBacklinks(id);
-      const outgoingLinks = linkRepo.getAllLinks().filter((l) => l.sourceId === id);
+      const outgoingLinks = linkRepo.getOutgoingLinks(id);
 
       res.json({ ...note, tags, backlinks, outgoingLinks });
     }),
@@ -99,12 +97,11 @@ export function createNotesRouter(
       const note = noteRepo.getById(id);
       if (!note) throw new NotFound("Note not found");
 
-      const backlinkIds = linkRepo.getBacklinks(id);
-      const notes = backlinkIds
-        .map((id) => noteRepo.getById(id))
-        .filter((n): n is NonNullable<typeof n> => n !== null);
+      const limit = clampLimit(req.query.limit, BACKLINK_DEFAULT_LIMIT, MAX_LIMIT);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const result = linkRepo.getBacklinkNotes(id, limit, offset);
 
-      res.json(notes);
+      res.json(result);
     }),
   );
 
@@ -116,7 +113,7 @@ export function createNotesRouter(
       if (!note) throw new NotFound("Note not found");
 
       if (!note.title.trim()) {
-        res.json([]);
+        res.json({ items: [], total: 0, hasMore: false });
         return;
       }
 
@@ -131,7 +128,12 @@ export function createNotesRouter(
         return c.content.toLowerCase().includes(titleLower);
       });
 
-      res.json(unlinked);
+      const limit = clampLimit(req.query.limit, 10, MAX_LIMIT);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const total = unlinked.length;
+      const items = unlinked.slice(offset, offset + limit);
+
+      res.json({ items, total, hasMore: offset + limit < total });
     }),
   );
 
@@ -224,10 +226,8 @@ function syncNoteRelations(
 ): void {
   const { wikilinks, tags } = parseContent(content);
 
-  const currentTagIds = tagRepo
-    .getAll()
-    .filter((t) => tagRepo.getNoteIdsForTag(t.id).includes(noteId))
-    .map((t) => t.id);
+  const currentTags = tagRepo.getTagsForNote(noteId);
+  const currentTagIds = currentTags.map((t) => t.id);
 
   const newTagIds: string[] = [];
   for (const tagMatch of tags) {
@@ -247,8 +247,6 @@ function syncNoteRelations(
   const targetIds: string[] = [];
   for (const wl of wikilinks) {
     const target = noteRepo.getByTitle(wl.target);
-    console.log(`Processing wikilink [[${wl.target}]] in note ${noteId}, found target: ${target?.id}`);
-    console.log(JSON.stringify(target));
     if (target) {
       targetIds.push(target.id);
     }
@@ -267,11 +265,9 @@ function enrichNote(
   const note = noteRepo.getById(noteId);
   if (!note) return {};
 
-  const tags = tagRepo.getAll().filter((t) =>
-    tagRepo.getNoteIdsForTag(t.id).includes(note.id),
-  );
+  const tags = tagRepo.getTagsForNote(noteId);
   const backlinks = linkRepo.getBacklinks(note.id);
-  const outgoingLinks = linkRepo.getAllLinks().filter((l) => l.sourceId === note.id);
+  const outgoingLinks = linkRepo.getOutgoingLinks(note.id);
 
   return { ...note, tags, backlinks, outgoingLinks };
 }

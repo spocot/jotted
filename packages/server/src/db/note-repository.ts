@@ -1,5 +1,7 @@
 import type Database from "better-sqlite3";
 import { v4 as uuid } from "uuid";
+import type { PageResponse } from "../lib/pagination.js";
+import { buildPageResponse } from "../lib/pagination.js";
 
 export interface Note {
   id: string;
@@ -22,6 +24,15 @@ export interface NoteUpdatePayload {
   path?: string;
 }
 
+export interface NoteListParams {
+  limit: number;
+  offset: number;
+  folder?: string;
+  tag?: string;
+  sort?: string | null;
+  order?: "ASC" | "DESC";
+}
+
 export class NoteRepository {
   private insertNote: Database.Statement;
   private insertFts: Database.Statement;
@@ -31,7 +42,6 @@ export class NoteRepository {
   private deleteFts: Database.Statement;
   private getNoteById: Database.Statement;
   private getNoteByTitle: Database.Statement;
-  private getAllNotes: Database.Statement;
   private findContentContainingStmt: Database.Statement;
   private getByDateRangeStmt: Database.Statement;
   private getCreatedByDateRangeStmt: Database.Statement;
@@ -59,9 +69,6 @@ export class NoteRepository {
     this.getNoteByTitle = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE title = ? LIMIT 1",
     );
-    this.getAllNotes = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes ORDER BY updated_at DESC",
-    );
     this.findContentContainingStmt = db.prepare(
       "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE content LIKE ? ORDER BY updated_at DESC",
     );
@@ -75,8 +82,61 @@ export class NoteRepository {
     this.titleExistsExcludeStmt = db.prepare("SELECT 1 FROM notes WHERE title = ? AND id != ?");
   }
 
-  getAll(): Note[] {
-    return this.getAllNotes.all() as Note[];
+  list(params: NoteListParams): PageResponse<Note> {
+    const { folder, tag, sort, order, limit, offset } = params;
+
+    const joins: string[] = [];
+    const conditions: string[] = [];
+    const queryParams: unknown[] = [];
+
+    if (folder) {
+      conditions.push("(n.path = ? OR n.path LIKE ?)");
+      queryParams.push(folder, folder + "/%");
+    }
+
+    if (tag) {
+      joins.push("JOIN note_tags nt ON n.id = nt.note_id");
+      joins.push("JOIN tags t ON nt.tag_id = t.id");
+      conditions.push("t.name = ?");
+      queryParams.push(tag);
+    }
+
+    const fromClause = `FROM notes n ${joins.join(" ")}`;
+    const whereClause = conditions.length > 0
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    let sortColumn = "n.updated_at";
+    const sortDir = order === "ASC" ? "ASC" : "DESC";
+    if (sort === "title") sortColumn = "n.title";
+    else if (sort === "createdAt") sortColumn = "n.created_at";
+
+    const hasJoins = joins.length > 0;
+    const countSql = `SELECT ${hasJoins ? "COUNT(DISTINCT n.id)" : "COUNT(*)"} ${fromClause} ${whereClause}`;
+    const countResult = this.db.prepare(countSql).get(...queryParams) as Record<string, number>;
+    const total = Number(Object.values(countResult)[0]);
+
+    const dataSql = `
+      SELECT n.id, n.title, n.content, n.path, n.created_at AS createdAt, n.updated_at AS updatedAt
+      ${fromClause} ${whereClause}
+      ORDER BY ${sortColumn} ${sortDir}
+      LIMIT ? OFFSET ?
+    `;
+    const items = this.db.prepare(dataSql).all(...queryParams, limit, offset) as Note[];
+
+    return buildPageResponse(items, total, limit, offset);
+  }
+
+  getPathsWithCounts(): { path: string; count: number }[] {
+    return this.db
+      .prepare("SELECT path, COUNT(*) AS count FROM notes GROUP BY path ORDER BY path")
+      .all() as { path: string; count: number }[];
+  }
+
+  getIdsAndPathsByPathPrefix(prefix: string): { id: string; path: string }[] {
+    return this.db
+      .prepare("SELECT id, path FROM notes WHERE path = ? OR path LIKE ?")
+      .all(prefix, prefix + "/%") as { id: string; path: string }[];
   }
 
   findByContentContaining(substring: string): Note[] {

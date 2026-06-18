@@ -42,8 +42,10 @@ describe("NoteRepository", () => {
   it("lists all notes", () => {
     repo.create({ title: "A" });
     repo.create({ title: "B" });
-    const all = repo.getAll();
-    expect(all).toHaveLength(2);
+    const all = repo.list({ limit: 100, offset: 0 });
+    expect(all.items).toHaveLength(2);
+    expect(all.total).toBe(2);
+    expect(all.hasMore).toBe(false);
   });
 
   it("updates a note", () => {

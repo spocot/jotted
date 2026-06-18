@@ -59,19 +59,13 @@ export function createFoldersRouter(
   router.get(
     "/",
     asyncHandler(async (_req, res) => {
-      const notes = noteRepo.getAll();
-
-      // Aggregate notes by path
-      const pathCounts = new Map<string, number>();
-      for (const note of notes) {
-        pathCounts.set(note.path, (pathCounts.get(note.path) ?? 0) + 1);
-      }
+      const pathCounts = noteRepo.getPathsWithCounts();
 
       // Expand implicit parent folders: if a note is at /projects/foo, ensure /projects exists
-      const allPaths = new Set(pathCounts.keys());
-      for (const p of pathCounts.keys()) {
-        if (p === "/") continue;
-        const parts = p.replace(/^\/|\/$/g, "").split("/");
+      const allPaths = new Set(pathCounts.map((p) => p.path));
+      for (const { path } of pathCounts) {
+        if (path === "/") continue;
+        const parts = path.replace(/^\/|\/$/g, "").split("/");
         for (let i = 1; i < parts.length; i++) {
           allPaths.add("/" + parts.slice(0, i).join("/"));
         }
@@ -79,7 +73,7 @@ export function createFoldersRouter(
 
       const entries = [...allPaths].map((path) => ({
         path,
-        count: pathCounts.get(path) ?? 0,
+        count: pathCounts.find((p) => p.path === path)?.count ?? 0,
       }));
 
       const tree = buildTree(entries);
@@ -112,16 +106,14 @@ export function createFoldersRouter(
         throw new BadRequest("Cannot rename root folder");
       }
 
-      const notes = noteRepo.getAll();
+      const notes = noteRepo.getIdsAndPathsByPathPrefix(oldPath);
       let moved = 0;
 
       for (const note of notes) {
-        if (note.path === oldPath || note.path.startsWith(oldPath + "/")) {
-          const suffix = note.path.slice(oldPath.length);
-          const updatedPath = newPath + suffix;
-          noteRepo.update(note.id, { path: updatedPath });
-          moved++;
-        }
+        const suffix = note.path.slice(oldPath.length);
+        const updatedPath = newPath + suffix;
+        noteRepo.update(note.id, { path: updatedPath });
+        moved++;
       }
 
       if (moved === 0) throw new NotFound("No notes found in that folder");
@@ -138,17 +130,15 @@ export function createFoldersRouter(
         throw new BadRequest("Valid folder path is required");
       }
 
-      const notes = noteRepo.getAll();
+      const notes = noteRepo.getIdsAndPathsByPathPrefix(path);
       let moved = 0;
 
       for (const note of notes) {
-        if (note.path === path || note.path.startsWith(path + "/")) {
-          const suffix = note.path.slice(path.length);
-          const parentPath = path.split("/").slice(0, -1).join("/") || "/";
-          const updatedPath = parentPath + suffix;
-          noteRepo.update(note.id, { path: updatedPath });
-          moved++;
-        }
+        const suffix = note.path.slice(path.length);
+        const parentPath = path.split("/").slice(0, -1).join("/") || "/";
+        const updatedPath = parentPath + suffix;
+        noteRepo.update(note.id, { path: updatedPath });
+        moved++;
       }
 
       res.json({ moved });

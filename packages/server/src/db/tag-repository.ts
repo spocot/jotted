@@ -1,5 +1,8 @@
 import type Database from "better-sqlite3";
 import { v4 as uuid } from "uuid";
+import type { PageResponse } from "../lib/pagination.js";
+import { buildPageResponse } from "../lib/pagination.js";
+import type { Note } from "./note-repository.js";
 
 export interface Tag {
   id: string;
@@ -100,6 +103,32 @@ export class TagRepository {
     return rows.map((r) => r.note_id);
   }
 
+  getNotesForTag(
+    tagId: string,
+    limit: number,
+    offset: number,
+  ): PageResponse<Note> {
+    const countRow = this.db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM note_tags WHERE tag_id = ?",
+      )
+      .get(tagId) as { count: number };
+    const total = countRow.count;
+
+    const items = this.db
+      .prepare(
+        `SELECT n.id, n.title, n.content, n.path, n.created_at AS createdAt, n.updated_at AS updatedAt
+         FROM notes n
+         JOIN note_tags nt ON n.id = nt.note_id
+         WHERE nt.tag_id = ?
+         ORDER BY n.updated_at DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(tagId, limit, offset) as Note[];
+
+    return buildPageResponse(items, total, limit, offset);
+  }
+
   getTagsForNotes(noteIds: string[]): Record<string, string[]> {
     if (noteIds.length === 0) return {};
     const placeholders = noteIds.map(() => "?").join(",");
@@ -114,6 +143,18 @@ export class TagRepository {
       result[row.note_id].push(row.name);
     }
     return result;
+  }
+
+  getTagsForNote(noteId: string): Tag[] {
+    return this.db
+      .prepare(
+        `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
+         FROM tags t
+         JOIN note_tags nt ON t.id = nt.tag_id
+         WHERE nt.note_id = ?
+         GROUP BY t.id`,
+      )
+      .all(noteId) as Tag[];
   }
 
   deleteUnused(): void {

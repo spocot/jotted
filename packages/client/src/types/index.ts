@@ -73,10 +73,27 @@ export interface Upload {
 export type SortField = "relevance" | "updatedAt" | "title" | "createdAt";
 export type SortOrder = "ASC" | "DESC";
 
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface NoteListParams {
+  folder?: string;
+  tag?: string;
+  sort?: SortField;
+  order?: SortOrder;
+  limit?: number;
+  offset?: number;
+}
+
 export interface SearchOptions {
   tag?: string;
   sort?: SortField;
   order?: SortOrder;
+  limit?: number;
+  offset?: number;
 }
 
 export interface CalendarDayItem {

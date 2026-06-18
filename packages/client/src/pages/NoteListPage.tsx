@@ -1,17 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGetNotesQuery } from "../store/redux/api";
+import { useLazyGetNotesQuery } from "../store/redux/api";
+import type { Note, PageResponse } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 import NoteCard from "../components/NoteCard";
 import CreateNoteModal from "../components/CreateNoteModal";
 
+const PAGE_SIZE = 50;
+
 export default function NoteListPage() {
   const navigate = useNavigate();
-  const { data: notes = [], isLoading: loading } = useGetNotesQuery();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [trigger] = useLazyGetNotesQuery();
+
+  useEffect(() => {
+    trigger({ limit: PAGE_SIZE, offset: 0 }).then((result: { data?: PageResponse<Note> }) => {
+      if (result.data) {
+        setNotes(result.data.items);
+        setHasMore(result.data.hasMore);
+      }
+      setInitialLoading(false);
+    });
+  }, [trigger]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextOffset = offset + PAGE_SIZE;
+    const result = await trigger({ limit: PAGE_SIZE, offset: nextOffset });
+    if (result.data) {
+      const page = result.data as PageResponse<Note>;
+      setNotes((prev) => [...prev, ...page.items]);
+      setHasMore(page.hasMore);
+      setOffset(nextOffset);
+    }
+    setLoadingMore(false);
+  }, [trigger, offset, loadingMore, hasMore]);
 
   // Group notes by folder path
-  const notesByFolder: Record<string, typeof notes> = {};
+  const notesByFolder: Record<string, Note[]> = {};
   for (const note of notes) {
     const path = note.path || "/Unsorted";
     if (!notesByFolder[path]) {
@@ -34,9 +66,9 @@ export default function NoteListPage() {
         </button>
       </div>
 
-      {loading && notes.length === 0 && <NoteListSkeleton />}
+      {initialLoading && notes.length === 0 && <NoteListSkeleton />}
 
-      {!loading && notes.length === 0 && (
+      {!initialLoading && notes.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-400 dark:text-gray-500 mb-4">
             No notes yet. Create your first note to get started.
@@ -77,6 +109,18 @@ export default function NoteListPage() {
         );
       })}
 
+      {hasMore && !initialLoading && (
+        <div className="text-center py-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load more notes"}
+          </button>
+        </div>
+      )}
+
       <CreateNoteModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -84,7 +128,7 @@ export default function NoteListPage() {
           setShowCreateModal(false);
           navigate(`/note/${note.id}`);
         }}
-        existingTitles={notes.map((n) => n.title)}
+        existingTitles={[]}
       />
     </div>
   );

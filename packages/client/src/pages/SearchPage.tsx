@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
 import type { Note, SortField, SortOrder } from "../types";
@@ -7,6 +7,7 @@ import NoteCard from "../components/NoteCard";
 import TagPill from "../components/TagPill";
 
 const SNIPPET_WORDS = 30;
+const PAGE_SIZE = 20;
 
 function highlightText(text: string, query: string): string {
   if (!query.trim()) return text;
@@ -60,14 +61,17 @@ export default function SearchPage() {
   const [query, setQuery] = useState(qParam);
   const [results, setResults] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
   const { data: tags = [] } = useGetTagsQuery();
   const [searchNotes] = useLazySearchNotesQuery();
 
   // Auto-search on mount if q param present
   useEffect(() => {
     if (qParam) {
-      doSearch(qParam, tagParam, sortParam, orderParam);
+      doSearch(qParam, tagParam, sortParam, orderParam, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -77,17 +81,31 @@ export default function SearchPage() {
     tag?: string,
     sort?: SortField,
     order?: SortOrder,
+    offsetVal = 0,
+    append = false,
   ) => {
     if (!q.trim()) return;
-    setLoading(true);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     setSearched(true);
     try {
-      const data = await searchNotes({ q: q.trim(), tag, sort, order }).unwrap();
-      setResults(data ?? []);
+      const data = await searchNotes({ q: q.trim(), tag, sort, order, limit: PAGE_SIZE, offset: offsetVal }).unwrap();
+      if (append) {
+        setResults((prev) => [...prev, ...data.items]);
+      } else {
+        setResults(data.items);
+        setOffset(0);
+      }
+      setHasMore(data.hasMore);
+      setOffset(offsetVal);
     } catch {
-      setResults([]);
+      if (!append) setResults([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -99,7 +117,7 @@ export default function SearchPage() {
     if (sortParam !== "relevance") params.sort = sortParam;
     if (orderParam !== "DESC") params.order = orderParam;
     setSearchParams(params);
-    doSearch(query.trim(), tagParam, sortParam, orderParam);
+    doSearch(query.trim(), tagParam, sortParam, orderParam, 0);
   };
 
   const handleTagFilter = (tagName: string) => {
@@ -109,7 +127,7 @@ export default function SearchPage() {
     if (sortParam !== "relevance") params.sort = sortParam;
     if (orderParam !== "DESC") params.order = orderParam;
     setSearchParams(params);
-    doSearch(query.trim() || qParam, nextTag, sortParam, orderParam);
+    doSearch(query.trim() || qParam, nextTag, sortParam, orderParam, 0);
   };
 
   const handleSortChange = (sort: SortField) => {
@@ -118,7 +136,7 @@ export default function SearchPage() {
     if (sort !== "relevance") params.sort = sort;
     if (orderParam !== "DESC") params.order = orderParam;
     setSearchParams(params);
-    doSearch(query.trim() || qParam, tagParam, sort, orderParam);
+    doSearch(query.trim() || qParam, tagParam, sort, orderParam, 0);
   };
 
   const toggleOrder = () => {
@@ -128,8 +146,13 @@ export default function SearchPage() {
     if (sortParam !== "relevance") params.sort = sortParam;
     if (nextOrder !== "DESC") params.order = nextOrder;
     setSearchParams(params);
-    doSearch(query.trim() || qParam, tagParam, sortParam, nextOrder);
+    doSearch(query.trim() || qParam, tagParam, sortParam, nextOrder, 0);
   };
+
+  const loadMore = useCallback(() => {
+    const q = query.trim() || qParam;
+    doSearch(q, tagParam, sortParam, orderParam, offset + PAGE_SIZE, true);
+  }, [query, qParam, tagParam, sortParam, orderParam, offset]);
 
   const activeQuery = query || qParam;
 
@@ -232,6 +255,18 @@ export default function SearchPage() {
           />
         ))}
       </div>
+
+      {hasMore && !loading && (
+        <div className="text-center py-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load more results"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

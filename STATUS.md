@@ -233,3 +233,32 @@
 - [ ] Language selector
 - [ ] Copy-to-clipboard button
 
+## Phase 26: Infinite Scalability (Pagination + SQL Pushdown) ✅
+
+- [x] Add database indexes for sort/filter columns
+- [x] Add pagination types and utilities (PageRequest, PageResponse)
+- [x] Refactor NoteRepository with SQL pushdown and pagination
+- [x] Refactor TagRepository — add getNotesForTag (single JOIN query)
+- [x] Refactor LinkRepository — targeted methods (backlinkNotes, getLinksForNote)
+- [x] Update GET /api/notes with limit/offset/sort server-side
+- [x] Update GET /api/search with pagination + SQL LIMIT
+- [x] Update GET /api/tags/:name/notes with pagination
+- [x] Update GET /api/notes/:id/backlinks with pagination
+- [x] Update GET /api/notes/:id/unlinked-mentions with pagination
+- [x] Update GET /api/graph with capped nodes
+- [x] Update GET /api/graph/:id to use getLinksForNote (avoid loading all links)
+- [x] Update GET /api/folders to use GROUP BY
+- [x] Fix syncNoteRelations/enrichNote helpers
+- [x] Add PageResponse types to client
+- [x] Update RTK Query API endpoints
+- [x] Create useInfiniteScroll hook
+- [x] Update Sidebar — remove allNotes dependency
+- [x] Update FolderTree for lazy per-folder loading
+- [x] Update NoteListPage with paginated load-more
+- [x] Update TagsPage with pagination
+- [x] Update SearchPage with paginated results
+- [x] Update GraphPage with capped graph + load more
+- [x] Update CommandPalette to use suggest endpoint
+- [x] Update BacklinksPanel with pagination
+- [x] Verify type checks (server + client) and tests (37 server + 4 client)
+
