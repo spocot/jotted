@@ -142,17 +142,17 @@
 - [x] Update test files for new store architecture
 - [x] Run full type check (`tsc --noEmit`) and test suite (`vitest run`)
 
-## Phase 16: Remote Client / Docker Server Deployment ⬜
+## Phase 16: Remote Client / Docker Server Deployment ✅
 
-- [ ] Dockerfile for server (multi-stage, Alpine, native better-sqlite3 build)
-- [ ] Server env vars: `PORT`, `HOST`, `DB_PATH`, `UPLOADS_DIR`
-- [ ] Client runtime server URL config (localStorage-backed `server-config.ts`)
-- [ ] Dynamic base URL in RTK Query (reads from config on every request)
-- [ ] Settings modal for server URL configuration (input + test connection)
-- [ ] Fix upload image URLs to use absolute paths
-- [ ] Settings button in app header
-- [ ] GitHub Actions workflow: build client → deploy to GitHub Pages
-- [ ] Documentation in README.md for the deployment model
+- [x] Dockerfile for server (multi-stage, Alpine, native better-sqlite3 build)
+- [x] Server env vars: `PORT`, `HOST`, `DB_PATH`, `UPLOADS_DIR`
+- [x] Client runtime server URL config (localStorage-backed `server-config.ts`)
+- [x] Dynamic base URL in RTK Query (reads from config on every request)
+- [x] Settings modal for server URL configuration (input + test connection)
+- [x] Fix upload image URLs to use absolute paths (via `transformResponse` in API slice)
+- [x] Settings button (gear icon) in app header
+- [x] GitHub Actions workflow: build client → deploy to GitHub Pages
+- [x] Documentation in README.md for the deployment model
 
 ## Phase 17: Daily Notes / Journal ⬜
 

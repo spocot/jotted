@@ -10,7 +10,7 @@ import type { Request, Response } from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const UPLOADS_DIR = join(__dirname, "../../uploads");
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(__dirname, "../../uploads");
 
 if (!existsSync(UPLOADS_DIR)) {
   mkdirSync(UPLOADS_DIR, { recursive: true });

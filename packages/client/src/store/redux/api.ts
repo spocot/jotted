@@ -15,12 +15,12 @@ import type {
   OutlookResponse,
   OutlookStatus,
 } from "../../types";
-
-const rawBaseQuery = fetchBaseQuery({ baseUrl: "/api" });
+import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
 export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery: async (args, api, extraOptions) => {
+    const baseQuery = fetchBaseQuery({ baseUrl: getApiBaseUrl() });
     const fetchArgs =
       typeof args === "string"
         ? { url: args, headers: {} as Record<string, string> }
@@ -31,7 +31,7 @@ export const apiSlice = createApi({
         "application/json";
     }
 
-    const result = await rawBaseQuery(fetchArgs, api, extraOptions);
+    const result = await baseQuery(fetchArgs, api, extraOptions);
 
     if (result.error) {
       const errData = result.error.data as { error?: string } | undefined;
@@ -250,6 +250,10 @@ export const apiSlice = createApi({
         formData.append("noteId", noteId);
         return { url: "/uploads", method: "POST", body: formData };
       },
+      transformResponse: (upload: Upload) => ({
+        ...upload,
+        url: absoluteUrl(upload.url),
+      }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Upload", id: noteId },
       ],
@@ -257,6 +261,8 @@ export const apiSlice = createApi({
 
     getUploads: builder.query<Upload[], string>({
       query: (noteId) => `/uploads/${noteId}`,
+      transformResponse: (uploads: Upload[]) =>
+        uploads.map((u) => ({ ...u, url: absoluteUrl(u.url) })),
       providesTags: (_result, _error, noteId) => [
         { type: "Upload", id: noteId },
       ],

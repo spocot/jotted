@@ -1,10 +1,11 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import SearchBar from "./SearchBar";
 import ToastContainer from "./ToastContainer";
 import CommandPalette from "./CommandPalette";
 import NotePreviewPopover from "./NotePreviewPopover";
+import SettingsModal from "./SettingsModal";
 import { useAppDispatch, useAppSelector } from "../store/redux/hooks";
 import {
   toggleSidebar,
@@ -18,6 +19,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const [showSettings, setShowSettings] = useState(false);
   const sidebarOpen = useAppSelector(selectSidebarOpen);
   const darkMode = useAppSelector(selectDarkMode);
   const dispatch = useAppDispatch();
@@ -71,6 +73,16 @@ export default function Layout({ children }: LayoutProps) {
             Calendar
           </Link>
           <button
+            onClick={() => setShowSettings(true)}
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+            title="Settings"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button
             onClick={() => dispatch(toggleDarkModeAction())}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title="Toggle dark mode"
@@ -91,6 +103,7 @@ export default function Layout({ children }: LayoutProps) {
       <ToastContainer />
       <CommandPalette />
       <NotePreviewPopover />
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

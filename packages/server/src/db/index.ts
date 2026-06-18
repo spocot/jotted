@@ -6,7 +6,7 @@ import Database from "better-sqlite3";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DATA_DIR = resolve(__dirname, "../../data");
-const DB_PATH = join(DATA_DIR, "jotted.db");
+const DB_PATH = process.env.DB_PATH || join(DATA_DIR, "jotted.db");
 
 let db: Database.Database | null = null;
 

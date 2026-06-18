@@ -21,12 +21,15 @@ import type { Request, Response, NextFunction } from "express";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
+
 const app = express();
-const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static(join(__dirname, "../uploads")));
+const UPLOADS_DIR_STATIC = process.env.UPLOADS_DIR || join(__dirname, "../uploads");
+app.use("/uploads", express.static(UPLOADS_DIR_STATIC));
 
 const db = getDb();
 const noteRepo = new NoteRepository(db);
@@ -55,6 +58,6 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
 });

@@ -2,6 +2,7 @@ import { Node, mergeAttributes, InputRule, PasteRule } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import Suggestion from "@tiptap/suggestion";
 import type { SearchSuggestion } from "../types";
+import { getApiBaseUrl } from "../lib/server-config";
 
 export interface WikilinkOptions {
   HTMLAttributes: Record<string, any>;
@@ -134,7 +135,7 @@ export const Wikilink = Node.create<WikilinkOptions>({
           if (query.length < 2) return [];
           try {
             const res = await fetch(
-              `/api/search/suggest?q=${encodeURIComponent(query)}`,
+              `${getApiBaseUrl()}/search/suggest?q=${encodeURIComponent(query)}`,
             );
             if (!res.ok) return [];
             return await res.json() as SearchSuggestion[];

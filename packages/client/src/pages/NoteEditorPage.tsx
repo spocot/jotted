@@ -20,6 +20,7 @@ import { addToast } from "../store/redux/toastSlice";
 import { Wikilink, Tag } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
+import { getServerUrl } from "../lib/server-config";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import EditorSidePanel from "../components/EditorSidePanel";
 import { EditorSkeleton } from "../components/Skeleton";
@@ -237,7 +238,7 @@ export default function NoteEditorPage() {
       if (editor && id) {
         const md = serializer.serialize(editor.state.doc);
         navigator.sendBeacon(
-          `/api/notes/${id}`,
+          `${getServerUrl()}/api/notes/${id}`,
           JSON.stringify({ content: md, title: titleRef.current }),
         );
       }
