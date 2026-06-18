@@ -50,7 +50,7 @@ export class NoteRepository {
   private dailyNotesStmt: Database.Statement;
   private dailyNotesCountStmt: Database.Statement;
 
-  constructor(private db: Database.Database) {
+  constructor(public db: Database.Database) {
     this.insertNote = db.prepare(
       "INSERT INTO notes (id, title, content, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
     );

@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useLazyGetNoteByTitleQuery,
-  useCreateNoteMutation,
-} from "../store/redux/api";
+import { useCreateNoteMutation } from "../store/redux/api";
 import type { CalendarDayItem, OutlookEvent } from "../types";
 
 interface CalendarDayPanelProps {
@@ -11,6 +8,7 @@ interface CalendarDayPanelProps {
   created: CalendarDayItem[];
   modified: CalendarDayItem[];
   outlookEvents: OutlookEvent[];
+  dailyNoteId: string | null;
   onClose: () => void;
 }
 
@@ -27,24 +25,12 @@ export default function CalendarDayPanel({
   created,
   modified,
   outlookEvents,
+  dailyNoteId,
   onClose,
 }: CalendarDayPanelProps) {
   const navigate = useNavigate();
-  const [trigger] = useLazyGetNoteByTitleQuery();
   const [createNote] = useCreateNoteMutation();
   const [creating, setCreating] = useState(false);
-  const [dailyNoteId, setDailyNoteId] = useState<string | null>(null);
-  const [checkingDailyNote, setCheckingDailyNote] = useState(true);
-
-  useEffect(() => {
-    setCheckingDailyNote(true);
-    setDailyNoteId(null);
-    trigger(dateStr)
-      .unwrap()
-      .then((note) => setDailyNoteId(note.id))
-      .catch(() => setDailyNoteId(null))
-      .finally(() => setCheckingDailyNote(false));
-  }, [dateStr, trigger]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -194,17 +180,12 @@ export default function CalendarDayPanel({
             )}
 
           <div className="pt-2">
-            {checkingDailyNote ? (
-              <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">
-                Checking...
-              </div>
-            ) : dailyNoteId ? (
+            {dailyNoteId ? (
               <button
-                disabled
-                className="w-full px-4 py-2 text-sm font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-not-allowed"
-                title="A daily note already exists for this date"
+                onClick={() => navigate(`/note/${dailyNoteId}`)}
+                className="w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors"
               >
-                A daily note already exists for this date
+                Open daily journal note
               </button>
             ) : (
               <button

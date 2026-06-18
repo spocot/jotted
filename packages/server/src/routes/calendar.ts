@@ -6,6 +6,7 @@ interface CalendarDay {
   date: string;
   created: Array<{ id: string; title: string; path: string }>;
   modified: Array<{ id: string; title: string; path: string }>;
+  dailyNoteId: string | null;
 }
 
 export function createCalendarRouter(
@@ -28,7 +29,20 @@ export function createCalendarRouter(
 
       for (let d = 1; d <= lastDay; d++) {
         const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-        dayMap.set(dateStr, { date: dateStr, created: [], modified: [] });
+        dayMap.set(dateStr, { date: dateStr, created: [], modified: [], dailyNoteId: null });
+      }
+
+      // Find daily journal notes whose title matches a date in this month
+      const dailyNotes = noteRepo.db
+        .prepare(
+          "SELECT id, title FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND title >= ? AND title <= ?",
+        )
+        .all(startDate, endDate) as Array<{ id: string; title: string }>;
+      for (const dn of dailyNotes) {
+        const entry = dayMap.get(dn.title);
+        if (entry) {
+          entry.dailyNoteId = dn.id;
+        }
       }
 
       const createdNotes = noteRepo.getByDateRange(startDate, endDate);

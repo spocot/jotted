@@ -122,10 +122,14 @@ export default function CalendarPage() {
   };
 
   const dayMap = new Map<string, { created: CalendarDayItem[]; modified: CalendarDayItem[] }>();
+  const dailyNoteMap = new Map<string, string>();
   if (calData) {
     for (const day of calData.days) {
       if (day.created.length > 0 || day.modified.length > 0) {
         dayMap.set(day.date, { created: day.created, modified: day.modified });
+      }
+      if (day.dailyNoteId) {
+        dailyNoteMap.set(day.date, day.dailyNoteId);
       }
     }
   }
@@ -161,6 +165,10 @@ export default function CalendarPage() {
   const hasOutlookToday = (dateStr: string): boolean => {
     const events = outlookMap.get(dateStr);
     return events !== undefined && events.length > 0;
+  };
+
+  const hasDailyNote = (dateStr: string): boolean => {
+    return dailyNoteMap.has(dateStr);
   };
 
   const hoveredEntry = hoveredDay ? dayMap.get(hoveredDay) : null;
@@ -260,6 +268,7 @@ export default function CalendarPage() {
 
             const hasNotes = hasNotesToday(cell.dateStr);
             const hasOutlook = hasOutlookToday(cell.dateStr);
+            const hasDaily = hasDailyNote(cell.dateStr);
             const today = isToday(year, month, cell.day);
 
             return (
@@ -308,6 +317,17 @@ export default function CalendarPage() {
                           : "activity"
                       }`}
                     />
+                  )}
+                  {hasDaily && (
+                    <span
+                      className="inline-block"
+                      title="Daily journal note"
+                    >
+                      <svg className="w-3 h-3 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                      </svg>
+                    </span>
                   )}
                   {hasOutlook && (
                     <span
@@ -411,6 +431,7 @@ export default function CalendarPage() {
           created={dayMap.get(selectedDay)?.created ?? []}
           modified={dayMap.get(selectedDay)?.modified ?? []}
           outlookEvents={outlookMap.get(selectedDay) ?? []}
+          dailyNoteId={dailyNoteMap.get(selectedDay) ?? null}
           onClose={() => setSelectedDay(null)}
         />
       )}

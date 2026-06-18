@@ -106,6 +106,7 @@ export interface CalendarDay {
   date: string;
   created: CalendarDayItem[];
   modified: CalendarDayItem[];
+  dailyNoteId: string | null;
 }
 
 export interface CalendarData {
