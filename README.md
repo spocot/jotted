@@ -60,6 +60,24 @@ Jotted uses a **split deployment model**: the client UI is hosted on a public UR
 
 ### Running the Server (Docker)
 
+Build the image from source:
+
+```bash
+docker build -t jotted-server -f packages/server/Dockerfile .
+```
+
+Then run it:
+
+```bash
+docker run -d \
+  --name jotted-server \
+  -p 3000:3000 \
+  -v $(pwd)/jotted-data:/data \
+  jotted-server
+```
+
+Or pull a pre-built image from a registry:
+
 ```bash
 docker run -d \
   --name jotted-server \
