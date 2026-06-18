@@ -55,6 +55,7 @@ export const apiSlice = createApi({
     "Folder",
     "Upload",
     "Calendar",
+    "Graph",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -86,7 +87,7 @@ export const apiSlice = createApi({
         method: "POST",
         body: payload ?? { title: "Untitled" },
       }),
-      invalidatesTags: ["NoteList"],
+      invalidatesTags: ["NoteList", "Graph"],
     }),
 
     updateNote: builder.mutation<
@@ -101,6 +102,7 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Note", id },
         "NoteList",
+        "Graph",
       ],
     }),
 
@@ -109,6 +111,7 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Note", id },
         "NoteList",
+        "Graph",
       ],
     }),
 
@@ -184,6 +187,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
+        "Graph",
       ],
     }),
 
@@ -197,16 +201,19 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
+        "Graph",
       ],
     }),
 
     // ---- Graph ----
     getGraph: builder.query<GraphData, void>({
       query: () => "/graph",
+      providesTags: ["Graph"],
     }),
 
     getGraphSub: builder.query<GraphData, string>({
       query: (id) => `/graph/${id}`,
+      providesTags: ["Graph"],
     }),
 
     // ---- Folders ----
