@@ -251,7 +251,7 @@
 - [x] Fix syncNoteRelations/enrichNote helpers
 - [x] Add PageResponse types to client
 - [x] Update RTK Query API endpoints
-- [x] Create useInfiniteScroll hook
+- [ ] ~~Create useInfiniteScroll hook~~ (components handle pagination inline)
 - [x] Update Sidebar — remove allNotes dependency
 - [x] Update FolderTree for lazy per-folder loading
 - [x] Update NoteListPage with paginated load-more
