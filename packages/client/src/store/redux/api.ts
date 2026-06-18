@@ -87,7 +87,7 @@ export const apiSlice = createApi({
         method: "POST",
         body: payload ?? { title: "Untitled" },
       }),
-      invalidatesTags: ["NoteList", "Graph"],
+      invalidatesTags: ["NoteList", "Folder", "Graph"],
     }),
 
     updateNote: builder.mutation<
@@ -111,6 +111,7 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Note", id },
         "NoteList",
+        "Folder",
         "Graph",
       ],
     }),
@@ -231,7 +232,7 @@ export const apiSlice = createApi({
         method: "PUT",
         body: { oldPath, newPath },
       }),
-      invalidatesTags: ["Folder"],
+      invalidatesTags: ["Folder", "NoteList"],
     }),
 
     deleteFolder: builder.mutation<{ moved: number }, string>({
@@ -239,7 +240,7 @@ export const apiSlice = createApi({
         url: `/folders?path=${encodeURIComponent(path)}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Folder"],
+      invalidatesTags: ["Folder", "NoteList"],
     }),
 
     // ---- Uploads ----
