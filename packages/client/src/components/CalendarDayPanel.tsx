@@ -93,6 +93,25 @@ export default function CalendarDayPanel({
         </div>
 
         <div className="p-4 space-y-6">
+          <div className="pb-2">
+            {dailyNoteId ? (
+              <button
+                onClick={() => navigate(`/note/${dailyNoteId}`)}
+                className="w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors"
+              >
+                Open daily journal note
+              </button>
+            ) : (
+              <button
+                onClick={handleCreateDailyNote}
+                disabled={creating}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors"
+              >
+                {creating ? "Creating..." : "Create daily note"}
+              </button>
+            )}
+          </div>
+
           {created.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">
@@ -178,25 +197,6 @@ export default function CalendarDayPanel({
                 No activity on this day
               </p>
             )}
-
-          <div className="pt-2">
-            {dailyNoteId ? (
-              <button
-                onClick={() => navigate(`/note/${dailyNoteId}`)}
-                className="w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors"
-              >
-                Open daily journal note
-              </button>
-            ) : (
-              <button
-                onClick={handleCreateDailyNote}
-                disabled={creating}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors"
-              >
-                {creating ? "Creating..." : "Create daily note"}
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
