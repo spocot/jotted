@@ -175,12 +175,12 @@ function FolderItem({
             <button
               key={note.id}
               onClick={() => onSelectNote(note.id)}
-              className={`w-full text-left pl-6 pr-2 py-1.5 text-sm flex items-center justify-between gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 group ${
+              className={`w-full text-left pr-2 py-1.5 text-sm flex items-center justify-between gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 group ${
                 activeNoteId === note.id
                   ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500 text-blue-700 dark:text-blue-300"
                   : "text-gray-700 dark:text-gray-300"
               }`}
-              style={{ paddingLeft: `${16 + depth * 16}px` }}
+              style={{ paddingLeft: `${8 + (depth + 2) * 16}px` }}
             >
               <span className="truncate flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
