@@ -57,7 +57,10 @@ export default function CalendarDayPanel({
   const handleCreateDailyNote = async () => {
     setCreating(true);
     try {
-      const note = await createNote({ title: dateStr }).unwrap();
+      const d = new Date(dateStr + "T12:00:00");
+      const dayOfWeek = d.toLocaleDateString("en-US", { weekday: "long" });
+      const content = `# ${dateStr} (${dayOfWeek})\n\n## Tasks\n\n- [ ]\n\n## Notes\n\n`;
+      const note = await createNote({ title: dateStr, content }).unwrap();
       navigate(`/note/${note.id}`);
     } catch {
       setCreating(false);
