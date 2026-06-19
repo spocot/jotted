@@ -163,15 +163,15 @@
 - [x] Calendar integration: date click opens daily note via `/note/by-date/:date`
 - [x] Streak counter (consecutive days with a daily note) — displayed in Journal header
 
-## Phase 18: Note Version History ⬜
+## Phase 18: Note Version History ✅
 
-- [ ] `note_versions` table with content snapshots
-- [ ] Auto-snapshot on every note save
-- [ ] Backend CRUD for versions (list, get, restore)
-- [ ] Version history panel in the note editor
-- [ ] Timeline view with timestamps and character diffs
-- [ ] Side-by-side or unified diff viewer
-- [ ] Restore with confirmation dialog
+- [x] `note_versions` table with content snapshots
+- [x] Auto-snapshot on every note save (before update, in `routes/notes.ts`)
+- [x] Backend CRUD for versions (list, get, restore in `routes/versions.ts`)
+- [x] Version history panel in the note editor (`VersionHistoryPanel.tsx`, integrated into `EditorSidePanel.tsx`)
+- [x] Timeline view with timestamps and character diffs
+- [x] Unified diff viewer (line-diff between selected versions)
+- [x] Restore with confirmation dialog
 
 ## Phase 19: Mind Map / Canvas View ⬜
 

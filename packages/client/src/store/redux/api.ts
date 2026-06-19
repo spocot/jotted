@@ -16,6 +16,7 @@ import type {
   OutlookStatus,
   PageResponse,
   StreakInfo,
+  NoteVersion,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -157,6 +158,42 @@ export const apiSlice = createApi({
 
     getNoteByTitle: builder.query<Note, string>({
       query: (title) => `/notes/by-title/${encodeURIComponent(title)}`,
+    }),
+
+    // ---- Versions ----
+    getNoteVersions: builder.query<
+      PageResponse<NoteVersion>,
+      { id: string; limit?: number; offset?: number }
+    >({
+      query: ({ id, limit, offset }) => {
+        const sp = new URLSearchParams();
+        if (limit) sp.set("limit", String(limit));
+        if (offset) sp.set("offset", String(offset));
+        const qs = sp.toString();
+        return `/notes/${id}/versions${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: (_result, _error, { id }) => [{ type: "Note", id }],
+    }),
+
+    getNoteVersion: builder.query<
+      NoteVersion,
+      { id: string; versionId: string }
+    >({
+      query: ({ id, versionId }) => `/notes/${id}/versions/${versionId}`,
+    }),
+
+    restoreNoteVersion: builder.mutation<
+      import("../../types").Note,
+      { id: string; versionId: string }
+    >({
+      query: ({ id, versionId }) => ({
+        url: `/notes/${id}/versions/${versionId}/restore`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Note", id },
+        "NoteList",
+      ],
     }),
 
     // ---- Search ----
@@ -419,4 +456,7 @@ export const {
   useGetDailyNotesQuery,
   useLazyGetDailyNotesQuery,
   useGetDailyStreakQuery,
+  useGetNoteVersionsQuery,
+  useGetNoteVersionQuery,
+  useRestoreNoteVersionMutation,
 } = apiSlice;

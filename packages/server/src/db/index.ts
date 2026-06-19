@@ -66,6 +66,14 @@ function initSchema(database: Database.Database): void {
       size INTEGER NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS note_versions (
+      id TEXT PRIMARY KEY,
+      note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate existing notes at root path to /Unsorted
@@ -78,5 +86,6 @@ function initSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id ON note_tags(tag_id, note_id);
     CREATE INDEX IF NOT EXISTS idx_links_target_id ON links(target_id, source_id);
     CREATE INDEX IF NOT EXISTS idx_links_source_id ON links(source_id, target_id);
+    CREATE INDEX IF NOT EXISTS idx_note_versions_note_id ON note_versions(note_id, created_at DESC);
   `);
 }

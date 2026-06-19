@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { NoteRepository } from "../db/note-repository.js";
 import type { TagRepository } from "../db/tag-repository.js";
 import type { LinkRepository } from "../db/link-repository.js";
+import type { VersionRepository } from "../db/version-repository.js";
 import { parseContent } from "../parser/index.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, Conflict, NotFound } from "../lib/errors.js";
@@ -18,6 +19,7 @@ export function createNotesRouter(
   noteRepo: NoteRepository,
   tagRepo: TagRepository,
   linkRepo: LinkRepository,
+  versionRepo?: VersionRepository,
 ): Router {
   const router = Router();
 
@@ -169,6 +171,11 @@ export function createNotesRouter(
 
       if (path !== undefined && (typeof path !== "string" || !path.startsWith("/"))) {
         throw new BadRequest("path must be a string starting with /");
+      }
+
+      // Snapshot current state before updating
+      if (versionRepo) {
+        versionRepo.create(id, existing.title, existing.content);
       }
 
       const note = noteRepo.update(id, { title, content, path });

@@ -4,11 +4,13 @@ import { getDb } from "./db/index.js";
 import { NoteRepository } from "./db/note-repository.js";
 import { TagRepository } from "./db/tag-repository.js";
 import { LinkRepository } from "./db/link-repository.js";
+import { VersionRepository } from "./db/version-repository.js";
 import { createNotesRouter } from "./routes/notes.js";
 import { createTagsRouter } from "./routes/tags.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createGraphRouter } from "./routes/graph.js";
 import { createFoldersRouter } from "./routes/folders.js";
+import { createVersionsRouter } from "./routes/versions.js";
 import { createUploadsRouter } from "./routes/uploads.js";
 import { createCalendarRouter } from "./routes/calendar.js";
 import { createOutlookRouter } from "./routes/outlook.js";
@@ -35,12 +37,14 @@ const db = getDb();
 const noteRepo = new NoteRepository(db);
 const tagRepo = new TagRepository(db);
 const linkRepo = new LinkRepository(db);
+const versionRepo = new VersionRepository(db);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo));
+app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo, versionRepo));
+app.use("/api/notes", createVersionsRouter(noteRepo, versionRepo));
 app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
 app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));
 app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
