@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetNoteVersionsQuery,
   useGetNoteVersionQuery,
@@ -19,8 +19,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
   const confirm = useConfirm();
   const dispatch = useAppDispatch();
   const [offset, setOffset] = useState(0);
-  const [versions, setVersions] = useState<NoteVersion[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [allVersions, setAllVersions] = useState<NoteVersion[]>([]);
   const [mode, setMode] = useState<ViewMode>("list");
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
@@ -30,13 +29,21 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
 
   const { data: page, isLoading } = useGetNoteVersionsQuery(
     { id: noteId, limit: VERSIONS_PAGE_SIZE, offset },
-    { skip: loaded && offset === 0 },
   );
 
-  if (page && !loaded) {
-    setVersions(page.items);
-    setLoaded(true);
-  }
+  // Accumulate versions: replace on offset=0 (initial load or refetch), append on load more
+  useEffect(() => {
+    if (!page) return;
+    if (offset === 0) {
+      setAllVersions(page.items);
+    } else {
+      setAllVersions((prev) => {
+        const existingIds = new Set(prev.map((v) => v.id));
+        const newItems = page.items.filter((v) => !existingIds.has(v.id));
+        return newItems.length > 0 ? [...prev, ...newItems] : prev;
+      });
+    }
+  }, [page]);
 
   const { data: selectedVersion } = useGetNoteVersionQuery(
     { id: noteId, versionId: selectedVersionId ?? "" },
@@ -52,7 +59,6 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
 
   const loadMore = () => {
     setOffset((prev) => prev + VERSIONS_PAGE_SIZE);
-    setLoaded(false);
   };
 
   const handleSelectVersion = (versionId: string) => {
@@ -83,8 +89,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
       setMode("list");
       setSelectedVersionId(null);
       setCompareVersionId(null);
-      setVersions([]);
-      setLoaded(false);
+      setAllVersions([]);
       setOffset(0);
     } catch {
       dispatch(addToast("Failed to restore version", "error"));
@@ -180,7 +185,6 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
     );
   }
 
-  const allVersions = versions;
   const hasMore = page?.hasMore ?? false;
 
   if (isLoading && allVersions.length === 0) {

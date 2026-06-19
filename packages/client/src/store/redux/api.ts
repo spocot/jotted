@@ -53,6 +53,7 @@ export const apiSlice = createApi({
   tagTypes: [
     "Note",
     "NoteList",
+    "NoteVersions",
     "Tag",
     "TagList",
     "Folder",
@@ -111,6 +112,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Note", id },
+        { type: "NoteVersions", id },
         "NoteList",
         "Graph",
       ],
@@ -172,7 +174,7 @@ export const apiSlice = createApi({
         const qs = sp.toString();
         return `/notes/${id}/versions${qs ? `?${qs}` : ""}`;
       },
-      providesTags: (_result, _error, { id }) => [{ type: "Note", id }],
+      providesTags: (_result, _error, { id }) => [{ type: "NoteVersions", id }],
     }),
 
     getNoteVersion: builder.query<
@@ -192,6 +194,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Note", id },
+        { type: "NoteVersions", id },
         "NoteList",
       ],
     }),
