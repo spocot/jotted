@@ -252,24 +252,28 @@ function computeDiff(a: string, b: string): string[] {
   let i = 0;
   let j = 0;
 
-  while (i < linesA.length || j < linesB.length) {
-    if (i < linesA.length && j < linesB.length && linesA[i] === linesB[j]) {
+  while (i < linesA.length && j < linesB.length) {
+    if (linesA[i] === linesB[j]) {
       result.push(" " + linesA[i]);
       i++;
       j++;
-    } else if (j < linesB.length && (i >= linesA.length || linesA[i] !== linesB[j])) {
-      // Check if next B line matches current A line (addition)
-      if (i < linesA.length && j + 1 < linesB.length && linesA[i] === linesB[j + 1]) {
-        result.push("+" + linesB[j]);
-        j++;
-      } else {
-        result.push("-" + linesA[i]);
-        i++;
-      }
+    } else if (j + 1 < linesB.length && linesA[i] === linesB[j + 1]) {
+      result.push("+" + linesB[j]);
+      j++;
     } else {
       result.push("-" + linesA[i]);
       i++;
     }
+  }
+
+  while (i < linesA.length) {
+    result.push("-" + linesA[i]);
+    i++;
+  }
+
+  while (j < linesB.length) {
+    result.push("+" + linesB[j]);
+    j++;
   }
 
   return result;
