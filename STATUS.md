@@ -225,22 +225,23 @@
 - [x] Auto-save debounce continues to fire — undoing saves reverted state on next debounce tick
 - [x] Entirely client-side, no server changes
 
-## Phase 23: Canvas — Snap-to-Grid & Alignment Guides ⬜
+## Phase 23: Canvas — Snap-to-Grid & Alignment Guides ✅
 
-- [ ] Toggleable grid overlay rendered via CSS radial-gradient background
-- [ ] Configurable grid size: small (20px), medium (40px default), large (80px)
-- [ ] Grid hidden on export PNG
-- [ ] Snap-to-grid on drag: snap top-left corner to nearest grid intersection
-- [ ] Snap-to-grid on resize: snap width/height to grid increments
-- [ ] Snap threshold: 50% of grid size
-- [ ] Toggleable snap mode (separate from grid visibility)
-- [ ] Smart alignment guides when grid snap is off:
-  - [ ] Detect when dragged item edges/center align with any other item edges/center
-  - [ ] Render thin colored guide lines (blue) at alignment points
-  - [ ] Alignment tolerance: 5px
-  - [ ] Supported: top, bottom, left, right edges; vertical + horizontal center
-- [ ] Distribution guides: when 3+ items dragged, show equal-spacing indicators
-- [ ] All guide logic is purely client-side — no server involvement
+- [x] Toggleable grid overlay rendered via CSS radial-gradient background on the transformed canvas layer (scrolls/pans with canvas)
+- [x] Configurable grid size: small (20px), medium (40px default), large (80px) via toolbar dropdown
+- [x] Grid hidden on export PNG (CSS background, not drawn on export canvas)
+- [x] Snap-to-grid on drag: snap top-left corner to nearest grid intersection
+- [x] Snap-to-grid on resize: snap width/height to grid increments
+- [x] Snap threshold: 50% of grid size (via Math.round)
+- [x] Toggleable snap mode with separate toolbar button (magnet icon) from grid visibility
+- [x] Smart alignment guides when grid snap is off:
+  - [x] Detect when dragged item edges/center align with any other item edges/center
+  - [x] Render thin blue guide lines at alignment points (SVG `<line>` inside connectors layer)
+  - [x] Alignment tolerance: 5px
+  - [x] Supported: top, bottom, left, right edges; vertical + horizontal center
+  - [x] Extended dashed lines when 3+ items share an alignment
+- [x] Distribution guides: when 3+ items dragged, show green equal-spacing indicators and gap markers
+- [x] All guide logic is purely client-side — no server involvement
 
 ## Phase 24: Canvas — Auto-Layout ⬜
 

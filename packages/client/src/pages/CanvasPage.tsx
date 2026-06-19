@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -74,7 +74,13 @@ export default function CanvasPage() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectRect, setSelectRect] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
 
-
+  // Grid & Snap
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridSize, setGridSize] = useState<20 | 40 | 80>(40);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  // Alignment & Distribution guides
+  const [alignmentGuides, setAlignmentGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; position: number; start: number; end: number; extended: boolean }>>([]);
+  const [distributionGuides, setDistributionGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; positions: number[] }>>([]);
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -320,6 +326,160 @@ export default function CanvasPage() {
     [],
   );
 
+  const snapValue = useCallback(
+    (value: number) => {
+      if (!snapToGrid) return value;
+      return Math.round(value / gridSize) * gridSize;
+    },
+    [snapToGrid, gridSize],
+  );
+
+  const computeAlignmentGuides = useCallback(
+    (draggedItems: CanvasItem[], allItems: CanvasItem[], draggedIds: Set<string>) => {
+      if (snapToGrid || draggedItems.length === 0) {
+        setAlignmentGuides([]);
+        setDistributionGuides([]);
+        return;
+      }
+      const tolerance = 5;
+      const otherItems = allItems.filter((i) => !draggedIds.has(i.id));
+      if (otherItems.length === 0) {
+        setAlignmentGuides([]);
+        setDistributionGuides([]);
+        return;
+      }
+
+      const candidates: Array<{ orientation: "horizontal" | "vertical"; position: number; itemIds: string[] }> = [];
+
+      for (const dragged of draggedItems) {
+        const dLeft = dragged.x;
+        const dRight = dragged.x + dragged.width;
+        const dTop = dragged.y;
+        const dBottom = dragged.y + dragged.height;
+        const dCx = dragged.x + dragged.width / 2;
+        const dCy = dragged.y + dragged.height / 2;
+
+        const draggedEdges = [
+          { pos: dLeft, type: "left" as const },
+          { pos: dRight, type: "right" as const },
+          { pos: dTop, type: "top" as const },
+          { pos: dBottom, type: "bottom" as const },
+          { pos: dCx, type: "center-x" as const },
+          { pos: dCy, type: "center-y" as const },
+        ];
+
+        for (const other of otherItems) {
+          const oLeft = other.x;
+          const oRight = other.x + other.width;
+          const oTop = other.y;
+          const oBottom = other.y + other.height;
+          const oCx = other.x + other.width / 2;
+          const oCy = other.y + other.height / 2;
+
+          const otherEdges = [
+            { pos: oLeft, axis: "x" as const },
+            { pos: oRight, axis: "x" as const, type: "left" as const },
+            { pos: oLeft, axis: "x" as const, type: "right" as const },
+            { pos: oRight, axis: "x" as const },
+            { pos: oCx, axis: "x" as const },
+            { pos: oTop, axis: "y" as const },
+            { pos: oBottom, axis: "y" as const },
+            { pos: oCy, axis: "y" as const },
+          ];
+
+          for (const de of draggedEdges) {
+            for (const oe of otherEdges) {
+              const isHorizontal =
+                (de.type === "top" || de.type === "bottom" || de.type === "center-y") && oe.axis === "y";
+              const isVertical =
+                (de.type === "left" || de.type === "right" || de.type === "center-x") && oe.axis === "x";
+              if (!isHorizontal && !isVertical) continue;
+              if (Math.abs(de.pos - oe.pos) > tolerance) continue;
+
+              candidates.push({
+                orientation: isHorizontal ? "horizontal" : "vertical",
+                position: oe.pos,
+                itemIds: [dragged.id, other.id],
+              });
+            }
+          }
+        }
+      }
+
+      // Deduplicate and merge guides close together
+      const merged: Array<{ orientation: "horizontal" | "vertical"; position: number; itemIds: Set<string> }> = [];
+      for (const c of candidates) {
+        const existing = merged.find(
+          (g) => g.orientation === c.orientation && Math.abs(g.position - c.position) <= tolerance,
+        );
+        if (existing) {
+          for (const id of c.itemIds) existing.itemIds.add(id);
+        } else {
+          merged.push({ ...c, itemIds: new Set(c.itemIds) });
+        }
+      }
+
+      // Convert to renderable guides
+      const minX = Math.min(...allItems.map((i) => i.x));
+      const maxX = Math.max(...allItems.map((i) => i.x + i.width));
+      const minY = Math.min(...allItems.map((i) => i.y));
+      const maxY = Math.max(...allItems.map((i) => i.y + i.height));
+      const guides = merged.map((g) => ({
+        orientation: g.orientation,
+        position: g.position,
+        start: g.orientation === "vertical" ? minY : minX,
+        end: g.orientation === "vertical" ? maxY : maxX,
+        extended: g.itemIds.size >= 3,
+      }));
+      setAlignmentGuides(guides);
+
+      // Distribution guides
+      if (draggedItems.length >= 3) {
+        const sortedByX = [...draggedItems].sort((a, b) => a.x - b.x);
+        const sortedByY = [...draggedItems].sort((a, b) => a.y - b.y);
+
+        const distGuides: Array<{ orientation: "horizontal" | "vertical"; positions: number[] }> = [];
+
+        // Check horizontal distribution
+        const gapsX: number[] = [];
+        for (let i = 1; i < sortedByX.length; i++) {
+          gapsX.push(sortedByX[i].x - (sortedByX[i - 1].x + sortedByX[i - 1].width));
+        }
+        if (gapsX.length >= 2) {
+          const avgGapX = gapsX.reduce((a, b) => a + b, 0) / gapsX.length;
+          const evenX = gapsX.every((g) => Math.abs(g - avgGapX) <= tolerance);
+          if (evenX) {
+            distGuides.push({
+              orientation: "vertical",
+              positions: sortedByX.map((item) => item.x + item.width / 2),
+            });
+          }
+        }
+
+        // Check vertical distribution
+        const gapsY: number[] = [];
+        for (let i = 1; i < sortedByY.length; i++) {
+          gapsY.push(sortedByY[i].y - (sortedByY[i - 1].y + sortedByY[i - 1].height));
+        }
+        if (gapsY.length >= 2) {
+          const avgGapY = gapsY.reduce((a, b) => a + b, 0) / gapsY.length;
+          const evenY = gapsY.every((g) => Math.abs(g - avgGapY) <= tolerance);
+          if (evenY) {
+            distGuides.push({
+              orientation: "horizontal",
+              positions: sortedByY.map((item) => item.y + item.height / 2),
+            });
+          }
+        }
+
+        setDistributionGuides(distGuides);
+      } else {
+        setDistributionGuides([]);
+      }
+    },
+    [snapToGrid],
+  );
+
   const getCanvasCoords = useCallback(
     (clientX: number, clientY: number) => {
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -378,10 +538,19 @@ export default function CanvasPage() {
         const newY = (e.clientY - rect.top - panY) / zoom - dragOffset.y;
         const anchorStart = dragStartPositions.get(anchorDragItemIdRef.current);
         if (!anchorStart) return;
-        const deltaX = newX - anchorStart.x;
-        const deltaY = newY - anchorStart.y;
-        setItems((prev) =>
-          prev.map((item) => {
+        let deltaX = newX - anchorStart.x;
+        let deltaY = newY - anchorStart.y;
+
+        // Snap to grid
+        if (snapToGrid) {
+          const snappedX = snapValue(anchorStart.x + deltaX);
+          const snappedY = snapValue(anchorStart.y + deltaY);
+          deltaX = snappedX - anchorStart.x;
+          deltaY = snappedY - anchorStart.y;
+        }
+
+        setItems((prev) => {
+          const updated = prev.map((item) => {
             if (!draggingItemIds.has(item.id)) return item;
             const startPos = dragStartPositions.get(item.id);
             if (!startPos) return item;
@@ -390,11 +559,17 @@ export default function CanvasPage() {
               x: startPos.x + deltaX,
               y: startPos.y + deltaY,
             };
-          }),
-        );
+          });
+
+          // Compute alignment guides based on updated positions
+          const draggedItems = updated.filter((i) => draggingItemIds.has(i.id));
+          computeAlignmentGuides(draggedItems, updated, draggingItemIds);
+
+          return updated;
+        });
       }
     },
-    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset],
+    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset, snapToGrid, snapValue, computeAlignmentGuides],
   );
 
   const handleCanvasMouseUp = useCallback(() => {
@@ -424,6 +599,8 @@ export default function CanvasPage() {
     if (draggingItemIds.size > 0) {
       setDraggingItemIds(new Set());
       setDragStartPositions(new Map());
+      setAlignmentGuides([]);
+      setDistributionGuides([]);
       scheduleAutoSave(items, edges);
     }
   }, [isSelecting, selectRect, isPanning, draggingItemIds, items, edges, scheduleAutoSave]);
@@ -1065,6 +1242,41 @@ export default function CanvasPage() {
             </div>
           )}
 
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          {/* Grid & Snap */}
+          <div className="relative">
+            <ToolButton
+              icon={<IconGridDots />}
+              label={showGrid ? "Hide grid" : "Show grid"}
+              active={showGrid}
+              onClick={() => setShowGrid((v) => !v)}
+            />
+            {showGrid && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50 flex">
+                {([20, 40, 80] as const).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setGridSize(size)}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      gridSize === size
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <ToolButton
+            icon={<IconMagnet />}
+            label={snapToGrid ? "Snap to grid: ON" : "Snap to grid: OFF"}
+            active={snapToGrid}
+            onClick={() => setSnapToGrid((v) => !v)}
+          />
+
           <div className="flex-1" />
 
           {/* Undo / Redo */}
@@ -1122,6 +1334,12 @@ export default function CanvasPage() {
           ref={canvasRef}
           tabIndex={0}
           className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900 relative cursor-grab active:cursor-grabbing outline-none"
+          style={showGrid ? {
+            backgroundImage: "radial-gradient(circle, #94a3b8 1px, transparent 1px)",
+            backgroundSize: `${gridSize * zoom}px ${gridSize * zoom}px`,
+            backgroundPosition: `${panX}px ${panY}px`,
+            backgroundRepeat: "repeat",
+          } : undefined}
           onWheel={handleWheel}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
@@ -1148,6 +1366,8 @@ export default function CanvasPage() {
                 position: "absolute",
                 top: 0,
                 left: 0,
+                width: 10000,
+                height: 10000,
               }}
             >
               {/* SVG connectors layer */}
@@ -1202,6 +1422,62 @@ export default function CanvasPage() {
                     sourceItem={items.find((i) => i.id === connectSourceId)}
                   />
                 )}
+
+                {/* Alignment guides */}
+                {alignmentGuides.map((guide, idx) => (
+                  <line
+                    key={`align-${idx}`}
+                    x1={guide.orientation === "vertical" ? guide.position : guide.start}
+                    y1={guide.orientation === "horizontal" ? guide.position : guide.start}
+                    x2={guide.orientation === "vertical" ? guide.position : guide.end}
+                    y2={guide.orientation === "horizontal" ? guide.position : guide.end}
+                    stroke="#3b82f6"
+                    strokeWidth={guide.extended ? 1.5 : 1}
+                    strokeDasharray={guide.extended ? "4,2" : undefined}
+                    opacity={0.8}
+                  />
+                ))}
+
+                {/* Distribution guides */}
+                {distributionGuides.map((dGuide, idx) => (
+                  <g key={`dist-${idx}`}>
+                    {dGuide.positions.map((pos, pIdx) => (
+                      <line
+                        key={`dist-${idx}-${pIdx}`}
+                        x1={dGuide.orientation === "vertical" ? pos : 0}
+                        y1={dGuide.orientation === "horizontal" ? pos : 0}
+                        x2={dGuide.orientation === "vertical" ? pos : 10000}
+                        y2={dGuide.orientation === "horizontal" ? pos : 10000}
+                        stroke="#22c55e"
+                        strokeWidth={1}
+                        strokeDasharray="3,3"
+                        opacity={0.6}
+                      />
+                    ))}
+                    {/* Gap indicators */}
+                    {dGuide.positions.length >= 3 && (
+                      <>
+                        {dGuide.positions.slice(0, -1).map((pos, pIdx) => {
+                          const nextPos = dGuide.positions[pIdx + 1];
+                          const mid = (pos + nextPos) / 2;
+                          return (
+                            <text
+                              key={`dist-label-${idx}-${pIdx}`}
+                              x={dGuide.orientation === "vertical" ? mid : 50}
+                              y={dGuide.orientation === "horizontal" ? mid : 50}
+                              fill="#22c55e"
+                              fontSize={10}
+                              textAnchor="middle"
+                              opacity={0.7}
+                            >
+                              ↔
+                            </text>
+                          );
+                        })}
+                      </>
+                    )}
+                  </g>
+                ))}
               </svg>
 
               {/* Rubber-band selection rectangle */}
@@ -1285,10 +1561,16 @@ export default function CanvasPage() {
                                 prev.map((i) => {
                                   const initSize = initialSizes.get(i.id);
                                   if (!initSize) return i;
+                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
+                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  if (snapToGrid) {
+                                    w = snapValue(w);
+                                    h = snapValue(h);
+                                  }
                                   return {
                                     ...i,
-                                    width: Math.max(ITEM_MIN_WIDTH, initSize.width + dx),
-                                    height: Math.max(ITEM_MIN_HEIGHT, initSize.height + dy),
+                                    width: w,
+                                    height: h,
                                   };
                                 }),
                               );
@@ -1370,10 +1652,16 @@ export default function CanvasPage() {
                                 prev.map((i) => {
                                   const initSize = initialSizes.get(i.id);
                                   if (!initSize) return i;
+                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
+                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  if (snapToGrid) {
+                                    w = snapValue(w);
+                                    h = snapValue(h);
+                                  }
                                   return {
                                     ...i,
-                                    width: Math.max(ITEM_MIN_WIDTH, initSize.width + dx),
-                                    height: Math.max(ITEM_MIN_HEIGHT, initSize.height + dy),
+                                    width: w,
+                                    height: h,
                                   };
                                 }),
                               );
