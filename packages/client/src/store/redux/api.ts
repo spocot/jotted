@@ -183,7 +183,7 @@ export const apiSlice = createApi({
     }),
 
     restoreNoteVersion: builder.mutation<
-      import("../../types").Note,
+      import("../../types").EnrichedNote,
       { id: string; versionId: string }
     >({
       query: ({ id, versionId }) => ({

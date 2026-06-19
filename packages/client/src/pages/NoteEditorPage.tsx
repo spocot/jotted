@@ -54,7 +54,6 @@ export default function NoteEditorPage() {
   const [uploadFile] = useUploadFileMutation();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const titleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const loadedNoteIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(false);
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -157,11 +156,12 @@ export default function NoteEditorPage() {
     };
   }, [id, editor, addToast, uploadFile]);
 
-  // Load content into editor when navigating to a note (skip on autosave updates)
+  // Load content into editor when navigating to a note or when content changes externally (restore)
   useEffect(() => {
     if (!editor || !selectedNote || selectedNote.id !== id) return;
-    if (loadedNoteIdRef.current === id) return;
-    loadedNoteIdRef.current = id;
+
+    const currentMd = serializer.serialize(editor.state.doc);
+    if (currentMd === selectedNote.content) return;
 
     const html = markdownToHtml(selectedNote.content);
     isInitialLoadRef.current = true;

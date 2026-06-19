@@ -44,7 +44,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo, versionRepo));
-app.use("/api/notes", createVersionsRouter(noteRepo, versionRepo));
+app.use("/api/notes", createVersionsRouter(noteRepo, tagRepo, linkRepo, versionRepo));
 app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
 app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));
 app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
