@@ -188,7 +188,78 @@
 - [x] Export canvas as PNG (renders items + edges to canvas)
 - [x] "Canvas" link in header navigation + `/canvas` route
 
-## Phase 20: DataView / Query Engine ⬜
+## Phase 20: Canvas — Image Items ⬜
+
+- [ ] Add "Add Image" toolbar button alongside Text Box and Note Pin
+- [ ] Image upload modal reusing existing upload infrastructure (Phase 13): drop zone for new uploads, browse existing uploads gallery
+- [ ] Render image items on canvas at original aspect ratio with resize handle (optional aspect lock)
+- [ ] Double-click on image item opens full image in lightbox
+- [ ] Drag-and-drop image files from desktop onto canvas creates image item
+- [ ] Paste image from clipboard onto canvas creates image item
+- [ ] Server: `canvas_items` table already supports `type = 'image'` — no schema change needed
+- [ ] Client: update `CanvasItem` rendering in `CanvasPage.tsx` for `type === "image"` with `<img>` element
+- [ ] Deleted image items do not delete underlying upload (uploads are shared media)
+
+## Phase 21: Canvas — Multi-Select & Batch Operations ⬜
+
+- [ ] Shift-click to toggle items into multi-selection set
+- [ ] Rubber-band / lasso selection: drag on empty canvas draws selection rectangle, intersecting items become selected
+- [ ] Selection count badge in toolbar ("3 selected")
+- [ ] Batch move: drag any selected item moves all selected items by same delta
+- [ ] Batch delete: removes all selected items + their edges
+- [ ] Batch color change: color picker applies to all selected items
+- [ ] Batch bring-to-front: raises all selected items to top preserving relative order
+- [ ] Batch resize: resize handle on any selected item resizes all
+- [ ] Click on empty canvas deselects all
+- [ ] Multi-select state: `selectedItemIds: Set<string>` replaces `selectedItemId: string | null`
+
+## Phase 22: Canvas — Undo/Redo ⬜
+
+- [ ] In-memory undo/redo stack snapshotting items + edges before each mutation
+- [ ] Stack entries store `{ items: CanvasItem[]; edges: CanvasEdge[] }` — full state snapshot
+- [ ] Max stack depth: 100 entries; new action discards redo history (linear undo model)
+- [ ] Actions that create snapshots: item add/delete, drag (one entry per drag), resize (one entry per resize), text edit (on blur), color change, edge add/delete, bring to front
+- [ ] Actions that do NOT create snapshots: pan/zoom, text editing in progress
+- [ ] Keyboard shortcuts: `Ctrl+Z` undo, `Ctrl+Shift+Z` / `Ctrl+Y` redo
+- [ ] Toolbar undo/redo buttons next to zoom controls (disabled when stack empty)
+- [ ] Auto-save debounce continues to fire — undoing saves reverted state on next debounce tick
+- [ ] Entirely client-side, no server changes
+
+## Phase 23: Canvas — Snap-to-Grid & Alignment Guides ⬜
+
+- [ ] Toggleable grid overlay rendered via CSS radial-gradient background
+- [ ] Configurable grid size: small (20px), medium (40px default), large (80px)
+- [ ] Grid hidden on export PNG
+- [ ] Snap-to-grid on drag: snap top-left corner to nearest grid intersection
+- [ ] Snap-to-grid on resize: snap width/height to grid increments
+- [ ] Snap threshold: 50% of grid size
+- [ ] Toggleable snap mode (separate from grid visibility)
+- [ ] Smart alignment guides when grid snap is off:
+  - [ ] Detect when dragged item edges/center align with any other item edges/center
+  - [ ] Render thin colored guide lines (blue) at alignment points
+  - [ ] Alignment tolerance: 5px
+  - [ ] Supported: top, bottom, left, right edges; vertical + horizontal center
+- [ ] Distribution guides: when 3+ items dragged, show equal-spacing indicators
+- [ ] All guide logic is purely client-side — no server involvement
+
+## Phase 24: Canvas — Auto-Layout ⬜
+
+- [ ] Auto-Layout dropdown/split-button next to export with two modes: Force-Directed and Tree
+- [ ] Force-Directed Layout:
+  - [ ] Use d3-force simulation (reuse from Phase 8 Graph View) on canvas coordinates
+  - [ ] Forces: charge (repel), link (attract connected), center (pull toward center)
+  - [ ] ~300 iterations or until alpha low; animate x/y over ~500ms
+  - [ ] Auto-save new positions after layout settles
+- [ ] Tree Layout:
+  - [ ] User picks root item or auto-select most-connected item
+  - [ ] Top-down or left-to-right arrangement
+  - [ ] Levels via BFS shortest path from root; siblings evenly spaced
+  - [ ] Graceful cycle handling (ignore back-edges)
+  - [ ] Edge type can auto-switch to "curved" for tree layout
+- [ ] Progress indicator (spinner) if layout takes >200ms
+- [ ] All changes through existing auto-save — no new server endpoints
+
+## Phase 25: DataView / Query Engine ⬜
 
 - [ ] TipTap extension rendering `dataview` code blocks as live tables/lists
 - [ ] Query DSL: `LIST`, `TABLE`, sources (`#tag`, `"folder"`), conditions, sorting
@@ -197,7 +268,7 @@
 - [ ] Auto-refresh and manual refresh button
 - [ ] Code block language picker includes `dataview`
 
-## Phase 21: Reminders & Alerts ⬜
+## Phase 26: Reminders & Alerts ⬜
 
 - [ ] `reminders` table with note_id, remind_at, done flag
 - [ ] Backend CRUD for reminders
@@ -207,14 +278,14 @@
 - [ ] Reminder picker UI in note editor (datetime picker)
 - [ ] Calendar integration: reminder indicators on calendar days
 
-## Phase 22: Testing & Hardening (New Features) ⬜
+## Phase 27: Testing & Hardening (New Features) ⬜
 
 - [ ] Unit tests for all new repositories and API handlers
 - [ ] Component tests for CalendarPage, DailyJournal, VersionHistoryPanel, CanvasView, DataView, ReminderPicker
 - [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
 - [ ] Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits, timezone handling
 
-## Phase 23: Note Templates ⬜
+## Phase 28: Note Templates ⬜
 
 - [ ] Server CRUD for templates
 - [ ] Template picker on new-note creation
@@ -222,7 +293,7 @@
 - [ ] "Save as template" action from editor
 - [ ] Template variables: `{{date}}`, `{{title}}`
 
-## Phase 24: Export / Import ⬜
+## Phase 29: Export / Import ⬜
 
 - [ ] Export single note as Markdown
 - [ ] Export all notes as ZIP of `.md` files
@@ -230,14 +301,14 @@
 - [ ] Obsidian vault import (folder structure, wikilinks, tags)
 - [ ] Export as PDF (browser print)
 
-## Phase 25: Code Syntax Highlighting ✅
+## Phase 30: Code Syntax Highlighting ✅
 
 - [x] Add highlight.js via lowlight + `@tiptap/extension-code-block-lowlight`
 - [x] TipTap extension (`CodeBlockHighlight`) with lowlight highlighting, extending `CodeBlockLowlight`
 - [x] Language selector dropdown in the formatting toolbar (shown when code block is active)
 - [x] Copy-to-clipboard button on each code block (via ProseMirror decoration plugin, with hover visibility)
 
-## Phase 26: Infinite Scalability (Pagination + SQL Pushdown) ✅
+## Phase 31: Infinite Scalability (Pagination + SQL Pushdown) ✅
 
 - [x] Add database indexes for sort/filter columns
 - [x] Add pagination types and utilities (PageRequest, PageResponse)
