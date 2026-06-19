@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { IconX } from "@tabler/icons-react";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
 import { getServerUrl, setServerUrl } from "../lib/server-config";
@@ -57,9 +58,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title="Close"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <IconX className="w-5 h-5" />
           </button>
         </div>
 

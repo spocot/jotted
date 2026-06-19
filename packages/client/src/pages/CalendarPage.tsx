@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { IconSettings, IconChevronLeft, IconChevronRight, IconNotebook } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import {
   useGetCalendarDataQuery,
@@ -195,10 +196,7 @@ export default function CalendarPage() {
             className="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="Calendar settings"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <IconSettings className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -209,9 +207,7 @@ export default function CalendarPage() {
           onClick={prevMonth}
           className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <IconChevronLeft className="w-5 h-5" />
         </button>
         <h2 className="text-xl font-semibold">
           {new Date(year, month - 1).toLocaleString("default", { month: "long", year: "numeric" })}
@@ -220,9 +216,7 @@ export default function CalendarPage() {
           onClick={nextMonth}
           className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <IconChevronRight className="w-5 h-5" />
         </button>
       </div>
 
@@ -305,10 +299,7 @@ export default function CalendarPage() {
                       className="inline-block"
                       title="Daily journal note"
                     >
-                      <svg className="w-3 h-3 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                      </svg>
+                      <IconNotebook className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                     </span>
                   )}
                   {hasNotes && (

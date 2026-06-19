@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
 import type { Note, SortField, SortOrder } from "../types";
@@ -225,13 +226,9 @@ export default function SearchPage() {
             title={orderParam === "DESC" ? "Descending" : "Ascending"}
           >
             {orderParam === "DESC" ? (
-              <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <IconChevronDown className="w-3.5 h-3.5 text-gray-500" />
             ) : (
-              <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
+              <IconChevronUp className="w-3.5 h-3.5 text-gray-500" />
             )}
           </button>
         </div>

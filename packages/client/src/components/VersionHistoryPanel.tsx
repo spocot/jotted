@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { IconChevronLeft } from "@tabler/icons-react";
 import {
   useGetNoteVersionsQuery,
   useGetNoteVersionQuery,
@@ -111,9 +112,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
           onClick={backToList}
           className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
         >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <IconChevronLeft className="w-3 h-3" />
           Back to versions
         </button>
         <div className="text-xs text-gray-400 dark:text-gray-500">
@@ -144,9 +143,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
           onClick={backToList}
           className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
         >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <IconChevronLeft className="w-3 h-3" />
           Back to versions
         </button>
         <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">

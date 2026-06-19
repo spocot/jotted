@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { IconFile } from "@tabler/icons-react";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
 import {
@@ -126,9 +127,7 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
                   </a>
                 ) : (
                   <div className="w-full h-24 flex items-center justify-center text-gray-400">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
+                    <IconFile className="w-8 h-8" />
                   </div>
                 )}
                 <div className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconArrowsMove, IconLink, IconTypography, IconMapPin, IconChevronUp } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -632,9 +633,7 @@ export default function CanvasPage() {
               className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2"
               title="Delete canvas"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <IconTrash className="w-4 h-4" />
             </button>
           </div>
         ))}
@@ -673,19 +672,19 @@ export default function CanvasPage() {
 
           {/* Tools */}
           <ToolButton
-            icon={<SelectIcon />}
+            icon={<IconPointer />}
             label="Select"
             active={activeTool === "select"}
             onClick={() => setActiveTool("select")}
           />
           <ToolButton
-            icon={<PanIcon />}
+            icon={<IconArrowsMove />}
             label="Pan"
             active={activeTool === "pan"}
             onClick={() => setActiveTool("pan")}
           />
           <ToolButton
-            icon={<ConnectIcon />}
+            icon={<IconLink />}
             label="Connect"
             active={activeTool === "connect"}
             onClick={() => setActiveTool("connect")}
@@ -695,12 +694,12 @@ export default function CanvasPage() {
 
           {/* Add items */}
           <ToolButton
-            icon={<TextIcon />}
+            icon={<IconTypography />}
             label="Text Box"
             onClick={handleAddTextBox}
           />
           <ToolButton
-            icon={<PinIcon />}
+            icon={<IconMapPin />}
             label="Note Pin"
             onClick={handleAddNotePin}
           />
@@ -709,13 +708,13 @@ export default function CanvasPage() {
 
           {/* Actions */}
           <ToolButton
-            icon={<DeleteIcon />}
+            icon={<IconTrash />}
             label="Delete"
             onClick={handleDeleteSelected}
             disabled={!selectedItemId}
           />
           <ToolButton
-            icon={<FrontIcon />}
+            icon={<IconChevronUp />}
             label="Bring to Front"
             onClick={handleBringToFront}
             disabled={!selectedItemId}
@@ -746,9 +745,7 @@ export default function CanvasPage() {
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
             title="Zoom out"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-            </svg>
+            <IconMinus className="w-4 h-4" />
           </button>
           <button
             onClick={() => setZoom(1)}
@@ -762,9 +759,7 @@ export default function CanvasPage() {
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
             title="Zoom in"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <IconPlus className="w-4 h-4" />
           </button>
 
           {/* Export */}
@@ -790,9 +785,7 @@ export default function CanvasPage() {
           {!selectedCanvasId && (
             <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
               <div className="text-center">
-                <svg className="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                </svg>
+                <IconLayoutKanban className="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <p className="text-sm">Select or create a canvas to start</p>
               </div>
             </div>
@@ -1125,60 +1118,4 @@ function LineToCursor({
   );
 }
 
-// ---- Icons ----
 
-function SelectIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  );
-}
-
-function PanIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-    </svg>
-  );
-}
-
-function ConnectIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17h16M4 12h8m-8-5h16" />
-    </svg>
-  );
-}
-
-function TextIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-    </svg>
-  );
-}
-
-function DeleteIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  );
-}
-
-function FrontIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-    </svg>
-  );
-}
