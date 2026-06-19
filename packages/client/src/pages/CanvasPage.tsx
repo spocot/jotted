@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconArrowsMove, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -58,7 +58,7 @@ export default function CanvasPage() {
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Tool state
-  type Tool = "select" | "pan" | "connect" | "text_box" | "note_pin";
+  type Tool = "select" | "connect" | "text_box" | "note_pin";
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
@@ -264,7 +264,7 @@ export default function CanvasPage() {
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (activeTool === "pan" || e.button === 1) {
+      if (activeTool !== "connect" || e.button === 1) {
         setIsPanning(true);
         panStartRef.current = { x: e.clientX, y: e.clientY, panX, panY };
         e.preventDefault();
@@ -822,15 +822,9 @@ export default function CanvasPage() {
           {/* Tools */}
           <ToolButton
             icon={<IconPointer />}
-            label="Select"
+            label="Select / Pan"
             active={activeTool === "select"}
             onClick={() => setActiveTool("select")}
-          />
-          <ToolButton
-            icon={<IconArrowsMove />}
-            label="Pan"
-            active={activeTool === "pan"}
-            onClick={() => setActiveTool("pan")}
           />
           <ToolButton
             icon={<IconLink />}
