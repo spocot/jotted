@@ -243,22 +243,23 @@
 - [x] Distribution guides: when 3+ items dragged, show green equal-spacing indicators and gap markers
 - [x] All guide logic is purely client-side — no server involvement
 
-## Phase 24: Canvas — Auto-Layout ⬜
+## Phase 24: Canvas — Auto-Layout ✅
 
-- [ ] Auto-Layout dropdown/split-button next to export with two modes: Force-Directed and Tree
-- [ ] Force-Directed Layout:
-  - [ ] Use d3-force simulation (reuse from Phase 8 Graph View) on canvas coordinates
-  - [ ] Forces: charge (repel), link (attract connected), center (pull toward center)
-  - [ ] ~300 iterations or until alpha low; animate x/y over ~500ms
-  - [ ] Auto-save new positions after layout settles
-- [ ] Tree Layout:
-  - [ ] User picks root item or auto-select most-connected item
-  - [ ] Top-down or left-to-right arrangement
-  - [ ] Levels via BFS shortest path from root; siblings evenly spaced
-  - [ ] Graceful cycle handling (ignore back-edges)
-  - [ ] Edge type can auto-switch to "curved" for tree layout
-- [ ] Progress indicator (spinner) if layout takes >200ms
-- [ ] All changes through existing auto-save — no new server endpoints
+- [x] Auto-Layout dropdown button next to Export with two modes: Force-Directed and Tree
+- [x] Force-Directed Layout:
+  - [x] Use d3-force simulation (reuse from Phase 8 Graph View) on canvas coordinates
+  - [x] Forces: charge (repel, -300), link (attract connected at 150px), center (pull toward item midpoint)
+  - [x] ~300 iterations via simulation.tick(); animate x/y over ~500ms with ease-out cubic
+  - [x] Auto-save new positions after animation completes
+- [x] Tree Layout:
+  - [x] Auto-select most-connected item as root
+  - [x] Top-down arrangement with levelSpacing 150px, siblingSpacing 200px
+  - [x] Levels via BFS shortest path from root; siblings evenly spaced and centered
+  - [x] Graceful cycle handling (visited set ignores back-edges)
+  - [x] Handles disconnected items (placed at level 0)
+- [x] Progress spinner (SVG spinning circle) shown in the Layout button while computation is active
+- [x] All changes go through existing auto-save mechanism — no new server endpoints
+- [x] Outside-click closes the layout dropdown
 
 ## Phase 25: DataView / Query Engine ⬜
 

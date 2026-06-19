@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
+import * as d3 from "d3";
 import {
   useGetCanvasesQuery,
   useGetCanvasQuery,
@@ -82,6 +83,10 @@ export default function CanvasPage() {
   // Alignment & Distribution guides
   const [alignmentGuides, setAlignmentGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; position: number; start: number; end: number; extended: boolean }>>([]);
   const [distributionGuides, setDistributionGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; positions: number[] }>>([]);
+
+  // Auto-layout
+  const [showAutoLayout, setShowAutoLayout] = useState(false);
+  const [isLayouting, setIsLayouting] = useState(false);
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -224,6 +229,15 @@ export default function CanvasPage() {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, []);
+
+  // Close auto-layout dropdown on outside click
+  useEffect(() => {
+    const handler = () => setShowAutoLayout(false);
+    if (showAutoLayout) {
+      window.addEventListener("click", handler, { once: true });
+    }
+    return () => window.removeEventListener("click", handler);
+  }, [showAutoLayout]);
 
   // ---- Undo / Redo ----
 
@@ -668,6 +682,183 @@ export default function CanvasPage() {
       scheduleAutoSave(items, edges);
     }
   }, [isSelecting, selectRect, isPanning, draggingItemIds, items, edges, scheduleAutoSave]);
+
+  // ---- Auto-Layout ----
+
+  const animateItems = useCallback(
+    (targetItems: CanvasItem[], duration = 500) => {
+      const startItems = items.map((i) => ({ ...i }));
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        // Ease out cubic
+        const ease = 1 - Math.pow(1 - t, 3);
+
+        setItems((prev) =>
+          prev.map((item) => {
+            const target = targetItems.find((ti) => ti.id === item.id);
+            if (!target) return item;
+            const start = startItems.find((si) => si.id === item.id);
+            if (!start) return item;
+            return {
+              ...item,
+              x: start.x + (target.x - start.x) * ease,
+              y: start.y + (target.y - start.y) * ease,
+            };
+          }),
+        );
+
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          setItems(targetItems);
+          scheduleAutoSave(targetItems, edges);
+        }
+      };
+
+      requestAnimationFrame(step);
+    },
+    [items, edges, scheduleAutoSave],
+  );
+
+  const handleForceLayout = useCallback(() => {
+    if (items.length === 0) return;
+    setIsLayouting(true);
+
+    // Use setTimeout to let the UI update before heavy computation
+    setTimeout(() => {
+      pushUndo();
+
+      const nodes = items.map((i) => ({ ...i }));
+      const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+      const links = edges
+        .filter((e) => nodeMap.has(e.sourceItemId) && nodeMap.has(e.targetItemId))
+        .map((e) => ({ source: e.sourceItemId, target: e.targetItemId }));
+
+      const cx = nodes.reduce((s, n) => s + n.x + n.width / 2, 0) / nodes.length;
+      const cy = nodes.reduce((s, n) => s + n.y + n.height / 2, 0) / nodes.length;
+
+      const simulation = d3
+        .forceSimulation(nodes)
+        .force("charge", d3.forceManyBody().strength(-300))
+        .force("link", d3.forceLink(links).distance(150).strength(0.5))
+        .force("center", d3.forceCenter(cx, cy))
+        .alphaDecay(0.05)
+        .stop();
+
+      // Run ~300 iterations
+      for (let i = 0; i < 300; i++) {
+        simulation.tick();
+      }
+
+      // Map back positions (center the items on the node center, not top-left)
+      const targetItems: CanvasItem[] = items.map((item) => {
+        const node = nodes.find((n) => n.id === item.id);
+        if (!node) return item;
+        return {
+          ...item,
+          x: node.x - item.width / 2,
+          y: node.y - item.height / 2,
+        };
+      });
+
+      setIsLayouting(false);
+      animateItems(targetItems, 500);
+    }, 50);
+  }, [items, edges, pushUndo, animateItems]);
+
+  const handleTreeLayout = useCallback(() => {
+    if (items.length === 0) return;
+    setIsLayouting(true);
+
+    setTimeout(() => {
+      pushUndo();
+
+      // Build adjacency list from edges
+      const adj = new Map<string, string[]>();
+      for (const item of items) {
+        adj.set(item.id, []);
+      }
+      for (const edge of edges) {
+        adj.get(edge.sourceItemId)?.push(edge.targetItemId);
+        adj.get(edge.targetItemId)?.push(edge.sourceItemId);
+      }
+
+      // Find root: item with most connections
+      let rootId = items[0].id;
+      let maxDegree = 0;
+      for (const [id, neighbors] of adj) {
+        if (neighbors.length > maxDegree) {
+          maxDegree = neighbors.length;
+          rootId = id;
+        }
+      }
+
+      // BFS to assign levels (ignore back-edges via visited set)
+      const visited = new Set<string>();
+      const levels = new Map<string, number>();
+      const queue: string[] = [rootId];
+      visited.add(rootId);
+      levels.set(rootId, 0);
+
+      while (queue.length > 0) {
+        const nodeId = queue.shift()!;
+        const level = levels.get(nodeId) ?? 0;
+        for (const neighbor of adj.get(nodeId) ?? []) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            levels.set(neighbor, level + 1);
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      // Handle disconnected items
+      for (const item of items) {
+        if (!levels.has(item.id)) {
+          levels.set(item.id, 0);
+        }
+      }
+
+      // Group items by level
+      const byLevel = new Map<number, string[]>();
+      for (const [id, level] of levels) {
+        if (!byLevel.has(level)) byLevel.set(level, []);
+        byLevel.get(level)!.push(id);
+      }
+
+      const sortedLevels = [...byLevel.keys()].sort((a, b) => a - b);
+      const levelSpacing = 150;
+      const siblingSpacing = 200;
+
+      // Calculate bounds of current items for centering
+      const minX = Math.min(...items.map((i) => i.x));
+      const maxX = Math.max(...items.map((i) => i.x + i.width));
+      const minY = Math.min(...items.map((i) => i.y));
+      const maxY = Math.max(...items.map((i) => i.y + i.height));
+      const currentCx = (minX + maxX) / 2;
+      const currentCy = (minY + maxY) / 2;
+
+      const targetItems: CanvasItem[] = items.map((item) => {
+        const level = levels.get(item.id) ?? 0;
+        const siblings = byLevel.get(level) ?? [];
+        const siblingIndex = siblings.indexOf(item.id);
+        const levelWidth = siblings.length * siblingSpacing;
+        const offsetX = siblingIndex * siblingSpacing + siblingSpacing / 2 - levelWidth / 2;
+
+        return {
+          ...item,
+          x: currentCx + offsetX - item.width / 2,
+          y: currentCy + (level - sortedLevels.length / 2) * levelSpacing,
+        };
+      });
+
+      setIsLayouting(false);
+      animateItems(targetItems, 500);
+    }, 50);
+  }, [items, edges, pushUndo, animateItems]);
 
   // ---- Item Handling ----
 
@@ -1399,6 +1590,60 @@ export default function CanvasPage() {
           >
             <IconPlus className="w-4 h-4" />
           </button>
+
+          {/* Auto-Layout */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAutoLayout((v) => !v)}
+              disabled={isLayouting || items.length === 0}
+              className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors flex items-center gap-1 disabled:opacity-40"
+              title="Auto-layout items"
+            >
+              {isLayouting ? (
+                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <IconNetwork className="w-3 h-3" />
+              )}
+              Layout
+            </button>
+            {showAutoLayout && !isLayouting && (
+              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50 flex flex-col min-w-[160px]">
+                <button
+                  onClick={() => {
+                    setShowAutoLayout(false);
+                    handleForceLayout();
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
+                >
+                  <IconNetwork className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="font-medium">Force-Directed</div>
+                    <div className="text-gray-400 dark:text-gray-500 font-normal">
+                      Arrange via force simulation
+                    </div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAutoLayout(false);
+                    handleTreeLayout();
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
+                >
+                  <IconHierarchy className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="font-medium">Tree</div>
+                    <div className="text-gray-400 dark:text-gray-500 font-normal">
+                      Arrange in a hierarchy
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Export */}
           <button
