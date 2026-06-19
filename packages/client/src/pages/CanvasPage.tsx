@@ -1490,6 +1490,10 @@ export default function CanvasPage() {
                 {activeTool === "connect" && connectSourceId && (
                   <LineToCursor
                     sourceItem={items.find((i) => i.id === connectSourceId)}
+                    canvasRef={canvasRef}
+                    panX={panX}
+                    panY={panY}
+                    zoom={zoom}
                   />
                 )}
 
@@ -2004,8 +2008,16 @@ function ToolButton({ icon, label, active, onClick, disabled }: ToolButtonProps)
 
 function LineToCursor({
   sourceItem,
+  canvasRef,
+  panX,
+  panY,
+  zoom,
 }: {
   sourceItem?: CanvasItem;
+  canvasRef: React.RefObject<HTMLDivElement | null>;
+  panX: number;
+  panY: number;
+  zoom: number;
 }) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -2022,10 +2034,14 @@ function LineToCursor({
   const sx = sourceItem.x + sourceItem.width / 2;
   const sy = sourceItem.y + sourceItem.height / 2;
 
-  // Convert screen mouse pos to canvas coordinates
-  // This is approximate since we don't have canvas ref here
-  const tx = mousePos.x;
-  const ty = mousePos.y;
+  // Convert screen mouse coords to canvas space
+  const rect = canvasRef.current?.getBoundingClientRect();
+  let tx = mousePos.x;
+  let ty = mousePos.y;
+  if (rect) {
+    tx = (mousePos.x - rect.left - panX) / zoom;
+    ty = (mousePos.y - rect.top - panY) / zoom;
+  }
 
   return (
     <line
