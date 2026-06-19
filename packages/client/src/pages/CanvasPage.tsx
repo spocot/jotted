@@ -60,13 +60,21 @@ export default function CanvasPage() {
   // Tool state
   type Tool = "select" | "connect" | "text_box" | "note_pin";
   const [activeTool, setActiveTool] = useState<Tool>("select");
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
-  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [draggingItemIds, setDraggingItemIds] = useState<Set<string>>(new Set());
+  const [dragStartPositions, setDragStartPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [itemColor, setItemColor] = useState(COLORS[0]);
+  const anchorDragItemIdRef = useRef<string | null>(null);
+
+  // Rubber-band selection
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectRect, setSelectRect] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
+
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -250,61 +258,120 @@ export default function CanvasPage() {
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
-      } else {
-        setPanX((x) => x - e.deltaX);
-        setPanY((y) => y - e.deltaY);
-      }
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
     },
     [],
   );
 
+  const getCanvasCoords = useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return { x: 0, y: 0 };
+      return {
+        x: (clientX - rect.left - panX) / zoom,
+        y: (clientY - rect.top - panY) / zoom,
+      };
+    },
+    [panX, panY, zoom],
+  );
+
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (activeTool === "select" && e.button === 0) {
+        // Start rubber-band selection
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        setIsSelecting(true);
+        setSelectRect({
+          startX: coords.x,
+          startY: coords.y,
+          currentX: coords.x,
+          currentY: coords.y,
+        });
+        e.preventDefault();
+        return;
+      }
       if (activeTool !== "connect" || e.button === 1) {
         setIsPanning(true);
         panStartRef.current = { x: e.clientX, y: e.clientY, panX, panY };
         e.preventDefault();
       }
     },
-    [activeTool, panX, panY],
+    [activeTool, panX, panY, getCanvasCoords],
   );
 
   const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      if (isSelecting && selectRect) {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        setSelectRect((prev) =>
+          prev ? { ...prev, currentX: coords.x, currentY: coords.y } : prev,
+        );
+        return;
+      }
       if (isPanning) {
         const dx = e.clientX - panStartRef.current.x;
         const dy = e.clientY - panStartRef.current.y;
         setPanX(panStartRef.current.panX + dx);
         setPanY(panStartRef.current.panY + dy);
       }
-      if (draggingItemId) {
+      if (draggingItemIds.size > 0 && anchorDragItemIdRef.current) {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
         const newX = (e.clientX - rect.left - panX) / zoom - dragOffset.x;
         const newY = (e.clientY - rect.top - panY) / zoom - dragOffset.y;
+        const anchorStart = dragStartPositions.get(anchorDragItemIdRef.current);
+        if (!anchorStart) return;
+        const deltaX = newX - anchorStart.x;
+        const deltaY = newY - anchorStart.y;
         setItems((prev) =>
-          prev.map((item) =>
-            item.id === draggingItemId
-              ? { ...item, x: newX, y: newY }
-              : item,
-          ),
+          prev.map((item) => {
+            if (!draggingItemIds.has(item.id)) return item;
+            const startPos = dragStartPositions.get(item.id);
+            if (!startPos) return item;
+            return {
+              ...item,
+              x: startPos.x + deltaX,
+              y: startPos.y + deltaY,
+            };
+          }),
         );
       }
     },
-    [isPanning, draggingItemId, panX, panY, zoom, dragOffset],
+    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset],
   );
 
   const handleCanvasMouseUp = useCallback(() => {
+    if (isSelecting && selectRect) {
+      // Finalize rubber-band selection
+      const minX = Math.min(selectRect.startX, selectRect.currentX);
+      const minY = Math.min(selectRect.startY, selectRect.currentY);
+      const maxX = Math.max(selectRect.startX, selectRect.currentX);
+      const maxY = Math.max(selectRect.startY, selectRect.currentY);
+      const newSelected = new Set<string>();
+      for (const item of items) {
+        if (
+          item.x < maxX &&
+          item.x + item.width > minX &&
+          item.y < maxY &&
+          item.y + item.height > minY
+        ) {
+          newSelected.add(item.id);
+        }
+      }
+      setSelectedItemIds(newSelected);
+      setIsSelecting(false);
+      setSelectRect(null);
+      return;
+    }
     if (isPanning) setIsPanning(false);
-    if (draggingItemId) {
-      setDraggingItemId(null);
+    if (draggingItemIds.size > 0) {
+      setDraggingItemIds(new Set());
+      setDragStartPositions(new Map());
       scheduleAutoSave(items, edges);
     }
-  }, [isPanning, draggingItemId, items, edges, scheduleAutoSave]);
+  }, [isSelecting, selectRect, isPanning, draggingItemIds, items, edges, scheduleAutoSave]);
 
   // ---- Item Handling ----
 
@@ -334,16 +401,44 @@ export default function CanvasPage() {
         return;
       }
       if (activeTool === "select") {
-        setSelectedItemId(item.id);
+        let newSelectedIds: Set<string>;
+        if (e.shiftKey) {
+          // Toggle this item in the selection
+          newSelectedIds = new Set(selectedItemIds);
+          if (newSelectedIds.has(item.id)) {
+            newSelectedIds.delete(item.id);
+          } else {
+            newSelectedIds.add(item.id);
+          }
+        } else if (selectedItemIds.has(item.id)) {
+          // Keep current multi-selection and start drag on all
+          newSelectedIds = new Set(selectedItemIds);
+        } else {
+          // Single select
+          newSelectedIds = new Set([item.id]);
+        }
+        setSelectedItemIds(newSelectedIds);
+
+        // Record start positions for all dragged items
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
         const offsetX = (e.clientX - rect.left - panX) / zoom - item.x;
         const offsetY = (e.clientY - rect.top - panY) / zoom - item.y;
         setDragOffset({ x: offsetX, y: offsetY });
-        setDraggingItemId(item.id);
+
+        const startPositions = new Map<string, { x: number; y: number }>();
+        for (const sid of newSelectedIds) {
+          const si = items.find((i) => i.id === sid);
+          if (si) {
+            startPositions.set(sid, { x: si.x, y: si.y });
+          }
+        }
+        setDragStartPositions(startPositions);
+        setDraggingItemIds(newSelectedIds);
+        anchorDragItemIdRef.current = item.id;
       }
     },
-    [activeTool, connectSourceId, selectedCanvasId, edges, items, panX, panY, zoom, scheduleAutoSave, dispatch],
+    [activeTool, connectSourceId, selectedCanvasId, edges, items, panX, panY, zoom, scheduleAutoSave, dispatch, selectedItemIds],
   );
 
   const handleItemDoubleClick = useCallback(
@@ -374,51 +469,53 @@ export default function CanvasPage() {
   );
 
   const handleDeleteSelected = useCallback(() => {
-    if (!selectedItemId) return;
-    const deletedId = selectedItemId;
-    const updatedItems = items.filter((i) => i.id !== selectedItemId);
+    if (selectedItemIds.size === 0) return;
+    const deletedIds = [...selectedItemIds];
+    const updatedItems = items.filter((i) => !selectedItemIds.has(i.id));
     const deletedEdgeIds = edges
       .filter(
-        (e) => e.sourceItemId === selectedItemId || e.targetItemId === selectedItemId,
+        (e) => selectedItemIds.has(e.sourceItemId) || selectedItemIds.has(e.targetItemId),
       )
       .map((e) => e.id);
     const updatedEdges = edges.filter(
-      (e) => e.sourceItemId !== selectedItemId && e.targetItemId !== selectedItemId,
+      (e) => !selectedItemIds.has(e.sourceItemId) && !selectedItemIds.has(e.targetItemId),
     );
     setItems(updatedItems);
     setEdges(updatedEdges);
-    setSelectedItemId(null);
+    setSelectedItemIds(new Set());
     scheduleAutoSave(updatedItems, updatedEdges, {
-      deletedItemIds: [deletedId],
+      deletedItemIds: deletedIds,
       deletedEdgeIds: deletedEdgeIds,
     });
-    dispatch(addToast("Item deleted", "info"));
-  }, [selectedItemId, items, edges, scheduleAutoSave, dispatch]);
+    dispatch(addToast(deletedIds.length > 1 ? `${deletedIds.length} items deleted` : "Item deleted", "info"));
+  }, [selectedItemIds, items, edges, scheduleAutoSave, dispatch]);
 
   const handleColorChange = useCallback(
     (color: string) => {
-      if (!selectedItemId) return;
+      if (selectedItemIds.size === 0) return;
       setItems((prev) =>
         prev.map((item) =>
-          item.id === selectedItemId ? { ...item, color } : item,
+          selectedItemIds.has(item.id) ? { ...item, color } : item,
         ),
       );
       setItemColor(color);
       scheduleAutoSave(items, edges);
     },
-    [selectedItemId, items, edges, scheduleAutoSave],
+    [selectedItemIds, items, edges, scheduleAutoSave],
   );
 
   const handleBringToFront = useCallback(() => {
-    if (!selectedItemId) return;
+    if (selectedItemIds.size === 0) return;
     const maxZ = Math.max(...items.map((i) => i.zIndex), 0);
+    let nextZ = maxZ + 1;
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === selectedItemId ? { ...item, zIndex: maxZ + 1 } : item,
-      ),
+      prev.map((item) => {
+        if (!selectedItemIds.has(item.id)) return item;
+        return { ...item, zIndex: nextZ++ };
+      }),
     );
     scheduleAutoSave(items, edges);
-  }, [selectedItemId, items, edges, scheduleAutoSave]);
+  }, [selectedItemIds, items, edges, scheduleAutoSave]);
 
   // ---- Adding Items ----
 
@@ -440,7 +537,7 @@ export default function CanvasPage() {
     };
     const updatedItems = [...items, newItem];
     setItems(updatedItems);
-    setSelectedItemId(newItem.id);
+    setSelectedItemIds(new Set([newItem.id]));
     setEditingItemId(newItem.id);
     setEditText("New Text");
     scheduleAutoSave(updatedItems, edges);
@@ -528,7 +625,7 @@ export default function CanvasPage() {
         };
         const updatedItems = [...items, newItem];
         setItems(updatedItems);
-        setSelectedItemId(newItem.id);
+        setSelectedItemIds(new Set([newItem.id]));
         setShowImagePicker(false);
         scheduleAutoSave(updatedItems, edges);
         dispatch(addToast("Image added", "success"));
@@ -558,7 +655,7 @@ export default function CanvasPage() {
       };
       const updatedItems = [...items, newItem];
       setItems(updatedItems);
-      setSelectedItemId(newItem.id);
+      setSelectedItemIds(new Set([newItem.id]));
       setShowImagePicker(false);
       scheduleAutoSave(updatedItems, edges);
       dispatch(addToast("Image added", "success"));
@@ -859,17 +956,17 @@ export default function CanvasPage() {
             icon={<IconTrash />}
             label="Delete"
             onClick={handleDeleteSelected}
-            disabled={!selectedItemId}
+            disabled={selectedItemIds.size === 0}
           />
           <ToolButton
             icon={<IconChevronUp />}
             label="Bring to Front"
             onClick={handleBringToFront}
-            disabled={!selectedItemId}
+            disabled={selectedItemIds.size === 0}
           />
 
           {/* Color picker */}
-          {selectedItemId && (
+          {selectedItemIds.size > 0 && (
             <div className="flex items-center gap-1">
               <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
               {COLORS.map((color) => (
@@ -881,6 +978,16 @@ export default function CanvasPage() {
                   title={color}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Selection count badge */}
+          {selectedItemIds.size > 1 && (
+            <div className="flex items-center gap-1 ml-1">
+              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
+                {selectedItemIds.size} selected
+              </span>
             </div>
           )}
 
@@ -1007,6 +1114,23 @@ export default function CanvasPage() {
                 )}
               </svg>
 
+              {/* Rubber-band selection rectangle */}
+              {isSelecting && selectRect && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: Math.min(selectRect.startX, selectRect.currentX),
+                    top: Math.min(selectRect.startY, selectRect.currentY),
+                    width: Math.abs(selectRect.currentX - selectRect.startX),
+                    height: Math.abs(selectRect.currentY - selectRect.startY),
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    border: "2px solid #3b82f6",
+                    borderRadius: 4,
+                    zIndex: 999999,
+                  }}
+                />
+              )}
+
               {/* Canvas items */}
               {[...items]
                 .sort((a, b) => a.zIndex - b.zIndex)
@@ -1016,7 +1140,7 @@ export default function CanvasPage() {
                     onMouseDown={(e) => handleItemMouseDown(e, item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
                     className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none overflow-hidden ${
-                      selectedItemId === item.id
+                      selectedItemIds.has(item.id)
                         ? "ring-2 ring-blue-400 dark:ring-blue-500"
                         : ""
                     } ${
@@ -1052,19 +1176,30 @@ export default function CanvasPage() {
                             e.stopPropagation();
                             const startX = e.clientX;
                             const startY = e.clientY;
-                            const startW = item.width;
-                            const startH = item.height;
+                            // Record initial sizes for all selected items
+                            const initialSizes = new Map<string, { width: number; height: number }>();
+                            for (const sid of selectedItemIds) {
+                              const si = items.find((i) => i.id === sid);
+                              if (si) {
+                                initialSizes.set(sid, { width: si.width, height: si.height });
+                              }
+                            }
+                            if (initialSizes.size === 0) {
+                              initialSizes.set(item.id, { width: item.width, height: item.height });
+                            }
                             const handleMouseMove = (ev: MouseEvent) => {
                               const dx = (ev.clientX - startX) / zoom;
                               const dy = (ev.clientY - startY) / zoom;
-                              const newW = Math.max(ITEM_MIN_WIDTH, startW + dx);
-                              const newH = Math.max(ITEM_MIN_HEIGHT, startH + dy);
                               setItems((prev) =>
-                                prev.map((i) =>
-                                  i.id === item.id
-                                    ? { ...i, width: newW, height: newH }
-                                    : i,
-                                ),
+                                prev.map((i) => {
+                                  const initSize = initialSizes.get(i.id);
+                                  if (!initSize) return i;
+                                  return {
+                                    ...i,
+                                    width: Math.max(ITEM_MIN_WIDTH, initSize.width + dx),
+                                    height: Math.max(ITEM_MIN_HEIGHT, initSize.height + dy),
+                                  };
+                                }),
                               );
                             };
                             const handleMouseUp = () => {
@@ -1125,19 +1260,30 @@ export default function CanvasPage() {
                             e.stopPropagation();
                             const startX = e.clientX;
                             const startY = e.clientY;
-                            const startW = item.width;
-                            const startH = item.height;
+                            // Record initial sizes for all selected items
+                            const initialSizes = new Map<string, { width: number; height: number }>();
+                            for (const sid of selectedItemIds) {
+                              const si = items.find((i) => i.id === sid);
+                              if (si) {
+                                initialSizes.set(sid, { width: si.width, height: si.height });
+                              }
+                            }
+                            if (initialSizes.size === 0) {
+                              initialSizes.set(item.id, { width: item.width, height: item.height });
+                            }
                             const handleMouseMove = (ev: MouseEvent) => {
                               const dx = (ev.clientX - startX) / zoom;
                               const dy = (ev.clientY - startY) / zoom;
-                              const newW = Math.max(ITEM_MIN_WIDTH, startW + dx);
-                              const newH = Math.max(ITEM_MIN_HEIGHT, startH + dy);
                               setItems((prev) =>
-                                prev.map((i) =>
-                                  i.id === item.id
-                                    ? { ...i, width: newW, height: newH }
-                                    : i,
-                                ),
+                                prev.map((i) => {
+                                  const initSize = initialSizes.get(i.id);
+                                  if (!initSize) return i;
+                                  return {
+                                    ...i,
+                                    width: Math.max(ITEM_MIN_WIDTH, initSize.width + dx),
+                                    height: Math.max(ITEM_MIN_HEIGHT, initSize.height + dy),
+                                  };
+                                }),
                               );
                             };
                             const handleMouseUp = () => {
