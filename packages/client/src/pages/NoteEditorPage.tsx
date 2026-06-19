@@ -18,7 +18,7 @@ import {
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import { Wikilink, Tag, CodeBlockHighlight, SUPPORTED_LANGUAGES } from "../extensions";
+import { Wikilink, Tag, CodeBlockHighlight } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
@@ -427,23 +427,6 @@ export default function NoteEditorPage() {
               >
                 {`{ }`}
               </ToolbarButton>
-
-              {editor.isActive("codeBlock") && (
-                <select
-                  value={editor.getAttributes("codeBlock").language ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value || null;
-                    editor.chain().focus().updateAttributes("codeBlock", { language: val }).run();
-                  }}
-                  className="ml-1 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400"
-                >
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <option key={lang.label} value={lang.value ?? ""}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
-              )}
 
               <div className="flex-1" />
               {saveStatus === "unsaved" && (

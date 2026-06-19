@@ -55,17 +55,51 @@ export const SUPPORTED_LANGUAGES = [
   { label: "Zig", value: "zig" },
 ];
 
-function codeBlockCopyPlugin() {
-  return new Plugin({
-    key: new PluginKey("codeBlockCopy"),
-    props: {
-      decorations(state) {
-        const decorations: Decoration[] = [];
-        state.doc.descendants((node, pos) => {
-          if (node.type.name === "codeBlock") {
+const CodeBlockHighlight = CodeBlockLowlight.extend({
+  addProseMirrorPlugins() {
+    const { editor } = this;
+
+    const codeBlockUIPlugin = new Plugin({
+      key: new PluginKey("codeBlockUI"),
+      props: {
+        decorations(state) {
+          const decorations: Decoration[] = [];
+          state.doc.descendants((node, pos) => {
+            if (node.type.name !== "codeBlock") return;
+            const currentLang = node.attrs.language ?? "";
+
+            const select = document.createElement("select");
+            select.className =
+              "absolute top-2 left-2 px-1 py-0.5 text-[11px] rounded border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400 outline-none opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer";
+            SUPPORTED_LANGUAGES.forEach((lang) => {
+              const opt = document.createElement("option");
+              opt.value = lang.value ?? "";
+              opt.textContent = lang.label;
+              select.appendChild(opt);
+            });
+            select.value = currentLang;
+
+            select.addEventListener("change", (e) => {
+              e.stopPropagation();
+              const val = (e.target as HTMLSelectElement).value || null;
+              const tr = editor.view.state.tr;
+              tr.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                language: val,
+              });
+              editor.view.dispatch(tr);
+            });
+
+            decorations.push(
+              Decoration.widget(pos + 1, select, {
+                key: `lang-${pos}`,
+                side: -2,
+              }),
+            );
+
             const btn = document.createElement("button");
             btn.className =
-              "absolute top-2 right-2 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors opacity-0 group-hover:opacity-100";
+              "absolute top-2 right-2 px-2 py-1 text-[11px] rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors opacity-0 group-hover:opacity-100";
             btn.textContent = "Copy";
             btn.addEventListener("click", (e) => {
               e.stopPropagation();
@@ -75,20 +109,20 @@ function codeBlockCopyPlugin() {
                 btn.textContent = "Copy";
               }, 2000);
             });
-            decorations.push(
-              Decoration.widget(pos + 1, btn, { side: -1 }),
-            );
-          }
-        });
-        return DecorationSet.create(state.doc, decorations);
-      },
-    },
-  });
-}
 
-const CodeBlockHighlight = CodeBlockLowlight.extend({
-  addProseMirrorPlugins() {
-    return [...(this.parent?.() ?? []), codeBlockCopyPlugin()];
+            decorations.push(
+              Decoration.widget(pos + 1, btn, {
+                key: `copy-${pos}`,
+                side: -1,
+              }),
+            );
+          });
+          return DecorationSet.create(state.doc, decorations);
+        },
+      },
+    });
+
+    return [...(this.parent?.() ?? []), codeBlockUIPlugin];
   },
   renderHTML({ node, HTMLAttributes }) {
     const preClass = [
