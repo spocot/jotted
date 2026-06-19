@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
   useGetCanvasQuery,
@@ -26,6 +26,8 @@ const ITEM_MIN_HEIGHT = 60;
 
 export default function CanvasPage() {
   const navigate = useNavigate();
+  const { id: paramId } = useParams<{ id: string }>();
+  const selectedCanvasId = paramId ?? null;
   const dispatch = useAppDispatch();
 
   // Canvas list
@@ -35,8 +37,6 @@ export default function CanvasPage() {
   const [deleteCanvas] = useDeleteCanvasMutation();
   const [batchUpdate] = useBatchUpdateCanvasMutation();
   const [lazyGetNotes] = useLazyGetNotesQuery();
-
-  const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
   const { data: canvasData } = useGetCanvasQuery(selectedCanvasId ?? "", {
     skip: !selectedCanvasId,
   });
@@ -168,7 +168,7 @@ export default function CanvasPage() {
   const handleCreateCanvas = async () => {
     try {
       const canvas = await createCanvas(newCanvasTitle || undefined).unwrap();
-      setSelectedCanvasId(canvas.id);
+      navigate(`/canvas/${canvas.id}`);
       setShowNewCanvas(false);
       setNewCanvasTitle("");
       dispatch(addToast("Canvas created", "success"));
@@ -182,7 +182,7 @@ export default function CanvasPage() {
     try {
       await deleteCanvas(id).unwrap();
       if (selectedCanvasId === id) {
-        setSelectedCanvasId(null);
+        navigate("/canvas");
       }
       dispatch(addToast("Canvas deleted", "info"));
     } catch {
@@ -586,7 +586,7 @@ export default function CanvasPage() {
         {canvases.map((c) => (
           <div
             key={c.id}
-            onClick={() => setSelectedCanvasId(c.id)}
+            onClick={() => navigate(`/canvas/${c.id}`)}
             className={`px-3 py-2 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between group ${
               selectedCanvasId === c.id
                 ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"

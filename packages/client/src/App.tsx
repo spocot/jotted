@@ -76,6 +76,7 @@ export default function App() {
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/canvas/:id" element={<CanvasPage />} />
         <Route path="/canvas" element={<CanvasPage />} />
         <Route path="/journal" element={<DailyJournalPage />} />
         </Routes>
