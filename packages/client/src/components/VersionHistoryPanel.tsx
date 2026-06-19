@@ -7,6 +7,7 @@ import {
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
 import type { NoteVersion } from "../types";
+import { useConfirm } from "../hooks/useConfirm";
 
 interface VersionHistoryPanelProps {
   noteId: string;
@@ -15,6 +16,7 @@ interface VersionHistoryPanelProps {
 type ViewMode = "list" | "detail" | "compare";
 
 export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps) {
+  const confirm = useConfirm();
   const dispatch = useAppDispatch();
   const [offset, setOffset] = useState(0);
   const [versions, setVersions] = useState<NoteVersion[]>([]);
@@ -73,7 +75,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
   };
 
   const handleRestore = async (versionId: string) => {
-    if (!confirm("Restore this version? Current content will be saved as a new version.")) return;
+    if (!(await confirm("Restore this version? Current content will be saved as a new version.", { title: "Restore Version", confirmLabel: "Restore" }))) return;
     setRestoring(true);
     try {
       await restoreVersion({ id: noteId, versionId }).unwrap();

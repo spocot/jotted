@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGetNotesQuery } from "../store/redux/api";
 import type { FolderNode } from "../types";
+import { useConfirm } from "../hooks/useConfirm";
 
 function FolderItem({
   node,
@@ -23,6 +24,7 @@ function FolderItem({
   onDeleteNote: (id: string) => void;
   activeNoteId: string | null;
 }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.name);
@@ -132,9 +134,9 @@ function FolderItem({
               </svg>
             </button>
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                if (confirm(`Delete folder "${node.name}"? Notes will move to parent folder.`)) {
+                if (await confirm(`Delete folder "${node.name}"? Notes will move to parent folder.`, { title: "Delete Folder", confirmLabel: "Delete", variant: "danger" })) {
                   onDeleteFolder(node.path);
                 }
               }}

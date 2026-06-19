@@ -7,6 +7,7 @@ import {
   useDeleteUploadMutation,
 } from "../store/redux/api";
 import type { Upload } from "../types";
+import { useConfirm } from "../hooks/useConfirm";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
 
@@ -15,6 +16,7 @@ interface AttachmentsPanelProps {
 }
 
 export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
+  const confirm = useConfirm();
   const { data: uploads = [], isLoading: loading } = useGetUploadsQuery(noteId);
   const [uploadFile] = useUploadFileMutation();
   const [deleteUpload] = useDeleteUploadMutation();
@@ -43,7 +45,7 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
   };
 
   const handleDelete = async (upload: Upload) => {
-    if (!confirm(`Delete "${upload.originalName}"?`)) return;
+    if (!(await confirm(`Delete "${upload.originalName}"?`, { title: "Delete Attachment", confirmLabel: "Delete", variant: "danger" }))) return;
     try {
       await deleteUpload(upload.id).unwrap();
       dispatch(addToast("File deleted", "info"));

@@ -8,10 +8,12 @@ import {
 import type { Tag, Note } from "../types";
 import TagPill from "../components/TagPill";
 import NoteCard from "../components/NoteCard";
+import { useConfirm } from "../hooks/useConfirm";
 
 const PAGE_SIZE = 50;
 
 export default function TagsPage() {
+  const confirm = useConfirm();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -72,7 +74,7 @@ export default function TagsPage() {
   };
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Delete tag "#${name}"? It will be removed from all notes.`)) return;
+    if (!(await confirm(`Delete tag "#${name}"? It will be removed from all notes.`, { title: "Delete Tag", confirmLabel: "Delete", variant: "danger" }))) return;
       try {
         await deleteTag(name).unwrap();
         if (selectedTag === name) {

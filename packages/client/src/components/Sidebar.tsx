@@ -18,8 +18,10 @@ import { addToast } from "../store/redux/toastSlice";
 import FolderTree from "./FolderTree";
 import TagPill from "./TagPill";
 import CreateNoteModal from "./CreateNoteModal";
+import { useConfirm } from "../hooks/useConfirm";
 
 export default function Sidebar() {
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarOpen = useAppSelector(selectSidebarOpen);
@@ -41,7 +43,7 @@ export default function Sidebar() {
   const [deleteFolder] = useDeleteFolderMutation();
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this note?")) return;
+    if (!(await confirm("Delete this note?", { title: "Delete Note", confirmLabel: "Delete", variant: "danger" }))) return;
     try {
       await deleteNote(id).unwrap();
     } catch {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
+import { ConfirmProvider } from "./hooks/useConfirm";
 import NoteListPage from "./pages/NoteListPage";
 import NoteEditorPage from "./pages/NoteEditorPage";
 import SearchPage from "./pages/SearchPage";
@@ -64,8 +65,9 @@ function NoteByDateRedirect() {
 
 export default function App() {
   return (
-    <Layout>
-      <Routes>
+    <ConfirmProvider>
+      <Layout>
+        <Routes>
         <Route path="/" element={<NoteListPage />} />
         <Route path="/note/:id" element={<NoteEditorPage />} />
         <Route path="/note/by-date/:date" element={<NoteByDateRedirect />} />
@@ -74,7 +76,8 @@ export default function App() {
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/journal" element={<DailyJournalPage />} />
-      </Routes>
-    </Layout>
+        </Routes>
+      </Layout>
+    </ConfirmProvider>
   );
 }
