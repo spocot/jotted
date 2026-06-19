@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -58,7 +58,7 @@ export default function CanvasPage() {
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Tool state
-  type Tool = "select" | "connect" | "text_box" | "note_pin";
+  type Tool = "select" | "lasso" | "connect" | "text_box" | "note_pin";
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
@@ -279,7 +279,7 @@ export default function CanvasPage() {
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (activeTool === "select" && e.button === 0) {
+      if (activeTool === "lasso" && e.button === 0) {
         // Start rubber-band selection
         const coords = getCanvasCoords(e.clientX, e.clientY);
         setIsSelecting(true);
@@ -928,6 +928,12 @@ export default function CanvasPage() {
             label="Connect"
             active={activeTool === "connect"}
             onClick={() => setActiveTool("connect")}
+          />
+          <ToolButton
+            icon={<IconLasso />}
+            label="Lasso Select"
+            active={activeTool === "lasso"}
+            onClick={() => setActiveTool("lasso")}
           />
 
           <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
