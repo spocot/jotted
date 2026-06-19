@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -78,6 +78,7 @@ export default function CanvasPage() {
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState<20 | 40 | 80>(40);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [snapToGuides, setSnapToGuides] = useState(false);
   // Alignment & Distribution guides
   const [alignmentGuides, setAlignmentGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; position: number; start: number; end: number; extended: boolean }>>([]);
   const [distributionGuides, setDistributionGuides] = useState<Array<{ orientation: "horizontal" | "vertical"; positions: number[] }>>([]);
@@ -336,7 +337,7 @@ export default function CanvasPage() {
 
   const computeAlignmentGuides = useCallback(
     (draggedItems: CanvasItem[], allItems: CanvasItem[], draggedIds: Set<string>) => {
-      if (snapToGrid || draggedItems.length === 0) {
+      if (draggedItems.length === 0) {
         setAlignmentGuides([]);
         setDistributionGuides([]);
         return;
@@ -477,7 +478,7 @@ export default function CanvasPage() {
         setDistributionGuides([]);
       }
     },
-    [snapToGrid],
+    [],
   );
 
   const getCanvasCoords = useCallback(
@@ -549,6 +550,69 @@ export default function CanvasPage() {
           deltaY = snappedY - anchorStart.y;
         }
 
+        // Snap to alignment guides (if grid snap is off)
+        if (snapToGuides && !snapToGrid) {
+          const projected = items.map((item) => {
+            if (!draggingItemIds.has(item.id)) return item;
+            const startPos = dragStartPositions.get(item.id);
+            if (!startPos) return item;
+            return { ...item, x: startPos.x + deltaX, y: startPos.y + deltaY };
+          });
+          const otherItems = projected.filter((i) => !draggingItemIds.has(i.id));
+          const draggedItems = projected.filter((i) => draggingItemIds.has(i.id));
+          const alignTolerance = 5;
+          let guideDx = 0;
+          let guideDy = 0;
+          let closestDist = alignTolerance;
+
+          for (const d of draggedItems) {
+            const dLeft = d.x;
+            const dRight = d.x + d.width;
+            const dTop = d.y;
+            const dBottom = d.y + d.height;
+            const dCx = d.x + d.width / 2;
+            const dCy = d.y + d.height / 2;
+
+            for (const other of otherItems) {
+              const oLeft = other.x;
+              const oRight = other.x + other.width;
+              const oTop = other.y;
+              const oBottom = other.y + other.height;
+              const oCx = other.x + other.width / 2;
+              const oCy = other.y + other.height / 2;
+
+              const vPairs = [
+                [dLeft, oLeft], [dLeft, oRight],
+                [dRight, oLeft], [dRight, oRight],
+                [dCx, oCx],
+              ];
+              for (const [edge, target] of vPairs) {
+                const dist = Math.abs(edge - target);
+                if (dist < closestDist) {
+                  closestDist = dist;
+                  guideDx = target - edge;
+                }
+              }
+
+              const hPairs = [
+                [dTop, oTop], [dTop, oBottom],
+                [dBottom, oTop], [dBottom, oBottom],
+                [dCy, oCy],
+              ];
+              for (const [edge, target] of hPairs) {
+                const dist = Math.abs(edge - target);
+                if (dist < closestDist) {
+                  closestDist = dist;
+                  guideDy = target - edge;
+                }
+              }
+            }
+          }
+
+          deltaX += guideDx;
+          deltaY += guideDy;
+        }
+
         setItems((prev) => {
           const updated = prev.map((item) => {
             if (!draggingItemIds.has(item.id)) return item;
@@ -569,7 +633,7 @@ export default function CanvasPage() {
         });
       }
     },
-    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset, snapToGrid, snapValue, computeAlignmentGuides],
+    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset, snapToGrid, snapValue, snapToGuides, computeAlignmentGuides, items],
   );
 
   const handleCanvasMouseUp = useCallback(() => {
@@ -1275,6 +1339,12 @@ export default function CanvasPage() {
             label={snapToGrid ? "Snap to grid: ON" : "Snap to grid: OFF"}
             active={snapToGrid}
             onClick={() => setSnapToGrid((v) => !v)}
+          />
+          <ToolButton
+            icon={<IconLayoutAlignCenter />}
+            label={snapToGuides ? "Snap to guides: ON" : "Snap to guides: OFF"}
+            active={snapToGuides}
+            onClick={() => setSnapToGuides((v) => !v)}
           />
 
           <div className="flex-1" />
