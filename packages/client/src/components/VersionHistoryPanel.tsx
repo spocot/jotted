@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft, IconCheck, IconArrowsLeftRight } from "@tabler/icons-react";
 import {
   useGetNoteVersionsQuery,
   useGetNoteVersionQuery,
@@ -232,7 +232,7 @@ export default function VersionHistoryPanel({ noteId }: VersionHistoryPanelProps
             }`}
             title={compareVersionId === version.id ? "Remove from comparison" : "Select for comparison"}
           >
-            {compareVersionId === version.id ? "✓" : "⇄"}
+            {compareVersionId === version.id ? <IconCheck className="w-3 h-3" /> : <IconArrowsLeftRight className="w-3 h-3" />}
           </button>
         </div>
       ))}
