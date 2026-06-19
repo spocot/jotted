@@ -1,7 +1,86 @@
+@import "highlight.js/styles/github.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+}
+
+.dark .hljs {
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-section,
+.dark .hljs-link {
+  color: #569cd6;
+}
+
+.dark .hljs-string,
+.dark .hljs-title,
+.dark .hljs-name,
+.dark .hljs-type,
+.dark .hljs-attribute,
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-addition,
+.dark .hljs-variable,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable {
+  color: #ce9178;
+}
+
+.dark .hljs-comment,
+.dark .hljs-quote,
+.dark .hljs-deletion,
+.dark .hljs-meta {
+  color: #6a9955;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-doctag,
+.dark .hljs-type,
+.dark .hljs-name,
+.dark .hljs-strong {
+  font-weight: bold;
+}
+
+.dark .hljs-number,
+.dark .hljs-built_in {
+  color: #b5cea8;
+}
+
+.dark .hljs-attr,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-class,
+.dark .hljs-selector-id,
+.dark .hljs-selector-pseudo {
+  color: #d7ba7d;
+}
+
+.dark .hljs-regexp,
+.dark .hljs-subst {
+  color: #d16969;
+}
+
+.prose pre {
+  position: relative;
+}
+
+.prose pre code {
+  display: block;
+  position: relative;
+}
+
+.prose pre::after {
+  display: none;
 }

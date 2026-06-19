@@ -230,12 +230,12 @@
 - [ ] Obsidian vault import (folder structure, wikilinks, tags)
 - [ ] Export as PDF (browser print)
 
-## Phase 25: Code Syntax Highlighting ⬜
+## Phase 25: Code Syntax Highlighting ✅
 
-- [ ] Add highlight.js or Shiki
-- [ ] TipTap extension for code block highlighting
-- [ ] Language selector
-- [ ] Copy-to-clipboard button
+- [x] Add highlight.js via lowlight + `@tiptap/extension-code-block-lowlight`
+- [x] TipTap extension (`CodeBlockHighlight`) with lowlight highlighting, extending `CodeBlockLowlight`
+- [x] Language selector dropdown in the formatting toolbar (shown when code block is active)
+- [x] Copy-to-clipboard button on each code block (via ProseMirror decoration plugin, with hover visibility)
 
 ## Phase 26: Infinite Scalability (Pagination + SQL Pushdown) ✅
 
