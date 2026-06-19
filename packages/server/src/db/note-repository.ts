@@ -98,8 +98,8 @@ export class NoteRepository {
     const queryParams: unknown[] = [];
 
     if (folder) {
-      conditions.push("(n.path = ? OR n.path LIKE ?)");
-      queryParams.push(folder, folder + "/%");
+      conditions.push("n.path = ?");
+      queryParams.push(folder);
     }
 
     if (tag) {
