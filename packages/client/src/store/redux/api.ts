@@ -369,6 +369,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Upload", id: noteId },
+        "Upload",
       ],
     }),
 
