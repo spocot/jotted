@@ -333,6 +333,21 @@ export class CanvasRepository {
               item.id,
               canvasId,
             );
+          } else {
+            this.insertItemStmt.run(
+              item.id,
+              canvasId,
+              item.noteId ?? null,
+              item.type ?? "text_box",
+              item.text ?? "",
+              item.color ?? "#3b82f6",
+              item.x ?? 0,
+              item.y ?? 0,
+              item.width ?? 200,
+              item.height ?? 100,
+              item.zIndex ?? (this.getMaxZIndexStmt.get(canvasId) as { maxZ: number }).maxZ + 1,
+              new Date().toISOString(),
+            );
           }
         }
       }
@@ -346,6 +361,15 @@ export class CanvasRepository {
               edge.type ?? existing.type,
               edge.id,
               canvasId,
+            );
+          } else {
+            this.insertEdgeStmt.run(
+              edge.id,
+              canvasId,
+              edge.sourceItemId ?? "",
+              edge.targetItemId ?? "",
+              edge.type ?? "straight",
+              new Date().toISOString(),
             );
           }
         }

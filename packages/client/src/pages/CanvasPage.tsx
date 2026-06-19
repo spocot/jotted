@@ -75,29 +75,52 @@ export default function CanvasPage() {
 
   // Canvas container ref
   const canvasRef = useRef<HTMLDivElement>(null);
+  const loadedCanvasRef = useRef<string | null>(null);
 
-  // Sync local state from server data
+  // Sync local state from server on initial load for each canvas
+  // (not on refetches triggered by auto-save invalidation)
   useEffect(() => {
-    if (canvasData) {
+    if (!canvasData) {
+      if (selectedCanvasId && loadedCanvasRef.current !== selectedCanvasId) {
+        setItems([]);
+        setEdges([]);
+        setCanvasTitle("");
+      }
+      return;
+    }
+    if (loadedCanvasRef.current !== canvasData.id) {
       setItems(canvasData.items);
       setEdges(canvasData.edges);
       setCanvasTitle(canvasData.title);
-    } else {
-      setItems([]);
-      setEdges([]);
-      setCanvasTitle("");
+      loadedCanvasRef.current = canvasData.id;
     }
-  }, [canvasData]);
+  }, [canvasData, selectedCanvasId]);
 
   // Auto-save ref
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeletesRef = useRef<{ itemIds: string[]; edgeIds: string[] }>({
+    itemIds: [],
+    edgeIds: [],
+  });
 
   const scheduleAutoSave = useCallback(
-    (updatedItems: CanvasItem[], updatedEdges: CanvasEdge[]) => {
+    (
+      updatedItems: CanvasItem[],
+      updatedEdges: CanvasEdge[],
+      extra?: { deletedItemIds?: string[]; deletedEdgeIds?: string[] },
+    ) => {
       if (!selectedCanvasId) return;
+      if (extra?.deletedItemIds) {
+        pendingDeletesRef.current.itemIds.push(...extra.deletedItemIds);
+      }
+      if (extra?.deletedEdgeIds) {
+        pendingDeletesRef.current.edgeIds.push(...extra.deletedEdgeIds);
+      }
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
       }
+      const deletes = { ...pendingDeletesRef.current };
+      pendingDeletesRef.current = { itemIds: [], edgeIds: [] };
       autoSaveTimerRef.current = setTimeout(() => {
         batchUpdate({
           canvasId: selectedCanvasId,
@@ -120,6 +143,12 @@ export default function CanvasPage() {
               targetItemId: e.targetItemId,
               type: e.type,
             })),
+            deletedItemIds: deletes.itemIds.length > 0
+              ? deletes.itemIds
+              : undefined,
+            deletedEdgeIds: deletes.edgeIds.length > 0
+              ? deletes.edgeIds
+              : undefined,
           },
         });
       }, 1000);
@@ -297,14 +326,23 @@ export default function CanvasPage() {
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedItemId) return;
+    const deletedId = selectedItemId;
     const updatedItems = items.filter((i) => i.id !== selectedItemId);
+    const deletedEdgeIds = edges
+      .filter(
+        (e) => e.sourceItemId === selectedItemId || e.targetItemId === selectedItemId,
+      )
+      .map((e) => e.id);
     const updatedEdges = edges.filter(
       (e) => e.sourceItemId !== selectedItemId && e.targetItemId !== selectedItemId,
     );
     setItems(updatedItems);
     setEdges(updatedEdges);
     setSelectedItemId(null);
-    scheduleAutoSave(updatedItems, updatedEdges);
+    scheduleAutoSave(updatedItems, updatedEdges, {
+      deletedItemIds: [deletedId],
+      deletedEdgeIds: deletedEdgeIds,
+    });
     dispatch(addToast("Item deleted", "info"));
   }, [selectedItemId, items, edges, scheduleAutoSave, dispatch]);
 
@@ -338,7 +376,7 @@ export default function CanvasPage() {
   const handleAddTextBox = useCallback(() => {
     if (!selectedCanvasId) return;
     const newItem: CanvasItem = {
-      id: `temp-${Date.now()}`,
+      id: crypto.randomUUID(),
       canvasId: selectedCanvasId,
       noteId: null,
       type: "text_box",
@@ -390,7 +428,7 @@ export default function CanvasPage() {
     (noteId: string, noteTitle: string) => {
       if (!selectedCanvasId) return;
       const newItem: CanvasItem = {
-        id: `temp-${Date.now()}`,
+        id: crypto.randomUUID(),
         canvasId: selectedCanvasId,
         noteId,
         type: "note_pin",
@@ -420,7 +458,9 @@ export default function CanvasPage() {
       e.stopPropagation();
       const updatedEdges = edges.filter((ed) => ed.id !== edgeId);
       setEdges(updatedEdges);
-      scheduleAutoSave(items, updatedEdges);
+      scheduleAutoSave(items, updatedEdges, {
+        deletedEdgeIds: [edgeId],
+      });
     },
     [edges, items, scheduleAutoSave],
   );
