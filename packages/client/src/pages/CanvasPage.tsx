@@ -77,6 +77,38 @@ export default function CanvasPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedCanvasRef = useRef<string | null>(null);
 
+  // Pan/zoom to frame all items within the viewport
+  const panToFitItems = useCallback((itemsToFit: CanvasItem[]) => {
+    if (itemsToFit.length === 0) return;
+    const container = canvasRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const vw = rect.width;
+    const vh = rect.height;
+    if (vw === 0 || vh === 0) return;
+
+    const pad = 40;
+    const minX = Math.min(...itemsToFit.map((i) => i.x)) - pad;
+    const minY = Math.min(...itemsToFit.map((i) => i.y)) - pad;
+    const maxX = Math.max(...itemsToFit.map((i) => i.x + i.width)) + pad;
+    const maxY = Math.max(...itemsToFit.map((i) => i.y + i.height)) + pad;
+
+    const bw = maxX - minX;
+    const bh = maxY - minY;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    let zoomLevel = 1;
+    if (bw > 0 && bh > 0) {
+      zoomLevel = Math.min((vw * 0.8) / bw, (vh * 0.8) / bh, 2);
+    }
+    zoomLevel = Math.max(0.1, zoomLevel);
+
+    setPanX(vw / 2 - cx * zoomLevel);
+    setPanY(vh / 2 - cy * zoomLevel);
+    setZoom(zoomLevel);
+  }, []);
+
   // Sync local state from server on initial load for each canvas
   // (not on refetches triggered by auto-save invalidation)
   useEffect(() => {
@@ -93,8 +125,9 @@ export default function CanvasPage() {
       setEdges(canvasData.edges);
       setCanvasTitle(canvasData.title);
       loadedCanvasRef.current = canvasData.id;
+      panToFitItems(canvasData.items);
     }
-  }, [canvasData, selectedCanvasId]);
+  }, [canvasData, selectedCanvasId, panToFitItems]);
 
   // Auto-save ref
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
