@@ -200,30 +200,30 @@
 - [x] Client: update `CanvasItem` rendering in `CanvasPage.tsx` for `type === "image"` with `<img>` element
 - [x] Deleted image items do not delete underlying upload (uploads are shared media)
 
-## Phase 21: Canvas — Multi-Select & Batch Operations ⬜
+## Phase 21: Canvas — Multi-Select & Batch Operations ✅
 
-- [ ] Shift-click to toggle items into multi-selection set
-- [ ] Rubber-band / lasso selection: drag on empty canvas draws selection rectangle, intersecting items become selected
-- [ ] Selection count badge in toolbar ("3 selected")
-- [ ] Batch move: drag any selected item moves all selected items by same delta
-- [ ] Batch delete: removes all selected items + their edges
-- [ ] Batch color change: color picker applies to all selected items
-- [ ] Batch bring-to-front: raises all selected items to top preserving relative order
-- [ ] Batch resize: resize handle on any selected item resizes all
-- [ ] Click on empty canvas deselects all
-- [ ] Multi-select state: `selectedItemIds: Set<string>` replaces `selectedItemId: string | null`
+- [x] Shift-click to toggle items into multi-selection set
+- [x] Rubber-band / lasso selection: drag on empty canvas draws selection rectangle, intersecting items become selected
+- [x] Selection count badge in toolbar ("3 selected")
+- [x] Batch move: drag any selected item moves all selected items by same delta
+- [x] Batch delete: removes all selected items + their edges
+- [x] Batch color change: color picker applies to all selected items
+- [x] Batch bring-to-front: raises all selected items to top preserving relative order
+- [x] Batch resize: resize handle on any selected item resizes all
+- [x] Click on empty canvas deselects all
+- [x] Multi-select state: `selectedItemIds: Set<string>` replaces `selectedItemId: string | null`
 
-## Phase 22: Canvas — Undo/Redo ⬜
+## Phase 22: Canvas — Undo/Redo ✅
 
-- [ ] In-memory undo/redo stack snapshotting items + edges before each mutation
-- [ ] Stack entries store `{ items: CanvasItem[]; edges: CanvasEdge[] }` — full state snapshot
-- [ ] Max stack depth: 100 entries; new action discards redo history (linear undo model)
-- [ ] Actions that create snapshots: item add/delete, drag (one entry per drag), resize (one entry per resize), text edit (on blur), color change, edge add/delete, bring to front
-- [ ] Actions that do NOT create snapshots: pan/zoom, text editing in progress
-- [ ] Keyboard shortcuts: `Ctrl+Z` undo, `Ctrl+Shift+Z` / `Ctrl+Y` redo
-- [ ] Toolbar undo/redo buttons next to zoom controls (disabled when stack empty)
-- [ ] Auto-save debounce continues to fire — undoing saves reverted state on next debounce tick
-- [ ] Entirely client-side, no server changes
+- [x] In-memory undo/redo stack snapshotting items + edges before each mutation
+- [x] Stack entries store `{ items: CanvasItem[]; edges: CanvasEdge[] }` — full state snapshot
+- [x] Max stack depth: 100 entries; new action discards redo history (linear undo model)
+- [x] Actions that create snapshots: item add/delete, drag (one entry per drag), resize (one entry per resize), text edit (on blur), color change, edge add/delete, bring to front
+- [x] Actions that do NOT create snapshots: pan/zoom, text editing in progress
+- [x] Keyboard shortcuts: `Ctrl+Z` undo, `Ctrl+Shift+Z` / `Ctrl+Y` redo
+- [x] Toolbar undo/redo buttons next to zoom controls (disabled when stack empty)
+- [x] Auto-save debounce continues to fire — undoing saves reverted state on next debounce tick
+- [x] Entirely client-side, no server changes
 
 ## Phase 23: Canvas — Snap-to-Grid & Alignment Guides ⬜
 

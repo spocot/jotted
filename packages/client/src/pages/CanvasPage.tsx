@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -218,6 +218,61 @@ export default function CanvasPage() {
     };
   }, []);
 
+  // ---- Undo / Redo ----
+
+  const MAX_UNDO_DEPTH = 100;
+  const undoStackRef = useRef<Array<{ items: CanvasItem[]; edges: CanvasEdge[] }>>([]);
+  const redoStackRef = useRef<Array<{ items: CanvasItem[]; edges: CanvasEdge[] }>>([]);
+
+  const pushUndo = useCallback(() => {
+    undoStackRef.current.push({ items: JSON.parse(JSON.stringify(items)), edges: JSON.parse(JSON.stringify(edges)) });
+    if (undoStackRef.current.length > MAX_UNDO_DEPTH) {
+      undoStackRef.current.shift();
+    }
+    redoStackRef.current = [];
+  }, [items, edges]);
+
+  const handleUndo = useCallback(() => {
+    const snapshot = undoStackRef.current.pop();
+    if (!snapshot) return;
+    redoStackRef.current.push({ items: JSON.parse(JSON.stringify(items)), edges: JSON.parse(JSON.stringify(edges)) });
+    setItems(snapshot.items);
+    setEdges(snapshot.edges);
+    setSelectedItemIds(new Set());
+    scheduleAutoSave(snapshot.items, snapshot.edges);
+  }, [items, edges, scheduleAutoSave]);
+
+  const handleRedo = useCallback(() => {
+    const snapshot = redoStackRef.current.pop();
+    if (!snapshot) return;
+    undoStackRef.current.push({ items: JSON.parse(JSON.stringify(items)), edges: JSON.parse(JSON.stringify(edges)) });
+    setItems(snapshot.items);
+    setEdges(snapshot.edges);
+    setSelectedItemIds(new Set());
+    scheduleAutoSave(snapshot.items, snapshot.edges);
+  }, [items, edges, scheduleAutoSave]);
+
+  // Keyboard shortcut for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleUndo, handleRedo]);
+
   // ---- Canvas List ----
 
   const handleCreateCanvas = async () => {
@@ -382,6 +437,7 @@ export default function CanvasPage() {
         if (connectSourceId === null) {
           setConnectSourceId(item.id);
         } else if (connectSourceId !== item.id) {
+          pushUndo();
           const newEdge: CanvasEdge = {
             id: `temp-${Date.now()}`,
             canvasId: selectedCanvasId ?? "",
@@ -400,7 +456,7 @@ export default function CanvasPage() {
         }
         return;
       }
-      if (activeTool === "select") {
+      if (activeTool === "select" || activeTool === "lasso") {
         let newSelectedIds: Set<string>;
         if (e.shiftKey) {
           // Toggle this item in the selection
@@ -418,6 +474,9 @@ export default function CanvasPage() {
           newSelectedIds = new Set([item.id]);
         }
         setSelectedItemIds(newSelectedIds);
+
+        // Snapshot for undo at drag start (one entry for the whole drag)
+        pushUndo();
 
         // Record start positions for all dragged items
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -438,7 +497,7 @@ export default function CanvasPage() {
         anchorDragItemIdRef.current = item.id;
       }
     },
-    [activeTool, connectSourceId, selectedCanvasId, edges, items, panX, panY, zoom, scheduleAutoSave, dispatch, selectedItemIds],
+    [activeTool, connectSourceId, selectedCanvasId, edges, items, panX, panY, zoom, scheduleAutoSave, dispatch, selectedItemIds, pushUndo],
   );
 
   const handleItemDoubleClick = useCallback(
@@ -457,6 +516,7 @@ export default function CanvasPage() {
 
   const handleTextSave = useCallback(
     (itemId: string) => {
+      pushUndo();
       setItems((prev) =>
         prev.map((item) =>
           item.id === itemId ? { ...item, text: editText } : item,
@@ -465,11 +525,12 @@ export default function CanvasPage() {
       setEditingItemId(null);
       scheduleAutoSave(items, edges);
     },
-    [editText, items, edges, scheduleAutoSave],
+    [editText, items, edges, scheduleAutoSave, pushUndo],
   );
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedItemIds.size === 0) return;
+    pushUndo();
     const deletedIds = [...selectedItemIds];
     const updatedItems = items.filter((i) => !selectedItemIds.has(i.id));
     const deletedEdgeIds = edges
@@ -488,11 +549,12 @@ export default function CanvasPage() {
       deletedEdgeIds: deletedEdgeIds,
     });
     dispatch(addToast(deletedIds.length > 1 ? `${deletedIds.length} items deleted` : "Item deleted", "info"));
-  }, [selectedItemIds, items, edges, scheduleAutoSave, dispatch]);
+  }, [selectedItemIds, items, edges, scheduleAutoSave, dispatch, pushUndo]);
 
   const handleColorChange = useCallback(
     (color: string) => {
       if (selectedItemIds.size === 0) return;
+      pushUndo();
       setItems((prev) =>
         prev.map((item) =>
           selectedItemIds.has(item.id) ? { ...item, color } : item,
@@ -501,11 +563,12 @@ export default function CanvasPage() {
       setItemColor(color);
       scheduleAutoSave(items, edges);
     },
-    [selectedItemIds, items, edges, scheduleAutoSave],
+    [selectedItemIds, items, edges, scheduleAutoSave, pushUndo],
   );
 
   const handleBringToFront = useCallback(() => {
     if (selectedItemIds.size === 0) return;
+    pushUndo();
     const maxZ = Math.max(...items.map((i) => i.zIndex), 0);
     let nextZ = maxZ + 1;
     setItems((prev) =>
@@ -515,12 +578,13 @@ export default function CanvasPage() {
       }),
     );
     scheduleAutoSave(items, edges);
-  }, [selectedItemIds, items, edges, scheduleAutoSave]);
+  }, [selectedItemIds, items, edges, scheduleAutoSave, pushUndo]);
 
   // ---- Adding Items ----
 
   const handleAddTextBox = useCallback(() => {
     if (!selectedCanvasId) return;
+    pushUndo();
     const newItem: CanvasItem = {
       id: crypto.randomUUID(),
       canvasId: selectedCanvasId,
@@ -541,7 +605,7 @@ export default function CanvasPage() {
     setEditingItemId(newItem.id);
     setEditText("New Text");
     scheduleAutoSave(updatedItems, edges);
-  }, [selectedCanvasId, itemColor, items, edges, scheduleAutoSave]);
+  }, [selectedCanvasId, itemColor, items, edges, scheduleAutoSave, pushUndo]);
 
   const handleAddNotePin = useCallback(() => {
     setShowNoteSearch(true);
@@ -573,6 +637,7 @@ export default function CanvasPage() {
   const handleSelectNoteForPin = useCallback(
     (noteId: string, noteTitle: string) => {
       if (!selectedCanvasId) return;
+      pushUndo();
       const newItem: CanvasItem = {
         id: crypto.randomUUID(),
         canvasId: selectedCanvasId,
@@ -594,7 +659,7 @@ export default function CanvasPage() {
       scheduleAutoSave(updatedItems, edges);
       dispatch(addToast(`Pinned "${noteTitle}"`, "success"));
     },
-    [selectedCanvasId, itemColor, items, edges, scheduleAutoSave, dispatch],
+    [selectedCanvasId, itemColor, items, edges, scheduleAutoSave, dispatch, pushUndo],
   );
 
   // ---- Image Handling ----
@@ -609,6 +674,7 @@ export default function CanvasPage() {
       if (!selectedCanvasId) return;
       try {
         const upload = await uploadFile({ noteId: "", file }).unwrap();
+        pushUndo();
         const newItem: CanvasItem = {
           id: crypto.randomUUID(),
           canvasId: selectedCanvasId,
@@ -633,12 +699,13 @@ export default function CanvasPage() {
         dispatch(addToast("Failed to upload image", "error"));
       }
     },
-    [selectedCanvasId, items, edges, uploadFile, scheduleAutoSave, dispatch],
+    [selectedCanvasId, items, edges, uploadFile, scheduleAutoSave, dispatch, pushUndo],
   );
 
   const handleSelectExistingImage = useCallback(
     (upload: Upload) => {
       if (!selectedCanvasId) return;
+      pushUndo();
       const newItem: CanvasItem = {
         id: crypto.randomUUID(),
         canvasId: selectedCanvasId,
@@ -660,7 +727,7 @@ export default function CanvasPage() {
       scheduleAutoSave(updatedItems, edges);
       dispatch(addToast("Image added", "success"));
     },
-    [selectedCanvasId, items, edges, scheduleAutoSave, dispatch],
+    [selectedCanvasId, items, edges, scheduleAutoSave, dispatch, pushUndo],
   );
 
   const handleFileInputChange = useCallback(
@@ -707,13 +774,14 @@ export default function CanvasPage() {
   const handleDeleteEdge = useCallback(
     (edgeId: string, e: React.MouseEvent) => {
       e.stopPropagation();
+      pushUndo();
       const updatedEdges = edges.filter((ed) => ed.id !== edgeId);
       setEdges(updatedEdges);
       scheduleAutoSave(items, updatedEdges, {
         deletedEdgeIds: [edgeId],
       });
     },
-    [edges, items, scheduleAutoSave],
+    [edges, items, scheduleAutoSave, pushUndo],
   );
 
   // ---- Export ----
@@ -999,6 +1067,22 @@ export default function CanvasPage() {
 
           <div className="flex-1" />
 
+          {/* Undo / Redo */}
+          <ToolButton
+            icon={<IconArrowBackUp />}
+            label="Undo (Ctrl+Z)"
+            onClick={handleUndo}
+            disabled={undoStackRef.current.length === 0}
+          />
+          <ToolButton
+            icon={<IconArrowForwardUp />}
+            label="Redo (Ctrl+Shift+Z)"
+            onClick={handleRedo}
+            disabled={redoStackRef.current.length === 0}
+          />
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
           {/* Zoom controls */}
           <span className="text-xs text-gray-400 tabular-nums">{Math.round(zoom * 100)}%</span>
           <button
@@ -1180,6 +1264,7 @@ export default function CanvasPage() {
                           className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10"
                           onMouseDown={(e) => {
                             e.stopPropagation();
+                            pushUndo();
                             const startX = e.clientX;
                             const startY = e.clientY;
                             // Record initial sizes for all selected items
@@ -1264,6 +1349,7 @@ export default function CanvasPage() {
                           className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize"
                           onMouseDown={(e) => {
                             e.stopPropagation();
+                            pushUndo();
                             const startX = e.clientX;
                             const startY = e.clientY;
                             // Record initial sizes for all selected items
