@@ -830,7 +830,7 @@ export default function CanvasPage() {
               </svg>
 
               {/* Canvas items */}
-              {items
+              {[...items]
                 .sort((a, b) => a.zIndex - b.zIndex)
                 .map((item) => (
                   <div
