@@ -40,14 +40,36 @@ const upload = multer({
 export function createUploadsRouter(db: Database.Database): Router {
   const router = Router();
 
+  router.get("/", (req: Request, res: Response) => {
+    const stmt = db.prepare(
+      `SELECT id, filename, original_name, mime_type, size, created_at
+       FROM uploads ORDER BY created_at DESC`,
+    );
+    const rows = stmt.all() as Array<{
+      id: string;
+      filename: string;
+      original_name: string;
+      mime_type: string;
+      size: number;
+      created_at: string;
+    }>;
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        filename: r.filename,
+        originalName: r.original_name,
+        mimeType: r.mime_type,
+        size: r.size,
+        url: `/uploads/${r.filename}`,
+        createdAt: r.created_at,
+      })),
+    );
+  });
+
   router.post("/", upload.single("file"), (req: Request, res: Response) => {
     const { noteId } = req.body;
     if (!req.file) {
       res.status(400).json({ error: "No file provided" });
-      return;
-    }
-    if (!noteId) {
-      res.status(400).json({ error: "noteId is required" });
       return;
     }
 
@@ -58,7 +80,7 @@ export function createUploadsRouter(db: Database.Database): Router {
     );
     stmt.run(
       id,
-      noteId,
+      noteId || null,
       req.file.filename,
       req.file.originalname,
       req.file.mimetype,

@@ -188,17 +188,17 @@
 - [x] Export canvas as PNG (renders items + edges to canvas)
 - [x] "Canvas" link in header navigation + `/canvas` route
 
-## Phase 20: Canvas — Image Items ⬜
+## Phase 20: Canvas — Image Items ✅
 
-- [ ] Add "Add Image" toolbar button alongside Text Box and Note Pin
-- [ ] Image upload modal reusing existing upload infrastructure (Phase 13): drop zone for new uploads, browse existing uploads gallery
-- [ ] Render image items on canvas at original aspect ratio with resize handle (optional aspect lock)
-- [ ] Double-click on image item opens full image in lightbox
-- [ ] Drag-and-drop image files from desktop onto canvas creates image item
-- [ ] Paste image from clipboard onto canvas creates image item
-- [ ] Server: `canvas_items` table already supports `type = 'image'` — no schema change needed
-- [ ] Client: update `CanvasItem` rendering in `CanvasPage.tsx` for `type === "image"` with `<img>` element
-- [ ] Deleted image items do not delete underlying upload (uploads are shared media)
+- [x] Add "Add Image" toolbar button alongside Text Box and Note Pin
+- [x] Image upload modal reusing existing upload infrastructure (Phase 13): drop zone for new uploads, browse existing uploads gallery
+- [x] Render image items on canvas at original aspect ratio with resize handle
+- [x] Double-click on image item opens full image in lightbox
+- [x] Drag-and-drop image files from desktop onto canvas creates image item
+- [x] Paste image from clipboard onto canvas creates image item
+- [x] Server: `canvas_items` table already supports `type = 'image'` — no schema change needed
+- [x] Client: update `CanvasItem` rendering in `CanvasPage.tsx` for `type === "image"` with `<img>` element
+- [x] Deleted image items do not delete underlying upload (uploads are shared media)
 
 ## Phase 21: Canvas — Multi-Select & Batch Operations ⬜
 

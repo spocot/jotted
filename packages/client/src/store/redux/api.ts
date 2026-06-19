@@ -381,6 +381,13 @@ export const apiSlice = createApi({
       ],
     }),
 
+    getAllUploads: builder.query<Upload[], void>({
+      query: () => "/uploads",
+      transformResponse: (uploads: Upload[]) =>
+        uploads.map((u) => ({ ...u, url: absoluteUrl(u.url) })),
+      providesTags: ["Upload"],
+    }),
+
     deleteUpload: builder.mutation<void, string>({
       query: (id) => ({ url: `/uploads/${id}`, method: "DELETE" }),
       invalidatesTags: ["Upload"],
@@ -600,6 +607,7 @@ export const {
   useDeleteFolderMutation,
   useUploadFileMutation,
   useGetUploadsQuery,
+  useGetAllUploadsQuery,
   useDeleteUploadMutation,
   useGetCalendarDataQuery,
   useGetOutlookEventsQuery,

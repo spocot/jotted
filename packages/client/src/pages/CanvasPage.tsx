@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconArrowsMove, IconLink, IconTypography, IconMapPin, IconChevronUp } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconArrowsMove, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetCanvasesQuery,
@@ -9,12 +9,15 @@ import {
   useDeleteCanvasMutation,
   useBatchUpdateCanvasMutation,
   useLazyGetNotesQuery,
+  useGetAllUploadsQuery,
+  useUploadFileMutation,
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
 import type {
   CanvasItem,
   CanvasEdge,
+  Upload,
 } from "../types";
 
 const COLORS = [
@@ -69,6 +72,16 @@ export default function CanvasPage() {
   const [showNoteSearch, setShowNoteSearch] = useState(false);
   const [noteSearchQuery, setNoteSearchQuery] = useState("");
   const [noteSearchResults, setNoteSearchResults] = useState<Array<{ id: string; title: string }>>([]);
+
+  // Image picker
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [imagePickerTab, setImagePickerTab] = useState<"upload" | "browse">("upload");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: allUploads = [] } = useGetAllUploadsQuery();
+  const [uploadFile] = useUploadFileMutation();
+
+  // Lightbox
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // New canvas modal
   const [showNewCanvas, setShowNewCanvas] = useState(false);
@@ -335,7 +348,9 @@ export default function CanvasPage() {
 
   const handleItemDoubleClick = useCallback(
     (item: CanvasItem) => {
-      if (item.noteId) {
+      if (item.type === "image") {
+        setLightboxUrl(item.text);
+      } else if (item.noteId) {
         navigate(`/note/${item.noteId}`);
       } else {
         setEditingItemId(item.id);
@@ -485,6 +500,111 @@ export default function CanvasPage() {
     [selectedCanvasId, itemColor, items, edges, scheduleAutoSave, dispatch],
   );
 
+  // ---- Image Handling ----
+
+  const handleAddImage = useCallback(() => {
+    setShowImagePicker(true);
+    setImagePickerTab("upload");
+  }, []);
+
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      if (!selectedCanvasId) return;
+      try {
+        const upload = await uploadFile({ noteId: "", file }).unwrap();
+        const newItem: CanvasItem = {
+          id: crypto.randomUUID(),
+          canvasId: selectedCanvasId,
+          noteId: null,
+          type: "image",
+          text: upload.url,
+          color: "#3b82f6",
+          x: 100 + Math.random() * 200,
+          y: 100 + Math.random() * 200,
+          width: 240,
+          height: 180,
+          zIndex: items.length,
+          createdAt: new Date().toISOString(),
+        };
+        const updatedItems = [...items, newItem];
+        setItems(updatedItems);
+        setSelectedItemId(newItem.id);
+        setShowImagePicker(false);
+        scheduleAutoSave(updatedItems, edges);
+        dispatch(addToast("Image added", "success"));
+      } catch {
+        dispatch(addToast("Failed to upload image", "error"));
+      }
+    },
+    [selectedCanvasId, items, edges, uploadFile, scheduleAutoSave, dispatch],
+  );
+
+  const handleSelectExistingImage = useCallback(
+    (upload: Upload) => {
+      if (!selectedCanvasId) return;
+      const newItem: CanvasItem = {
+        id: crypto.randomUUID(),
+        canvasId: selectedCanvasId,
+        noteId: null,
+        type: "image",
+        text: upload.url,
+        color: "#3b82f6",
+        x: 100 + Math.random() * 200,
+        y: 100 + Math.random() * 200,
+        width: 240,
+        height: 180,
+        zIndex: items.length,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedItems = [...items, newItem];
+      setItems(updatedItems);
+      setSelectedItemId(newItem.id);
+      setShowImagePicker(false);
+      scheduleAutoSave(updatedItems, edges);
+      dispatch(addToast("Image added", "success"));
+    },
+    [selectedCanvasId, items, edges, scheduleAutoSave, dispatch],
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleImageUpload(file);
+      }
+    },
+    [handleImageUpload],
+  );
+
+  const handleImageDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files?.[0];
+      if (file && file.type.startsWith("image/")) {
+        handleImageUpload(file);
+      }
+    },
+    [handleImageUpload],
+  );
+
+  const handleCanvasPaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            await handleImageUpload(file);
+          }
+          return;
+        }
+      }
+    },
+    [handleImageUpload],
+  );
+
   // ---- Edge Handling ----
 
   const handleDeleteEdge = useCallback(
@@ -501,11 +621,10 @@ export default function CanvasPage() {
 
   // ---- Export ----
 
-  const handleExportPng = useCallback(() => {
+  const handleExportPng = useCallback(async () => {
     const container = canvasRef.current;
     if (!container) return;
 
-    // Calculate bounding box of all items
     if (items.length === 0) {
       dispatch(addToast("Canvas is empty", "info"));
       return;
@@ -518,7 +637,6 @@ export default function CanvasPage() {
     const exportWidth = maxX - minX;
     const exportHeight = maxY - minY;
 
-    // Create a temporary canvas for export
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = exportWidth;
     exportCanvas.height = exportHeight;
@@ -552,6 +670,25 @@ export default function CanvasPage() {
       ctx.stroke();
     }
 
+    // Preload all images for export
+    const imageCache = new Map<string, HTMLImageElement>();
+    const imageItems = items.filter((i) => i.type === "image");
+    await Promise.all(
+      imageItems.map(
+        (item) =>
+          new Promise<void>((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              imageCache.set(item.id, img);
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = item.text;
+          }),
+      ),
+    );
+
     // Draw items
     for (const item of items) {
       const x = item.x - minX;
@@ -559,36 +696,48 @@ export default function CanvasPage() {
       const w = item.width;
       const h = item.height;
 
-      // Shadow
-      ctx.fillStyle = "rgba(0,0,0,0.1)";
-      ctx.fillRect(x + 2, y + 2, w, h);
+      if (item.type === "image") {
+        const img = imageCache.get(item.id);
+        if (img) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 8);
+          ctx.clip();
+          ctx.drawImage(img, x, y, w, h);
+          ctx.restore();
+        }
+      } else {
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.1)";
+        ctx.fillRect(x + 2, y + 2, w, h);
 
-      // Background
-      ctx.fillStyle = item.color;
-      ctx.fillRect(x, y, w, h);
+        // Background
+        ctx.fillStyle = item.color;
+        ctx.fillRect(x, y, w, h);
 
-      // Text
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "13px system-ui, sans-serif";
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "center";
+        // Text
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "13px system-ui, sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
 
-      if (item.type === "note_pin") {
-        ctx.font = "bold 13px system-ui, sans-serif";
-      }
+        if (item.type === "note_pin") {
+          ctx.font = "bold 13px system-ui, sans-serif";
+        }
 
-      const lines = item.text.split("\n");
-      const lineH = 18;
-      const startY = y + h / 2 - ((lines.length - 1) * lineH) / 2;
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], x + w / 2, startY + i * lineH);
-      }
+        const lines = item.text.split("\n");
+        const lineH = 18;
+        const startY = y + h / 2 - ((lines.length - 1) * lineH) / 2;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i], x + w / 2, startY + i * lineH);
+        }
 
-      // Note pin indicator
-      if (item.type === "note_pin") {
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = "10px system-ui, sans-serif";
-        ctx.fillText("📌", x + w - 16, y + 14);
+        // Note pin indicator
+        if (item.type === "note_pin") {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "10px system-ui, sans-serif";
+          ctx.fillText("📌", x + w - 16, y + 14);
+        }
       }
     }
 
@@ -703,6 +852,11 @@ export default function CanvasPage() {
             label="Note Pin"
             onClick={handleAddNotePin}
           />
+          <ToolButton
+            icon={<IconPhoto />}
+            label="Image"
+            onClick={handleAddImage}
+          />
 
           <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
 
@@ -775,12 +929,16 @@ export default function CanvasPage() {
         {/* Canvas area */}
         <div
           ref={canvasRef}
-          className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900 relative cursor-grab active:cursor-grabbing"
+          tabIndex={0}
+          className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900 relative cursor-grab active:cursor-grabbing outline-none"
           onWheel={handleWheel}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseUp}
+          onDrop={handleImageDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onPaste={handleCanvasPaste}
         >
           {!selectedCanvasId && (
             <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
@@ -863,7 +1021,7 @@ export default function CanvasPage() {
                     key={item.id}
                     onMouseDown={(e) => handleItemMouseDown(e, item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
-                    className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none ${
+                    className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none overflow-hidden ${
                       selectedItemId === item.id
                         ? "ring-2 ring-blue-400 dark:ring-blue-500"
                         : ""
@@ -877,83 +1035,136 @@ export default function CanvasPage() {
                       top: item.y,
                       width: item.width,
                       height: item.height,
-                      backgroundColor: item.color,
+                      backgroundColor: item.type === "image" ? "transparent" : item.color,
                       zIndex: item.zIndex,
                     }}
                   >
-                    {/* Text content */}
-                    <div className="p-3 h-full flex flex-col">
-                      {editingItemId === item.id ? (
-                        <textarea
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          onBlur={() => handleTextSave(item.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              setEditingItemId(null);
-                            }
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleTextSave(item.id);
-                            }
+                    {/* Image content */}
+                    {item.type === "image" ? (
+                      <>
+                        <img
+                          src={item.text}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          draggable={false}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
                           }}
-                          autoFocus
-                          className="flex-1 bg-transparent text-white text-sm outline-none resize-none placeholder-white/50"
-                          style={{ fontFamily: "inherit" }}
                         />
-                      ) : (
-                        <div className="flex-1 overflow-hidden">
-                          {item.type === "note_pin" && item.noteId && (
-                            <div className="flex items-center gap-1 mb-1">
-                              <span className="text-xs text-white/70">📌</span>
-                            </div>
-                          )}
-                          <p className="text-sm text-white whitespace-pre-wrap line-clamp-4">
-                            {item.text || "Empty"}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Resize handle */}
-                      <div
-                        className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize"
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          const startX = e.clientX;
-                          const startY = e.clientY;
-                          const startW = item.width;
-                          const startH = item.height;
-                          const handleMouseMove = (ev: MouseEvent) => {
-                            const dx = (ev.clientX - startX) / zoom;
-                            const dy = (ev.clientY - startY) / zoom;
-                            const newW = Math.max(ITEM_MIN_WIDTH, startW + dx);
-                            const newH = Math.max(ITEM_MIN_HEIGHT, startH + dy);
-                            setItems((prev) =>
-                              prev.map((i) =>
-                                i.id === item.id
-                                  ? { ...i, width: newW, height: newH }
-                                  : i,
-                              ),
-                            );
-                          };
-                          const handleMouseUp = () => {
-                            window.removeEventListener("mousemove", handleMouseMove);
-                            window.removeEventListener("mouseup", handleMouseUp);
-                            scheduleAutoSave(items, edges);
-                          };
-                          window.addEventListener("mousemove", handleMouseMove);
-                          window.addEventListener("mouseup", handleMouseUp);
-                        }}
-                      >
-                        <svg
-                          className="w-3 h-3 text-white/50"
-                          viewBox="0 0 10 10"
-                          fill="currentColor"
+                        {/* Resize handle */}
+                        <div
+                          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            const handleMouseMove = (ev: MouseEvent) => {
+                              const dx = (ev.clientX - startX) / zoom;
+                              const dy = (ev.clientY - startY) / zoom;
+                              const newW = Math.max(ITEM_MIN_WIDTH, startW + dx);
+                              const newH = Math.max(ITEM_MIN_HEIGHT, startH + dy);
+                              setItems((prev) =>
+                                prev.map((i) =>
+                                  i.id === item.id
+                                    ? { ...i, width: newW, height: newH }
+                                    : i,
+                                ),
+                              );
+                            };
+                            const handleMouseUp = () => {
+                              window.removeEventListener("mousemove", handleMouseMove);
+                              window.removeEventListener("mouseup", handleMouseUp);
+                              scheduleAutoSave(items, edges);
+                            };
+                            window.addEventListener("mousemove", handleMouseMove);
+                            window.addEventListener("mouseup", handleMouseUp);
+                          }}
                         >
-                          <path d="M10 0v2L2 10H0z" />
-                        </svg>
+                          <svg
+                            className="w-4 h-4 text-white drop-shadow-md"
+                            viewBox="0 0 10 10"
+                            fill="currentColor"
+                          >
+                            <path d="M10 0v2L2 10H0z" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-3 h-full flex flex-col">
+                        {editingItemId === item.id ? (
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onBlur={() => handleTextSave(item.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setEditingItemId(null);
+                              }
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleTextSave(item.id);
+                              }
+                            }}
+                            autoFocus
+                            className="flex-1 bg-transparent text-white text-sm outline-none resize-none placeholder-white/50"
+                            style={{ fontFamily: "inherit" }}
+                          />
+                        ) : (
+                          <div className="flex-1 overflow-hidden">
+                            {item.type === "note_pin" && item.noteId && (
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-xs text-white/70">📌</span>
+                              </div>
+                            )}
+                            <p className="text-sm text-white whitespace-pre-wrap line-clamp-4">
+                              {item.text || "Empty"}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Resize handle */}
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            const handleMouseMove = (ev: MouseEvent) => {
+                              const dx = (ev.clientX - startX) / zoom;
+                              const dy = (ev.clientY - startY) / zoom;
+                              const newW = Math.max(ITEM_MIN_WIDTH, startW + dx);
+                              const newH = Math.max(ITEM_MIN_HEIGHT, startH + dy);
+                              setItems((prev) =>
+                                prev.map((i) =>
+                                  i.id === item.id
+                                    ? { ...i, width: newW, height: newH }
+                                    : i,
+                                ),
+                              );
+                            };
+                            const handleMouseUp = () => {
+                              window.removeEventListener("mousemove", handleMouseMove);
+                              window.removeEventListener("mouseup", handleMouseUp);
+                              scheduleAutoSave(items, edges);
+                            };
+                            window.addEventListener("mousemove", handleMouseMove);
+                            window.addEventListener("mouseup", handleMouseUp);
+                          }}
+                        >
+                          <svg
+                            className="w-3 h-3 text-white/50"
+                            viewBox="0 0 10 10"
+                            fill="currentColor"
+                          >
+                            <path d="M10 0v2L2 10H0z" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))}
             </div>
@@ -1047,6 +1258,127 @@ export default function CanvasPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image picker modal */}
+      {showImagePicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowImagePicker(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 w-[480px] mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Add Image
+              </h3>
+              <button
+                onClick={() => setShowImagePicker(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setImagePickerTab("upload")}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  imagePickerTab === "upload"
+                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Upload New
+              </button>
+              <button
+                onClick={() => setImagePickerTab("browse")}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  imagePickerTab === "browse"
+                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Browse Gallery
+              </button>
+            </div>
+
+            {imagePickerTab === "upload" ? (
+              <div
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleImageDrop(e as unknown as React.DragEvent);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+              >
+                <IconPhoto className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  PNG, JPG, GIF, WebP, SVG (max 10MB)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                />
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto">
+                {allUploads.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">
+                    No images uploaded yet
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {allUploads.map((upload) => (
+                      <button
+                        key={upload.id}
+                        onClick={() => handleSelectExistingImage(upload)}
+                        className="aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-blue-400 transition-all"
+                      >
+                        <img
+                          src={upload.url}
+                          alt={upload.originalName}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl"
+          >
+            &times;
+          </button>
         </div>
       )}
     </div>

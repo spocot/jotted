@@ -110,6 +110,26 @@ function initSchema(database: Database.Database): void {
   // Migrate existing notes at root path to /Unsorted
   database.exec("UPDATE notes SET path = '/Unsorted' WHERE path = '/'");
 
+  // Migration v2: make uploads.note_id nullable for canvas images
+  const tableInfo = database.pragma("table_info(uploads)") as Array<{ name: string; notnull: number }>;
+  const noteIdCol = tableInfo.find((col) => col.name === "note_id");
+  if (noteIdCol && noteIdCol.notnull === 1) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS uploads_new (
+        id TEXT PRIMARY KEY,
+        note_id TEXT REFERENCES notes(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO uploads_new SELECT * FROM uploads;
+      DROP TABLE uploads;
+      ALTER TABLE uploads_new RENAME TO uploads;
+    `);
+  }
+
   // Performance indexes for pagination, filtering, and sorting
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
