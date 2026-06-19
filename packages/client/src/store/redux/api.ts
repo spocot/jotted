@@ -17,6 +17,10 @@ import type {
   PageResponse,
   StreakInfo,
   NoteVersion,
+  Canvas,
+  CanvasWithDetails,
+  CanvasItem,
+  CanvasEdge,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -59,6 +63,7 @@ export const apiSlice = createApi({
     "Folder",
     "Upload",
     "Calendar",
+    "Canvas",
     "Graph",
   ],
   endpoints: (builder) => ({
@@ -418,6 +423,151 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Calendar"],
     }),
+
+    // ---- Canvases ----
+    getCanvases: builder.query<Canvas[], void>({
+      query: () => "/canvases",
+      providesTags: ["Canvas"],
+    }),
+
+    getCanvas: builder.query<CanvasWithDetails, string>({
+      query: (id) => `/canvases/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Canvas", id }],
+    }),
+
+    createCanvas: builder.mutation<Canvas, string | void>({
+      query: (title) => ({
+        url: "/canvases",
+        method: "POST",
+        body: title ? { title } : {},
+      }),
+      invalidatesTags: ["Canvas"],
+    }),
+
+    updateCanvas: builder.mutation<Canvas, { id: string; title: string }>({
+      query: ({ id, title }) => ({
+        url: `/canvases/${id}`,
+        method: "PUT",
+        body: { title },
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Canvas", id },
+        "Canvas",
+      ],
+    }),
+
+    deleteCanvas: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/canvases/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Canvas"],
+    }),
+
+    addCanvasItem: builder.mutation<
+      CanvasItem,
+      { canvasId: string; item: { noteId?: string | null; type?: string; text?: string; color?: string; x?: number; y?: number; width?: number; height?: number } }
+    >({
+      query: ({ canvasId, item }) => ({
+        url: `/canvases/${canvasId}/items`,
+        method: "POST",
+        body: item,
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    updateCanvasItem: builder.mutation<
+      CanvasItem,
+      { canvasId: string; itemId: string; item: Partial<CanvasItem> }
+    >({
+      query: ({ canvasId, itemId, item }) => ({
+        url: `/canvases/${canvasId}/items/${itemId}`,
+        method: "PUT",
+        body: item,
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    deleteCanvasItem: builder.mutation<
+      void,
+      { canvasId: string; itemId: string }
+    >({
+      query: ({ canvasId, itemId }) => ({
+        url: `/canvases/${canvasId}/items/${itemId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    addCanvasEdge: builder.mutation<
+      CanvasEdge,
+      { canvasId: string; edge: { sourceItemId: string; targetItemId: string; type?: string } }
+    >({
+      query: ({ canvasId, edge }) => ({
+        url: `/canvases/${canvasId}/edges`,
+        method: "POST",
+        body: edge,
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    updateCanvasEdge: builder.mutation<
+      CanvasEdge,
+      { canvasId: string; edgeId: string; edge: Partial<CanvasEdge> }
+    >({
+      query: ({ canvasId, edgeId, edge }) => ({
+        url: `/canvases/${canvasId}/edges/${edgeId}`,
+        method: "PUT",
+        body: edge,
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    deleteCanvasEdge: builder.mutation<
+      void,
+      { canvasId: string; edgeId: string }
+    >({
+      query: ({ canvasId, edgeId }) => ({
+        url: `/canvases/${canvasId}/edges/${edgeId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+      ],
+    }),
+
+    batchUpdateCanvas: builder.mutation<
+      CanvasWithDetails,
+      {
+        canvasId: string;
+        data: {
+          items?: Array<Partial<CanvasItem> & { id: string }>;
+          edges?: Array<Partial<CanvasEdge> & { id: string }>;
+          deletedItemIds?: string[];
+          deletedEdgeIds?: string[];
+        };
+      }
+    >({
+      query: ({ canvasId, data }) => ({
+        url: `/canvases/${canvasId}/batch`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { canvasId }) => [
+        { type: "Canvas", id: canvasId },
+        "Canvas",
+      ],
+    }),
   }),
 });
 
@@ -462,4 +612,16 @@ export const {
   useGetNoteVersionsQuery,
   useGetNoteVersionQuery,
   useRestoreNoteVersionMutation,
+  useGetCanvasesQuery,
+  useGetCanvasQuery,
+  useCreateCanvasMutation,
+  useUpdateCanvasMutation,
+  useDeleteCanvasMutation,
+  useAddCanvasItemMutation,
+  useUpdateCanvasItemMutation,
+  useDeleteCanvasItemMutation,
+  useAddCanvasEdgeMutation,
+  useUpdateCanvasEdgeMutation,
+  useDeleteCanvasEdgeMutation,
+  useBatchUpdateCanvasMutation,
 } = apiSlice;

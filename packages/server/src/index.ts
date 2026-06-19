@@ -5,7 +5,9 @@ import { NoteRepository } from "./db/note-repository.js";
 import { TagRepository } from "./db/tag-repository.js";
 import { LinkRepository } from "./db/link-repository.js";
 import { VersionRepository } from "./db/version-repository.js";
+import { CanvasRepository } from "./db/canvas-repository.js";
 import { createNotesRouter } from "./routes/notes.js";
+import { createCanvasesRouter } from "./routes/canvases.js";
 import { createTagsRouter } from "./routes/tags.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createGraphRouter } from "./routes/graph.js";
@@ -38,12 +40,14 @@ const noteRepo = new NoteRepository(db);
 const tagRepo = new TagRepository(db);
 const linkRepo = new LinkRepository(db);
 const versionRepo = new VersionRepository(db);
+const canvasRepo = new CanvasRepository(db);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
 app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo, versionRepo));
+app.use("/api/canvases", createCanvasesRouter(canvasRepo));
 app.use("/api/notes", createVersionsRouter(noteRepo, tagRepo, linkRepo, versionRepo));
 app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
 app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));

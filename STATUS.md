@@ -173,16 +173,20 @@
 - [x] Unified diff viewer (line-diff between selected versions)
 - [x] Restore with confirmation dialog
 
-## Phase 19: Mind Map / Canvas View ⬜
+## Phase 19: Mind Map / Canvas View ✅
 
-- [ ] `canvases` and `canvas_items` tables
-- [ ] Infinite canvas with drag-to-position items
-- [ ] Toolbar: text box, note pin, connector, delete, color picker
-- [ ] Pin existing notes as cards with title + snippet
-- [ ] Connector lines between items (straight/curved)
-- [ ] Auto-save canvas state as JSON
-- [ ] Multiple canvases with sidebar list
-- [ ] Export canvas as PNG/SVG
+- [x] `canvases`, `canvas_items`, `canvas_edges` tables with indexes
+- [x] Server CanvasRepository with full CRUD + batch update
+- [x] REST API: canvases, items, edges, batch endpoint
+- [x] Infinite canvas with CSS transform pan/zoom + mouse-wheel zoom
+- [x] Drag-to-position items with resize handles
+- [x] Toolbar: select, pan, connect, add text box, add note pin, delete, bring to front, color picker
+- [x] Pin existing notes as cards via search-and-select modal
+- [x] Connector lines (straight/curved) with SVG rendering
+- [x] Auto-save with 1-second debounce via batch update
+- [x] Multiple canvases with sidebar list (create/rename/delete)
+- [x] Export canvas as PNG (renders items + edges to canvas)
+- [x] "Canvas" link in header navigation + `/canvas` route
 
 ## Phase 20: DataView / Query Engine ⬜
 

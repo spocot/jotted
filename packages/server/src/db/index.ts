@@ -74,6 +74,37 @@ function initSchema(database: Database.Database): void {
       content TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS canvases (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Untitled Canvas',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS canvas_items (
+      id TEXT PRIMARY KEY,
+      canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+      note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
+      type TEXT NOT NULL DEFAULT 'text_box',
+      text TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT '#3b82f6',
+      x REAL NOT NULL DEFAULT 0,
+      y REAL NOT NULL DEFAULT 0,
+      width REAL NOT NULL DEFAULT 200,
+      height REAL NOT NULL DEFAULT 100,
+      z_index INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS canvas_edges (
+      id TEXT PRIMARY KEY,
+      canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+      source_item_id TEXT NOT NULL REFERENCES canvas_items(id) ON DELETE CASCADE,
+      target_item_id TEXT NOT NULL REFERENCES canvas_items(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'straight',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate existing notes at root path to /Unsorted
@@ -87,5 +118,9 @@ function initSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_links_target_id ON links(target_id, source_id);
     CREATE INDEX IF NOT EXISTS idx_links_source_id ON links(source_id, target_id);
     CREATE INDEX IF NOT EXISTS idx_note_versions_note_id ON note_versions(note_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_canvas_items_canvas_id ON canvas_items(canvas_id);
+    CREATE INDEX IF NOT EXISTS idx_canvas_edges_canvas_id ON canvas_edges(canvas_id);
+    CREATE INDEX IF NOT EXISTS idx_canvas_edges_source ON canvas_edges(source_item_id);
+    CREATE INDEX IF NOT EXISTS idx_canvas_edges_target ON canvas_edges(target_item_id);
   `);
 }

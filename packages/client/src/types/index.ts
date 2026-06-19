@@ -149,3 +149,39 @@ export interface NoteVersion {
   content: string;
   createdAt: string;
 }
+
+export interface Canvas {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanvasItem {
+  id: string;
+  canvasId: string;
+  noteId: string | null;
+  type: "text_box" | "note_pin" | "image";
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+  createdAt: string;
+}
+
+export interface CanvasEdge {
+  id: string;
+  canvasId: string;
+  sourceItemId: string;
+  targetItemId: string;
+  type: "straight" | "curved";
+  createdAt: string;
+}
+
+export interface CanvasWithDetails extends Canvas {
+  items: CanvasItem[];
+  edges: CanvasEdge[];
+}
