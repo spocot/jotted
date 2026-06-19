@@ -678,6 +678,17 @@ export default function CanvasPage() {
         if (connectSourceId === null) {
           setConnectSourceId(item.id);
         } else if (connectSourceId !== item.id) {
+          // Prevent duplicate connections
+          const exists = edges.some(
+            (e) =>
+              (e.sourceItemId === connectSourceId && e.targetItemId === item.id) ||
+              (e.sourceItemId === item.id && e.targetItemId === connectSourceId),
+          );
+          if (exists) {
+            setConnectSourceId(null);
+            dispatch(addToast("Connection already exists", "info"));
+            return;
+          }
           pushUndo();
           const newEdge: CanvasEdge = {
             id: `temp-${Date.now()}`,
