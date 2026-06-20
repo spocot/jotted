@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork, IconDotsVertical } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as d3 from "d3";
 import {
@@ -87,6 +87,7 @@ export default function CanvasPage() {
   // Auto-layout
   const [showAutoLayout, setShowAutoLayout] = useState(false);
   const [isLayouting, setIsLayouting] = useState(false);
+  const [showOverflow, setShowOverflow] = useState(false);
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -230,8 +231,9 @@ export default function CanvasPage() {
     };
   }, []);
 
-  // Close auto-layout dropdown on outside click
+  // Close dropdowns on outside click
   const autoLayoutRef = useRef<HTMLDivElement>(null);
+  const overflowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!showAutoLayout) return;
     const handler = (e: MouseEvent) => {
@@ -242,6 +244,16 @@ export default function CanvasPage() {
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
   }, [showAutoLayout]);
+  useEffect(() => {
+    if (!showOverflow) return;
+    const handler = (e: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setShowOverflow(false);
+      }
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [showOverflow]);
 
   // ---- Undo / Redo ----
 
@@ -1441,7 +1453,7 @@ export default function CanvasPage() {
       {/* Main canvas area */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
+        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0 flex-wrap">
           {/* Canvas title */}
           <input
             type="text"
@@ -1457,11 +1469,11 @@ export default function CanvasPage() {
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="text-sm font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 w-48"
+            className="text-sm font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 w-24 sm:w-32 lg:w-48 shrink min-w-0"
             placeholder="Canvas Title"
           />
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
 
           {/* Tools */}
           <ToolButton
@@ -1483,7 +1495,7 @@ export default function CanvasPage() {
             onClick={() => setActiveTool("lasso")}
           />
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
 
           {/* Add items */}
           <ToolButton
@@ -1502,7 +1514,7 @@ export default function CanvasPage() {
             onClick={handleAddImage}
           />
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
 
           {/* Actions */}
           <ToolButton
@@ -1521,12 +1533,12 @@ export default function CanvasPage() {
           {/* Color picker */}
           {selectedItemIds.size > 0 && (
             <div className="flex items-center gap-1">
-              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
               {COLORS.map((color) => (
                 <button
                   key={color}
                   onClick={() => handleColorChange(color)}
-                  className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-125 transition-transform"
+                  className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-125 transition-transform"
                   style={{ backgroundColor: color }}
                   title={color}
                 />
@@ -1537,53 +1549,12 @@ export default function CanvasPage() {
           {/* Selection count badge */}
           {selectedItemIds.size > 1 && (
             <div className="flex items-center gap-1 ml-1">
-              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
               <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
                 {selectedItemIds.size} selected
               </span>
             </div>
           )}
-
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
-
-          {/* Grid & Snap */}
-          <div className="relative">
-            <ToolButton
-              icon={<IconGridDots />}
-              label={showGrid ? "Hide grid" : "Show grid"}
-              active={showGrid}
-              onClick={() => setShowGrid((v) => !v)}
-            />
-            {showGrid && (
-              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50 flex">
-                {([20, 40, 80] as const).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setGridSize(size)}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                      gridSize === size
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <ToolButton
-            icon={<IconMagnet />}
-            label={snapToGrid ? "Snap to grid: ON" : "Snap to grid: OFF"}
-            active={snapToGrid}
-            onClick={() => setSnapToGrid((v) => !v)}
-          />
-          <ToolButton
-            icon={<IconLayoutAlignCenter />}
-            label={snapToGuides ? "Snap to guides: ON" : "Snap to guides: OFF"}
-            active={snapToGuides}
-            onClick={() => setSnapToGuides((v) => !v)}
-          />
 
           <div className="flex-1" />
 
@@ -1601,82 +1572,157 @@ export default function CanvasPage() {
             disabled={redoStackRef.current.length === 0}
           />
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
 
           {/* Zoom controls */}
-          <span className="text-xs text-gray-400 tabular-nums">{Math.round(zoom * 100)}%</span>
+          <span className="text-xs text-gray-400 tabular-nums w-8 text-right">{Math.round(zoom * 100)}%</span>
           <button
             onClick={() => setZoom((z) => Math.max(0.1, z - 0.1))}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
             title="Zoom out"
           >
-            <IconMinus className="w-4 h-4" />
+            <IconMinus className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setZoom(1)}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 transition-colors font-medium"
+            className="px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 transition-colors font-medium"
             title="Reset zoom"
           >
             Fit
           </button>
           <button
             onClick={() => setZoom((z) => Math.min(5, z + 0.1))}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
             title="Zoom in"
           >
-            <IconPlus className="w-4 h-4" />
+            <IconPlus className="w-3.5 h-3.5" />
           </button>
 
-          {/* Auto-Layout */}
-          <div className="relative" ref={autoLayoutRef}>
-            <button
-              onClick={() => setShowAutoLayout((v) => !v)}
-              disabled={isLayouting || items.length === 0}
-              className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors flex items-center gap-1 disabled:opacity-40"
-              title="Auto-layout items"
-            >
-              {isLayouting ? (
-                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <IconNetwork className="w-3 h-3" />
-              )}
-              Layout
-            </button>
-            {showAutoLayout && !isLayouting && (
-              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50 flex flex-col min-w-[160px]">
-                <button
-                  onClick={() => {
-                    setShowAutoLayout(false);
-                    handleForceLayout();
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
-                >
-                  <IconNetwork className="w-4 h-4 shrink-0" />
-                  <div>
-                    <div className="font-medium">Force-Directed</div>
-                    <div className="text-gray-400 dark:text-gray-500 font-normal">
-                      Arrange via force simulation
-                    </div>
+          {/* Overflow menu (grid, snap, layout) */}
+          <div className="relative" ref={overflowRef}>
+            <ToolButton
+              icon={<IconDotsVertical />}
+              label="More options"
+              active={showOverflow}
+              onClick={() => setShowOverflow((v) => !v)}
+            />
+            {showOverflow && (
+              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1.5 z-50 min-w-[170px] space-y-1">
+                {/* Grid toggle + size */}
+                <div className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    <IconGridDots className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">Grid</span>
                   </div>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAutoLayout(false);
-                    handleTreeLayout();
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
-                >
-                  <IconHierarchy className="w-4 h-4 shrink-0" />
-                  <div>
-                    <div className="font-medium">Tree</div>
-                    <div className="text-gray-400 dark:text-gray-500 font-normal">
-                      Arrange in a hierarchy
-                    </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showGrid}
+                      onChange={() => setShowGrid((v) => !v)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                  </label>
+                </div>
+                {showGrid && (
+                  <div className="flex items-center gap-1 px-1.5 pb-1">
+                    <span className="text-xs text-gray-400 w-6">Size</span>
+                    {([20, 40, 80] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setGridSize(size)}
+                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                          gridSize === size
+                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
-                </button>
+                )}
+
+                {/* Snap to grid */}
+                <div className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    <IconMagnet className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">Snap to grid</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={snapToGrid}
+                      onChange={() => setSnapToGrid((v) => !v)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                  </label>
+                </div>
+
+                {/* Snap to guides */}
+                <div className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    <IconLayoutAlignCenter className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">Snap to guides</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={snapToGuides}
+                      onChange={() => setSnapToGuides((v) => !v)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                  </label>
+                </div>
+
+                <hr className="border-gray-200 dark:border-gray-700 my-1" />
+
+                {/* Auto-Layout */}
+                <div className="relative" ref={autoLayoutRef}>
+                  <button
+                    onClick={() => setShowAutoLayout((v) => !v)}
+                    disabled={isLayouting || items.length === 0}
+                    className="w-full flex items-center gap-1.5 px-1.5 py-1 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40"
+                  >
+                    {isLayouting ? (
+                      <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <IconNetwork className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                    )}
+                    Auto-Layout
+                  </button>
+                  {showAutoLayout && !isLayouting && (
+                    <div className="absolute left-full top-0 ml-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50 flex flex-col min-w-[150px]">
+                      <button
+                        onClick={() => {
+                          setShowAutoLayout(false);
+                          setShowOverflow(false);
+                          handleForceLayout();
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
+                      >
+                        <IconNetwork className="w-3.5 h-3.5 shrink-0" />
+                        Force-Directed
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAutoLayout(false);
+                          setShowOverflow(false);
+                          handleTreeLayout();
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-left"
+                      >
+                        <IconHierarchy className="w-3.5 h-3.5 shrink-0" />
+                        Tree
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1684,7 +1730,7 @@ export default function CanvasPage() {
           {/* Export */}
           <button
             onClick={handleExportPng}
-            className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+            className="px-1.5 py-0.5 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
             title="Export as PNG"
           >
             Export
@@ -2286,14 +2332,14 @@ function ToolButton({ icon, label, active, onClick, disabled }: ToolButtonProps)
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`p-1.5 rounded transition-colors ${
+      className={`p-1 rounded transition-colors ${
         active
           ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
           : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
       } ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}
       title={label}
     >
-      {icon}
+      <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{icon}</span>
     </button>
   );
 }
