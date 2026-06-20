@@ -731,24 +731,38 @@ export default function CanvasPage() {
     if (items.length === 0) return;
     setIsLayouting(true);
 
-    // Defer to next frame so the spinner button renders before heavy work
     requestAnimationFrame(() => {
       pushUndo();
 
-      const nodes = items.map((i) => ({ ...i }));
+      const nodes: Array<{ id: string; width: number; height: number; x: number; y: number; r: number }> = items.map((i) => ({
+        id: i.id,
+        width: i.width,
+        height: i.height,
+        x: i.x + i.width / 2,
+        y: i.y + i.height / 2,
+        r: Math.sqrt(i.width * i.width + i.height * i.height) / 2 + 20,
+      }));
       const nodeMap = new Map(nodes.map((n) => [n.id, n]));
       const links = edges
         .filter((e) => nodeMap.has(e.sourceItemId) && nodeMap.has(e.targetItemId))
         .map((e) => ({ source: e.sourceItemId, target: e.targetItemId }));
 
-      const cx = nodes.reduce((s, n) => s + n.x + n.width / 2, 0) / nodes.length;
-      const cy = nodes.reduce((s, n) => s + n.y + n.height / 2, 0) / nodes.length;
+      const cx = nodes.reduce((s, n) => s + n.x, 0) / nodes.length;
+      const cy = nodes.reduce((s, n) => s + n.y, 0) / nodes.length;
+
+      const linkDistance = (link: any) => {
+        const src = nodes.find((n) => n.id === link.source);
+        const tgt = nodes.find((n) => n.id === link.target);
+        if (!src || !tgt) return 100;
+        return src.r + tgt.r;
+      };
 
       const simulation = d3
         .forceSimulation(nodes)
-        .force("charge", d3.forceManyBody().strength(-300))
-        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(150).strength(0.5))
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(linkDistance).strength(0.3))
         .force("center", d3.forceCenter(cx, cy))
+        .force("collide", d3.forceCollide().radius((d: any) => d.r))
         .alphaDecay(0.05)
         .stop();
 
@@ -832,8 +846,28 @@ export default function CanvasPage() {
       }
 
       const sortedLevels = [...byLevel.keys()].sort((a, b) => a - b);
-      const levelSpacing = 150;
-      const siblingSpacing = 200;
+      const PADDING = 30;
+      const VERTICAL_PADDING = 40;
+
+      // Compute max item height for vertical spacing
+      const maxItemHeight = Math.max(...items.map((i) => i.height));
+      const levelSpacing = maxItemHeight + VERTICAL_PADDING;
+
+      // Layout each level based on actual item widths
+      const levelLayouts = new Map<number, { positions: Map<string, number>; totalWidth: number }>();
+      for (const level of sortedLevels) {
+        const siblingIds = byLevel.get(level) ?? [];
+        let cursorX = 0;
+        const positions = new Map<string, number>();
+        for (const id of siblingIds) {
+          const item = items.find((i) => i.id === id);
+          if (!item) continue;
+          positions.set(id, cursorX);
+          cursorX += item.width + PADDING;
+        }
+        const totalWidth = Math.max(0, cursorX - PADDING);
+        levelLayouts.set(level, { positions, totalWidth });
+      }
 
       // Calculate bounds of current items for centering
       const minX = Math.min(...items.map((i) => i.x));
@@ -845,14 +879,14 @@ export default function CanvasPage() {
 
       const targetItems: CanvasItem[] = items.map((item) => {
         const level = levels.get(item.id) ?? 0;
-        const siblings = byLevel.get(level) ?? [];
-        const siblingIndex = siblings.indexOf(item.id);
-        const levelWidth = siblings.length * siblingSpacing;
-        const offsetX = siblingIndex * siblingSpacing + siblingSpacing / 2 - levelWidth / 2;
+        const layout = levelLayouts.get(level);
+        if (!layout) return item;
+        const posX = layout.positions.get(item.id);
+        if (posX === undefined) return item;
 
         return {
           ...item,
-          x: currentCx + offsetX - item.width / 2,
+          x: currentCx + posX - layout.totalWidth / 2,
           y: currentCy + (level - sortedLevels.length / 2) * levelSpacing,
         };
       });
