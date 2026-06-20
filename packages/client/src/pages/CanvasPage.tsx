@@ -231,12 +231,16 @@ export default function CanvasPage() {
   }, []);
 
   // Close auto-layout dropdown on outside click
+  const autoLayoutRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = () => setShowAutoLayout(false);
-    if (showAutoLayout) {
-      window.addEventListener("click", handler, { once: true });
-    }
-    return () => window.removeEventListener("click", handler);
+    if (!showAutoLayout) return;
+    const handler = (e: MouseEvent) => {
+      if (autoLayoutRef.current && !autoLayoutRef.current.contains(e.target as Node)) {
+        setShowAutoLayout(false);
+      }
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
   }, [showAutoLayout]);
 
   // ---- Undo / Redo ----
@@ -727,8 +731,8 @@ export default function CanvasPage() {
     if (items.length === 0) return;
     setIsLayouting(true);
 
-    // Use setTimeout to let the UI update before heavy computation
-    setTimeout(() => {
+    // Defer to next frame so the spinner button renders before heavy work
+    requestAnimationFrame(() => {
       pushUndo();
 
       const nodes = items.map((i) => ({ ...i }));
@@ -743,17 +747,15 @@ export default function CanvasPage() {
       const simulation = d3
         .forceSimulation(nodes)
         .force("charge", d3.forceManyBody().strength(-300))
-        .force("link", d3.forceLink(links).distance(150).strength(0.5))
+        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(150).strength(0.5))
         .force("center", d3.forceCenter(cx, cy))
         .alphaDecay(0.05)
         .stop();
 
-      // Run ~300 iterations
       for (let i = 0; i < 300; i++) {
         simulation.tick();
       }
 
-      // Map back positions (center the items on the node center, not top-left)
       const targetItems: CanvasItem[] = items.map((item) => {
         const node = nodes.find((n) => n.id === item.id);
         if (!node) return item;
@@ -766,14 +768,14 @@ export default function CanvasPage() {
 
       setIsLayouting(false);
       animateItems(targetItems, 500);
-    }, 50);
+    });
   }, [items, edges, pushUndo, animateItems]);
 
   const handleTreeLayout = useCallback(() => {
     if (items.length === 0) return;
     setIsLayouting(true);
 
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       pushUndo();
 
       // Build adjacency list from edges
@@ -857,7 +859,7 @@ export default function CanvasPage() {
 
       setIsLayouting(false);
       animateItems(targetItems, 500);
-    }, 50);
+    });
   }, [items, edges, pushUndo, animateItems]);
 
   // ---- Item Handling ----
@@ -1592,7 +1594,7 @@ export default function CanvasPage() {
           </button>
 
           {/* Auto-Layout */}
-          <div className="relative">
+          <div className="relative" ref={autoLayoutRef}>
             <button
               onClick={() => setShowAutoLayout((v) => !v)}
               disabled={isLayouting || items.length === 0}
