@@ -1359,7 +1359,20 @@ export default function CanvasPage() {
           ctx.beginPath();
           ctx.roundRect(x, y, w, h, 8);
           ctx.clip();
-          ctx.drawImage(img, x, y, w, h);
+          // object-fit: cover — crop to container aspect ratio
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const containerAspect = w / h;
+          let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+          if (imgAspect > containerAspect) {
+            const cropW = img.naturalHeight * containerAspect;
+            sx = (img.naturalWidth - cropW) / 2;
+            sw = cropW;
+          } else if (imgAspect < containerAspect) {
+            const cropH = img.naturalWidth / containerAspect;
+            sy = (img.naturalHeight - cropH) / 2;
+            sh = cropH;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
           ctx.restore();
         }
       } else {
