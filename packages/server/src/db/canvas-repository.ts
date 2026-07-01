@@ -12,7 +12,7 @@ export interface CanvasItem {
   id: string;
   canvasId: string;
   noteId: string | null;
-  type: "text_box" | "note_pin" | "image";
+  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
   text: string;
   color: string;
   x: number;
@@ -29,6 +29,10 @@ export interface CanvasEdge {
   sourceItemId: string;
   targetItemId: string;
   type: "straight" | "curved";
+  label?: string;
+  edgeStyle?: "solid" | "dashed" | "dotted";
+  arrowStart?: number;
+  arrowEnd?: number;
   createdAt: string;
 }
 
@@ -85,19 +89,19 @@ export class CanvasRepository {
       "SELECT id, canvas_id AS canvasId, note_id AS noteId, type, text, color, x, y, width, height, z_index AS zIndex, created_at AS createdAt FROM canvas_items WHERE id = ?",
     );
     this.insertEdgeStmt = db.prepare(
-      "INSERT INTO canvas_edges (id, canvas_id, source_item_id, target_item_id, type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO canvas_edges (id, canvas_id, source_item_id, target_item_id, type, label, edge_style, arrow_start, arrow_end, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     this.updateEdgeStmt = db.prepare(
-      "UPDATE canvas_edges SET source_item_id = ?, target_item_id = ?, type = ? WHERE id = ? AND canvas_id = ?",
+      "UPDATE canvas_edges SET source_item_id = ?, target_item_id = ?, type = ?, label = ?, edge_style = ?, arrow_start = ?, arrow_end = ? WHERE id = ? AND canvas_id = ?",
     );
     this.deleteEdgeStmt = db.prepare(
       "DELETE FROM canvas_edges WHERE id = ? AND canvas_id = ?",
     );
     this.getEdgesByCanvasStmt = db.prepare(
-      "SELECT id, canvas_id AS canvasId, source_item_id AS sourceItemId, target_item_id AS targetItemId, type, created_at AS createdAt FROM canvas_edges WHERE canvas_id = ?",
+      "SELECT id, canvas_id AS canvasId, source_item_id AS sourceItemId, target_item_id AS targetItemId, type, label, edge_style AS edgeStyle, arrow_start AS arrowStart, arrow_end AS arrowEnd, created_at AS createdAt FROM canvas_edges WHERE canvas_id = ?",
     );
     this.getEdgeByIdStmt = db.prepare(
-      "SELECT id, canvas_id AS canvasId, source_item_id AS sourceItemId, target_item_id AS targetItemId, type, created_at AS createdAt FROM canvas_edges WHERE id = ?",
+      "SELECT id, canvas_id AS canvasId, source_item_id AS sourceItemId, target_item_id AS targetItemId, type, label, edge_style AS edgeStyle, arrow_start AS arrowStart, arrow_end AS arrowEnd, created_at AS createdAt FROM canvas_edges WHERE id = ?",
     );
     this.getMaxZIndexStmt = db.prepare(
       "SELECT COALESCE(MAX(z_index), 0) AS maxZ FROM canvas_items WHERE canvas_id = ?",
@@ -150,7 +154,7 @@ export class CanvasRepository {
     canvasId: string,
     params: {
       noteId?: string | null;
-      type?: "text_box" | "note_pin" | "image";
+      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
       text?: string;
       color?: string;
       x?: number;
@@ -186,7 +190,7 @@ export class CanvasRepository {
     itemId: string,
     params: {
       noteId?: string | null;
-      type?: "text_box" | "note_pin" | "image";
+      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
       text?: string;
       color?: string;
       x?: number;
@@ -229,6 +233,10 @@ export class CanvasRepository {
       sourceItemId: string;
       targetItemId: string;
       type?: "straight" | "curved";
+      label?: string;
+      edgeStyle?: "solid" | "dashed" | "dotted";
+      arrowStart?: number;
+      arrowEnd?: number;
     },
   ): CanvasEdge | null {
     const canvas = this.getById(canvasId);
@@ -241,6 +249,10 @@ export class CanvasRepository {
       params.sourceItemId,
       params.targetItemId,
       params.type ?? "straight",
+      params.label ?? "",
+      params.edgeStyle ?? "solid",
+      params.arrowStart ?? 0,
+      params.arrowEnd ?? 0,
       now,
     );
     return this.getEdgeByIdStmt.get(id) as CanvasEdge | null;
@@ -253,6 +265,10 @@ export class CanvasRepository {
       sourceItemId?: string;
       targetItemId?: string;
       type?: "straight" | "curved";
+      label?: string;
+      edgeStyle?: "solid" | "dashed" | "dotted";
+      arrowStart?: number;
+      arrowEnd?: number;
     },
   ): CanvasEdge | null {
     const existing = this.getEdgeByIdStmt.get(edgeId) as CanvasEdge | undefined;
@@ -261,6 +277,10 @@ export class CanvasRepository {
       params.sourceItemId ?? existing.sourceItemId,
       params.targetItemId ?? existing.targetItemId,
       params.type ?? existing.type,
+      params.label ?? existing.label ?? "",
+      params.edgeStyle ?? existing.edgeStyle ?? "solid",
+      params.arrowStart !== undefined ? params.arrowStart : (existing.arrowStart ?? 0),
+      params.arrowEnd !== undefined ? params.arrowEnd : (existing.arrowEnd ?? 0),
       edgeId,
       canvasId,
     );
@@ -282,7 +302,7 @@ export class CanvasRepository {
       items?: Array<{
         id: string;
         noteId?: string | null;
-        type?: "text_box" | "note_pin" | "image";
+        type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
         text?: string;
         color?: string;
         x?: number;
@@ -296,6 +316,10 @@ export class CanvasRepository {
         sourceItemId?: string;
         targetItemId?: string;
         type?: "straight" | "curved";
+        label?: string;
+        edgeStyle?: "solid" | "dashed" | "dotted";
+        arrowStart?: number;
+        arrowEnd?: number;
       }>;
       deletedItemIds?: string[];
       deletedEdgeIds?: string[];
@@ -359,6 +383,10 @@ export class CanvasRepository {
               edge.sourceItemId ?? existing.sourceItemId,
               edge.targetItemId ?? existing.targetItemId,
               edge.type ?? existing.type,
+              edge.label ?? existing.label ?? "",
+              edge.edgeStyle ?? existing.edgeStyle ?? "solid",
+              edge.arrowStart !== undefined ? edge.arrowStart : (existing.arrowStart ?? 0),
+              edge.arrowEnd !== undefined ? edge.arrowEnd : (existing.arrowEnd ?? 0),
               edge.id,
               canvasId,
             );
@@ -369,6 +397,10 @@ export class CanvasRepository {
               edge.sourceItemId ?? "",
               edge.targetItemId ?? "",
               edge.type ?? "straight",
+              edge.label ?? "",
+              edge.edgeStyle ?? "solid",
+              edge.arrowStart ?? 0,
+              edge.arrowEnd ?? 0,
               new Date().toISOString(),
             );
           }

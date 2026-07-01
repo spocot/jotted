@@ -452,6 +452,36 @@ jotted/
 - Language selector
 - Copy-to-clipboard button
 
+### Phase 31: Infinite Scalability (Pagination + SQL Pushdown)
+
+- Database indexes for sort/filter columns
+- Offset-based pagination with `PageRequest`/`PageResponse` types
+- SQL pushdown for filtering, sorting, and counting
+- Refactor `NoteRepository`, `TagRepository`, `LinkRepository` for targeted queries
+- Paginated API endpoints with `limit`/`offset`
+- Client pagination in Sidebar, NoteListPage, TagsPage, SearchPage, GraphPage, CommandPalette, BacklinksPanel
+- Remove `getAllLinks()` and N+1 query patterns
+
+### Phase 32: Projects (Kanban Boards & Artifact Registry)
+
+- **Data model**: `projects`, `project_groups`, `project_columns`, `project_cards`, `project_artifacts` tables
+- **Groups**: Each project has multiple groups (workstreams, BAU tracks, etc.) — each with its own kanban board and artifact collection
+- **Kanban per group**: Columns with cards, drag-and-drop between columns, card positions via REAL ordering
+- **Card details**: Title, description, due date, optional note link (search and link existing notes)
+- **Artifact registry per group + global**: Collect corporate project documents as typed references (note, canvas, canvas item, image, kanban card, external link)
+- **Drag-and-drop**: Custom `useMouseDrag` hook (shared primitive extracted from canvas patterns) for card movement between columns and column reordering
+- **Shared DnD primitive**: `useMouseDrag` hook handles mousedown/mousemove/mouseup lifecycle; reused by both canvas and kanban
+
+### Phase 33: Architecture Diagramming
+
+- **New shape types** on canvas: `rectangle`, `rounded_rectangle`, `circle`, `diamond`, `cylinder`, `cloud`, `hexagon` — rendered as SVG elements with centered labels
+- **Shape palette**: Toolbar dropdown to select and place diagram shapes on the canvas
+- **Smart connectors**: Edge labels, arrowheads (start/end), dashed/dotted line styles
+- **Connection ports**: Edges snap to shape edge midpoints (N/S/E/W) instead of center
+- **SVG export**: Export canvas as `.svg` alongside existing PNG export
+- **Diagram template**: "New Diagram" preset (grid on, snap on, shape palette open) — same canvas data model
+- **Schema**: `ALIER TABLE canvas_edges` to add `label`, `style`, `arrow_start`, `arrow_end` columns
+
 ---
 
 ## Cross-Platform Build Notes

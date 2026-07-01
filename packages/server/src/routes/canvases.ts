@@ -3,6 +3,11 @@ import type { CanvasRepository } from "../db/canvas-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, NotFound } from "../lib/errors.js";
 
+const VALID_ITEM_TYPES = [
+  "text_box", "note_pin", "image",
+  "rectangle", "rounded_rectangle", "circle", "diamond", "cylinder", "cloud", "hexagon",
+];
+
 export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
   const router = Router();
 
@@ -70,8 +75,8 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
     asyncHandler(async (req, res) => {
       const canvasId = req.params.id as string;
       const { noteId, type, text, color, x, y, width, height } = req.body;
-      if (type && !["text_box", "note_pin", "image"].includes(type)) {
-        throw new BadRequest("type must be one of: text_box, note_pin, image");
+      if (type && !VALID_ITEM_TYPES.includes(type)) {
+        throw new BadRequest("type must be valid");
       }
       const item = canvasRepo.addItem(canvasId, {
         noteId,
@@ -94,8 +99,8 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
     asyncHandler(async (req, res) => {
       const { canvasId, itemId } = { canvasId: req.params.id as string, itemId: req.params.itemId as string };
       const { noteId, type, text, color, x, y, width, height, zIndex } = req.body;
-      if (type && !["text_box", "note_pin", "image"].includes(type)) {
-        throw new BadRequest("type must be one of: text_box, note_pin, image");
+      if (type && !VALID_ITEM_TYPES.includes(type)) {
+        throw new BadRequest("type must be valid");
       }
       const item = canvasRepo.updateItem(canvasId, itemId, {
         noteId,
@@ -148,14 +153,17 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
     "/:id/edges",
     asyncHandler(async (req, res) => {
       const canvasId = req.params.id as string;
-      const { sourceItemId, targetItemId, type } = req.body;
+      const { sourceItemId, targetItemId, type, label, edgeStyle, arrowStart, arrowEnd } = req.body;
       if (!sourceItemId || !targetItemId) {
         throw new BadRequest("sourceItemId and targetItemId are required");
       }
       if (type && !["straight", "curved"].includes(type)) {
         throw new BadRequest("type must be one of: straight, curved");
       }
-      const edge = canvasRepo.addEdge(canvasId, { sourceItemId, targetItemId, type });
+      if (edgeStyle && !["solid", "dashed", "dotted"].includes(edgeStyle)) {
+        throw new BadRequest("edgeStyle must be one of: solid, dashed, dotted");
+      }
+      const edge = canvasRepo.addEdge(canvasId, { sourceItemId, targetItemId, type, label, edgeStyle, arrowStart, arrowEnd });
       if (!edge) throw new NotFound("Canvas not found");
       res.status(201).json(edge);
     }),
@@ -166,11 +174,14 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
     "/:id/edges/:edgeId",
     asyncHandler(async (req, res) => {
       const { canvasId, edgeId } = { canvasId: req.params.id as string, edgeId: req.params.edgeId as string };
-      const { sourceItemId, targetItemId, type } = req.body;
+      const { sourceItemId, targetItemId, type, label, edgeStyle, arrowStart, arrowEnd } = req.body;
       if (type && !["straight", "curved"].includes(type)) {
         throw new BadRequest("type must be one of: straight, curved");
       }
-      const edge = canvasRepo.updateEdge(canvasId, edgeId, { sourceItemId, targetItemId, type });
+      if (edgeStyle && !["solid", "dashed", "dotted"].includes(edgeStyle)) {
+        throw new BadRequest("edgeStyle must be one of: solid, dashed, dotted");
+      }
+      const edge = canvasRepo.updateEdge(canvasId, edgeId, { sourceItemId, targetItemId, type, label, edgeStyle, arrowStart, arrowEnd });
       if (!edge) throw new NotFound("Edge not found");
       res.json(edge);
     }),

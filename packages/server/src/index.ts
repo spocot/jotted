@@ -6,6 +6,7 @@ import { TagRepository } from "./db/tag-repository.js";
 import { LinkRepository } from "./db/link-repository.js";
 import { VersionRepository } from "./db/version-repository.js";
 import { CanvasRepository } from "./db/canvas-repository.js";
+import { ProjectRepository } from "./db/project-repository.js";
 import { createNotesRouter } from "./routes/notes.js";
 import { createCanvasesRouter } from "./routes/canvases.js";
 import { createTagsRouter } from "./routes/tags.js";
@@ -16,6 +17,7 @@ import { createVersionsRouter } from "./routes/versions.js";
 import { createUploadsRouter } from "./routes/uploads.js";
 import { createCalendarRouter } from "./routes/calendar.js";
 import { createOutlookRouter } from "./routes/outlook.js";
+import { createProjectsRouter } from "./routes/projects.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +43,7 @@ const tagRepo = new TagRepository(db);
 const linkRepo = new LinkRepository(db);
 const versionRepo = new VersionRepository(db);
 const canvasRepo = new CanvasRepository(db);
+const projectRepo = new ProjectRepository(db);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -56,6 +59,7 @@ app.use("/api/folders", createFoldersRouter(noteRepo));
 app.use("/api/uploads", createUploadsRouter(db));
 app.use("/api/calendar", createCalendarRouter(noteRepo));
 app.use("/api/calendar/outlook", createOutlookRouter());
+app.use("/api/projects", createProjectsRouter(projectRepo));
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {

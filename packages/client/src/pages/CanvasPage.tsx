@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork, IconDotsVertical } from "@tabler/icons-react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork, IconDotsVertical, IconShape, IconSquare, IconCircle, IconHexagon, IconCloud, IconDiamond } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as d3 from "d3";
 import {
@@ -28,6 +28,62 @@ const COLORS = [
 
 const ITEM_MIN_WIDTH = 120;
 const ITEM_MIN_HEIGHT = 60;
+
+const SHAPE_TYPES: { type: CanvasItem["type"]; label: string }[] = [
+  { type: "rectangle", label: "Rectangle" },
+  { type: "rounded_rectangle", label: "Rounded" },
+  { type: "circle", label: "Circle" },
+  { type: "diamond", label: "Diamond" },
+  { type: "cylinder", label: "Cylinder" },
+  { type: "cloud", label: "Cloud" },
+  { type: "hexagon", label: "Hexagon" },
+];
+
+function ShapeIcon({ type, className }: { type: string; className?: string }) {
+  switch (type) {
+    case "rectangle":
+    case "rounded_rectangle":
+      return <IconSquare className={className} />;
+    case "circle":
+      return <IconCircle className={className} />;
+    case "diamond":
+      return <IconDiamond className={className} />;
+    case "hexagon":
+      return <IconHexagon className={className} />;
+    case "cloud":
+      return <IconCloud className={className} />;
+    case "cylinder":
+      return <IconSquare className={className} />;
+    default:
+      return <IconSquare className={className} />;
+  }
+}
+
+/** Returns true if item is a diagram shape type */
+function isDiagramItem(item: CanvasItem): boolean {
+  return ["rectangle", "rounded_rectangle", "circle", "diamond", "cylinder", "cloud", "hexagon"].includes(item.type);
+}
+
+/** Escape XML special characters for SVG export */
+function escapeXml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+/** Compute edge port at shape boundary (N/S/E/W midpoint) */
+function getEdgePort(item: CanvasItem, tx: number, ty: number): { x: number; y: number } {
+  const cx = item.x + item.width / 2;
+  const cy = item.y + item.height / 2;
+  const dx = tx - cx;
+  const dy = ty - cy;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  // Snap to nearest edge midpoint
+  if (absDx >= absDy) {
+    return { x: cx + Math.sign(dx) * item.width / 2, y: cy };
+  } else {
+    return { x: cx, y: cy + Math.sign(dy) * item.height / 2 };
+  }
+}
 
 export default function CanvasPage() {
   const navigate = useNavigate();
@@ -88,6 +144,8 @@ export default function CanvasPage() {
   const [showAutoLayout, setShowAutoLayout] = useState(false);
   const [isLayouting, setIsLayouting] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
+  const [showShapes, setShowShapes] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -321,6 +379,18 @@ export default function CanvasPage() {
       dispatch(addToast("Canvas created", "success"));
     } catch {
       dispatch(addToast("Failed to create canvas", "error"));
+    }
+  };
+
+  const handleCreateDiagram = async () => {
+    try {
+      const canvas = await createCanvas("Untitled Diagram").unwrap();
+      navigate(`/canvas/${canvas.id}`);
+      setShowGrid(true);
+      setSnapToGrid(true);
+      dispatch(addToast("Diagram created", "success"));
+    } catch {
+      dispatch(addToast("Failed to create diagram", "error"));
     }
   };
 
@@ -1231,6 +1301,34 @@ export default function CanvasPage() {
     [handleImageUpload],
   );
 
+  const handleAddShape = useCallback(
+    (shapeType: CanvasItem["type"]) => {
+      if (!selectedCanvasId) return;
+      pushUndo();
+      const newItem: CanvasItem = {
+        id: crypto.randomUUID(),
+        canvasId: selectedCanvasId,
+        noteId: null,
+        type: shapeType,
+        text: "",
+        color: "#3b82f6",
+        x: 100 + Math.random() * 200,
+        y: 100 + Math.random() * 200,
+        width: 140,
+        height: 100,
+        zIndex: items.length,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedItems = [...items, newItem];
+      setItems(updatedItems);
+      setSelectedItemIds(new Set([newItem.id]));
+      setShowShapes(false);
+      scheduleAutoSave(updatedItems, edges);
+      dispatch(addToast(`${shapeType.replace("_", " ")} added`, "success"));
+    },
+    [selectedCanvasId, items, edges, scheduleAutoSave, dispatch, pushUndo],
+  );
+
   const handleImageDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -1417,16 +1515,107 @@ export default function CanvasPage() {
     dispatch(addToast("Canvas exported as PNG", "success"));
   }, [items, edges, canvasTitle, dispatch]);
 
+  const handleExportSvg = useCallback(() => {
+    if (items.length === 0) {
+      dispatch(addToast("Canvas is empty", "info"));
+      return;
+    }
+
+    const minX = Math.min(...items.map((i) => i.x)) - 20;
+    const minY = Math.min(...items.map((i) => i.y)) - 20;
+    const maxX = Math.max(...items.map((i) => i.x + i.width)) + 20;
+    const maxY = Math.max(...items.map((i) => i.y + i.height)) + 20;
+    const exportWidth = maxX - minX;
+    const exportHeight = maxY - minY;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${exportWidth}" height="${exportHeight}" viewBox="0 0 ${exportWidth} ${exportHeight}">`;
+    svg += `<rect width="${exportWidth}" height="${exportHeight}" fill="white"/>`;
+
+    // Edges
+    for (const edge of edges) {
+      const src = items.find((i) => i.id === edge.sourceItemId);
+      const tgt = items.find((i) => i.id === edge.targetItemId);
+      if (!src || !tgt) continue;
+      const sx = src.x + src.width / 2 - minX;
+      const sy = src.y + src.height / 2 - minY;
+      const tx = tgt.x + tgt.width / 2 - minX;
+      const ty = tgt.y + tgt.height / 2 - minY;
+      const dash =
+        edge.edgeStyle === "dashed" ? ' stroke-dasharray="6,3"' :
+        edge.edgeStyle === "dotted" ? ' stroke-dasharray="2,2"' : "";
+      const d = edge.type === "curved"
+        ? `M ${sx} ${sy} Q ${(sx + tx) / 2} ${Math.min(sy, ty) - 40} ${tx} ${ty}`
+        : `M ${sx} ${sy} L ${tx} ${ty}`;
+      svg += `<path d="${d}" fill="none" stroke="#94a3b8" stroke-width="2"${dash}/>`;
+    }
+
+    // Items
+    for (const item of [...items].sort((a, b) => a.zIndex - b.zIndex)) {
+      const x = item.x - minX;
+      const y = item.y - minY;
+      const w = item.width;
+      const h = item.height;
+      if (item.type === "image") {
+        svg += `<image x="${x}" y="${y}" width="${w}" height="${h}" href="${item.text}"/>`;
+      } else if (["rectangle", "rounded_rectangle", "circle", "diamond", "hexagon", "cylinder", "cloud"].includes(item.type)) {
+        const stroke = ' stroke="#64748b" stroke-width="2"';
+        if (item.type === "rectangle") {
+          svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${item.color}"${stroke}/>`;
+        } else if (item.type === "rounded_rectangle") {
+          svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" ry="12" fill="${item.color}"${stroke}/>`;
+        } else if (item.type === "circle") {
+          svg += `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" fill="${item.color}"${stroke}/>`;
+        } else if (item.type === "diamond") {
+          svg += `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" fill="${item.color}"${stroke}/>`;
+        } else if (item.type === "hexagon") {
+          svg += `<polygon points="${x + w * 0.25},${y} ${x + w * 0.75},${y} ${x + w},${y + h / 2} ${x + w * 0.75},${y + h} ${x + w * 0.25},${y + h} ${x},${y + h / 2}" fill="${item.color}"${stroke}/>`;
+        } else if (item.type === "cylinder") {
+          svg += `<rect x="${x + 2}" y="${y + 12}" width="${w - 4}" height="${h - 24}" fill="${item.color}"${stroke}/>`;
+          svg += `<ellipse cx="${x + w / 2}" cy="${y + 12}" rx="${w / 2 - 2}" ry="10" fill="${item.color}"${stroke}/>`;
+          svg += `<ellipse cx="${x + w / 2}" cy="${y + h - 12}" rx="${w / 2 - 2}" ry="10" fill="${item.color}"${stroke}/>`;
+          svg += `<path d="M ${x + 2} ${y + 12} L ${x + 2} ${y + h - 12}" fill="none"${stroke}/>`;
+          svg += `<path d="M ${x + w - 2} ${y + 12} L ${x + w - 2} ${y + h - 12}" fill="none"${stroke}/>`;
+        } else if (item.type === "cloud") {
+          svg += `<path d="M ${x + w * 0.25} ${y + h - 4} C ${x + w * 0.05} ${y + h - 4}, ${x + w * 0.05} ${y + h * 0.4}, ${x + w * 0.18} ${y + h * 0.4} C ${x + w * 0.12} ${y + h * 0.15}, ${x + w * 0.35} ${y + h * 0.08}, ${x + w * 0.5} ${y + h * 0.2} C ${x + w * 0.55} ${y + h * 0.05}, ${x + w * 0.75} ${y + h * 0.05}, ${x + w * 0.8} ${y + h * 0.25} C ${x + w * 0.95} ${y + h * 0.2}, ${x + w * 0.95} ${y + h * 0.5}, ${x + w * 0.82} ${y + h * 0.55} C ${x + w * 0.95} ${y + h * 0.6}, ${x + w * 0.9} ${y + h - 4}, ${x + w * 0.7} ${y + h - 4} Z" fill="${item.color}"${stroke}/>`;
+        }
+        if (item.text) {
+          svg += `<text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="central" font-size="13" font-family="system-ui, sans-serif" fill="white">${escapeXml(item.text)}</text>`;
+        }
+      } else {
+        svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${item.color}"/>`;
+        if (item.text) {
+          svg += `<text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="central" font-size="13" font-family="system-ui, sans-serif" fill="white">${escapeXml(item.text)}</text>`;
+        }
+      }
+    }
+
+    svg += "</svg>";
+
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const link = document.createElement("a");
+    link.download = `${canvasTitle || "canvas"}.svg`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    dispatch(addToast("Canvas exported as SVG", "success"));
+  }, [items, edges, canvasTitle, dispatch]);
+
   // ---- Render ----
 
   const canvasListPanel = (
     <div className="w-56 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-900 shrink-0 overflow-y-auto">
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800">
+      <div className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-1.5">
         <button
           onClick={() => setShowNewCanvas(true)}
           className="w-full px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
         >
           + New Canvas
+        </button>
+        <button
+          onClick={handleCreateDiagram}
+          className="w-full px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors"
+        >
+          + New Diagram
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -1526,6 +1715,34 @@ export default function CanvasPage() {
             label="Image"
             onClick={handleAddImage}
           />
+
+          {/* Shapes dropdown */}
+          <div className="relative">
+            <ToolButton
+              icon={<IconShape />}
+              label="Diagram Shapes"
+              active={showShapes}
+              onClick={() => setShowShapes((v) => !v)}
+            />
+            {showShapes && (
+              <div
+                className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1.5 z-50 grid grid-cols-4 gap-1 min-w-[200px]"
+                onMouseLeave={() => setShowShapes(false)}
+              >
+                {SHAPE_TYPES.map((shape) => (
+                  <button
+                    key={shape.type}
+                    onClick={() => handleAddShape(shape.type)}
+                    className="flex flex-col items-center gap-1 px-2 py-1.5 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title={shape.label}
+                  >
+                    <ShapeIcon type={shape.type} className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    <span className="text-gray-500">{shape.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
 
@@ -1740,14 +1957,35 @@ export default function CanvasPage() {
             )}
           </div>
 
-          {/* Export */}
-          <button
-            onClick={handleExportPng}
-            className="px-1.5 py-0.5 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
-            title="Export as PNG"
-          >
-            Export
-          </button>
+          {/* Export dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExport((v) => !v)}
+              className="px-1.5 py-0.5 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+              title="Export canvas"
+            >
+              Export
+            </button>
+            {showExport && (
+              <div
+                className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50 min-w-[100px]"
+                onMouseLeave={() => setShowExport(false)}
+              >
+                <button
+                  onClick={() => { setShowExport(false); handleExportPng(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  PNG
+                </button>
+                <button
+                  onClick={() => { setShowExport(false); handleExportSvg(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  SVG
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Canvas area */}
@@ -1807,16 +2045,47 @@ export default function CanvasPage() {
                   >
                     <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
                   </marker>
+                  <marker
+                    id="arrowhead-start"
+                    markerWidth="8"
+                    markerHeight="6"
+                    refX="0"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="8 0, 0 3, 8 6" fill="#94a3b8" />
+                  </marker>
                 </defs>
                 {edges.map((edge) => {
                   const src = items.find((i) => i.id === edge.sourceItemId);
                   const tgt = items.find((i) => i.id === edge.targetItemId);
                   if (!src || !tgt) return null;
 
-                  const sx = src.x + src.width / 2;
-                  const sy = src.y + src.height / 2;
-                  const tx = tgt.x + tgt.width / 2;
-                  const ty = tgt.y + tgt.height / 2;
+                  // Get connection ports (snap to edge midpoints for diagram shapes)
+                  const diagramTypes = ["rectangle", "rounded_rectangle", "circle", "diamond", "cylinder", "cloud", "hexagon"];
+                  const srcIsDiagram = diagramTypes.includes(src.type);
+                  const tgtIsDiagram = diagramTypes.includes(tgt.type);
+
+                  const sx = srcIsDiagram
+                    ? getEdgePort(src, tgt.x + tgt.width / 2, tgt.y + tgt.height / 2).x
+                    : src.x + src.width / 2;
+                  const sy = srcIsDiagram
+                    ? getEdgePort(src, tgt.x + tgt.width / 2, tgt.y + tgt.height / 2).y
+                    : src.y + src.height / 2;
+                  const tx = tgtIsDiagram
+                    ? getEdgePort(tgt, src.x + src.width / 2, src.y + src.height / 2).x
+                    : tgt.x + tgt.width / 2;
+                  const ty = tgtIsDiagram
+                    ? getEdgePort(tgt, src.x + src.width / 2, src.y + src.height / 2).y
+                    : tgt.y + tgt.height / 2;
+
+                  const strokeDasharray =
+                    edge.edgeStyle === "dashed" ? "6,3" :
+                    edge.edgeStyle === "dotted" ? "2,2" :
+                    undefined;
+
+                  const midX = (sx + tx) / 2;
+                  const midY = (sy + ty) / 2;
 
                   return (
                     <g key={edge.id}>
@@ -1829,10 +2098,36 @@ export default function CanvasPage() {
                         fill="none"
                         stroke="#94a3b8"
                         strokeWidth={2}
-                        markerEnd="url(#arrowhead)"
+                        strokeDasharray={strokeDasharray}
+                        markerStart={edge.arrowStart ? "url(#arrowhead-start)" : undefined}
+                        markerEnd={edge.arrowEnd ?? true ? "url(#arrowhead)" : undefined}
                         className="pointer-events-auto cursor-pointer hover:stroke-red-400"
                         onClick={(e) => handleDeleteEdge(edge.id, e as unknown as React.MouseEvent)}
                       />
+                      {edge.label && (
+                        <g transform={`translate(${midX}, ${midY})`}>
+                          <rect
+                            x={-edge.label.length * 4 - 4}
+                            y={-11}
+                            width={edge.label.length * 8 + 8}
+                            height={18}
+                            rx={3}
+                            fill="white"
+                            fillOpacity={0.9}
+                            stroke="#d1d5db"
+                            strokeWidth={0.5}
+                          />
+                          <text
+                            x={0}
+                            y={2}
+                            textAnchor="middle"
+                            className="text-[11px] fill-gray-700 dark:fill-gray-300 select-none"
+                            style={{ fontFamily: "system-ui, sans-serif" }}
+                          >
+                            {edge.label}
+                          </text>
+                        </g>
+                      )}
                     </g>
                   );
                 })}
@@ -1930,7 +2225,9 @@ export default function CanvasPage() {
                     key={item.id}
                     onMouseDown={(e) => handleItemMouseDown(e, item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
-                    className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none overflow-hidden ${
+                    className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none ${
+                      isDiagramItem(item) ? "" : "overflow-hidden"
+                    } ${
                       selectedItemIds.has(item.id)
                         ? "ring-2 ring-blue-400 dark:ring-blue-500"
                         : ""
@@ -2018,6 +2315,122 @@ export default function CanvasPage() {
                           </svg>
                         </div>
                       </>
+                    ) : isDiagramItem(item) ? (
+                      <>
+                        <svg
+                          className="absolute inset-0 w-full h-full"
+                          viewBox={`0 0 ${item.width} ${item.height}`}
+                          style={{ width: item.width, height: item.height }}
+                        >
+                          {item.type === "rectangle" && (
+                            <rect x={2} y={2} width={item.width - 4} height={item.height - 4} rx={0} ry={0} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                          )}
+                          {item.type === "rounded_rectangle" && (
+                            <rect x={2} y={2} width={item.width - 4} height={item.height - 4} rx={12} ry={12} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                          )}
+                          {item.type === "circle" && (
+                            <ellipse cx={item.width / 2} cy={item.height / 2} rx={item.width / 2 - 2} ry={item.height / 2 - 2} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                          )}
+                          {item.type === "diamond" && (
+                            <polygon
+                              points={`${item.width / 2},2 ${item.width - 2},${item.height / 2} ${item.width / 2},${item.height - 2} 2,${item.height / 2}`}
+                              fill={item.color}
+                              stroke="#64748b"
+                              strokeWidth={2}
+                            />
+                          )}
+                          {item.type === "hexagon" && (
+                            <polygon
+                              points={`${item.width * 0.25},2 ${item.width * 0.75},2 ${item.width - 2},${item.height / 2} ${item.width * 0.75},${item.height - 2} ${item.width * 0.25},${item.height - 2} 2,${item.height / 2}`}
+                              fill={item.color}
+                              stroke="#64748b"
+                              strokeWidth={2}
+                            />
+                          )}
+                          {item.type === "cloud" && (
+                            <path
+                              d={`M ${item.width * 0.25} ${item.height - 4} 
+                                  C ${item.width * 0.05} ${item.height - 4}, ${item.width * 0.05} ${item.height * 0.4}, ${item.width * 0.18} ${item.height * 0.4}
+                                  C ${item.width * 0.12} ${item.height * 0.15}, ${item.width * 0.35} ${item.height * 0.08}, ${item.width * 0.5} ${item.height * 0.2}
+                                  C ${item.width * 0.55} ${item.height * 0.05}, ${item.width * 0.75} ${item.height * 0.05}, ${item.width * 0.8} ${item.height * 0.25}
+                                  C ${item.width * 0.95} ${item.height * 0.2}, ${item.width * 0.95} ${item.height * 0.5}, ${item.width * 0.82} ${item.height * 0.55}
+                                  C ${item.width * 0.95} ${item.height * 0.6}, ${item.width * 0.9} ${item.height - 4}, ${item.width * 0.7} ${item.height - 4}
+                                  Z`}
+                              fill={item.color}
+                              stroke="#64748b"
+                              strokeWidth={2}
+                            />
+                          )}
+                          {item.type === "cylinder" && (
+                            <>
+                              <rect x={2} y={12} width={item.width - 4} height={item.height - 24} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                              <ellipse cx={item.width / 2} cy={12} rx={item.width / 2 - 2} ry={10} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                              <ellipse cx={item.width / 2} cy={item.height - 12} rx={item.width / 2 - 2} ry={10} fill={item.color} stroke="#64748b" strokeWidth={2} />
+                              <path d={`M 2 12 L 2 ${item.height - 12}`} fill="none" stroke="#64748b" strokeWidth={2} />
+                              <path d={`M ${item.width - 2} 12 L ${item.width - 2} ${item.height - 12}`} fill="none" stroke="#64748b" strokeWidth={2} />
+                            </>
+                          )}
+                        </svg>
+                        {item.text && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="text-sm text-white font-medium drop-shadow-sm px-2 text-center leading-tight">
+                              {item.text}
+                            </span>
+                          </div>
+                        )}
+                        {/* Resize handle */}
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize z-10"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            pushUndo();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const initialSizes = new Map<string, { width: number; height: number }>();
+                            for (const sid of selectedItemIds) {
+                              const si = items.find((i) => i.id === sid);
+                              if (si) {
+                                initialSizes.set(sid, { width: si.width, height: si.height });
+                              }
+                            }
+                            if (initialSizes.size === 0) {
+                              initialSizes.set(item.id, { width: item.width, height: item.height });
+                            }
+                            const handleMouseMove = (ev: MouseEvent) => {
+                              const dx = (ev.clientX - startX) / zoom;
+                              const dy = (ev.clientY - startY) / zoom;
+                              setItems((prev) =>
+                                prev.map((i) => {
+                                  const initSize = initialSizes.get(i.id);
+                                  if (!initSize) return i;
+                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
+                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  if (snapToGrid) {
+                                    w = snapValue(w);
+                                    h = snapValue(h);
+                                  }
+                                  return {
+                                    ...i,
+                                    width: w,
+                                    height: h,
+                                  };
+                                }),
+                              );
+                            };
+                            const handleMouseUp = () => {
+                              window.removeEventListener("mousemove", handleMouseMove);
+                              window.removeEventListener("mouseup", handleMouseUp);
+                              scheduleAutoSave(items, edges);
+                            };
+                            window.addEventListener("mousemove", handleMouseMove);
+                            window.addEventListener("mouseup", handleMouseUp);
+                          }}
+                        >
+                          <svg className="w-3 h-3 text-white/50" viewBox="0 0 10 10" fill="currentColor">
+                            <path d="M10 0v2L2 10H0z" />
+                          </svg>
+                        </div>
+                      </>
                     ) : (
                       <div className="p-3 h-full flex flex-col">
                         {editingItemId === item.id ? (
@@ -2059,7 +2472,6 @@ export default function CanvasPage() {
                             pushUndo();
                             const startX = e.clientX;
                             const startY = e.clientY;
-                            // Record initial sizes for all selected items
                             const initialSizes = new Map<string, { width: number; height: number }>();
                             for (const sid of selectedItemIds) {
                               const si = items.find((i) => i.id === sid);
@@ -2100,11 +2512,7 @@ export default function CanvasPage() {
                             window.addEventListener("mouseup", handleMouseUp);
                           }}
                         >
-                          <svg
-                            className="w-3 h-3 text-white/50"
-                            viewBox="0 0 10 10"
-                            fill="currentColor"
-                          >
+                          <svg className="w-3 h-3 text-white/50" viewBox="0 0 10 10" fill="currentColor">
                             <path d="M10 0v2L2 10H0z" />
                           </svg>
                         </div>

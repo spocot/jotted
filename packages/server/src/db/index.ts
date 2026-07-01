@@ -105,6 +105,59 @@ function initSchema(database: Database.Database): void {
       type TEXT NOT NULL DEFAULT 'straight',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Untitled Project',
+      description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'planning',
+      start_date TEXT,
+      end_date TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_groups (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_columns (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL REFERENCES project_groups(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_cards (
+      id TEXT PRIMARY KEY,
+      column_id TEXT NOT NULL REFERENCES project_columns(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
+      due_date TEXT,
+      position REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_artifacts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      group_id TEXT REFERENCES project_groups(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      artifact_type TEXT NOT NULL DEFAULT 'note',
+      reference_id TEXT,
+      reference_url TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate existing notes at root path to /Unsorted
@@ -142,5 +195,25 @@ function initSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_canvas_edges_canvas_id ON canvas_edges(canvas_id);
     CREATE INDEX IF NOT EXISTS idx_canvas_edges_source ON canvas_edges(source_item_id);
     CREATE INDEX IF NOT EXISTS idx_canvas_edges_target ON canvas_edges(target_item_id);
+    CREATE INDEX IF NOT EXISTS idx_project_groups_project_id ON project_groups(project_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_columns_group_id ON project_columns(group_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_cards_column_id ON project_cards(column_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_artifacts_project_id ON project_artifacts(project_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_artifacts_group_id ON project_artifacts(group_id, position);
   `);
+
+  // Migration v3: add edge style fields for architecture diagramming
+  const edgeTableInfo = database.pragma("table_info(canvas_edges)") as Array<{ name: string }>;
+  if (!edgeTableInfo.find((col) => col.name === "label")) {
+    database.exec("ALTER TABLE canvas_edges ADD COLUMN label TEXT NOT NULL DEFAULT ''");
+  }
+  if (!edgeTableInfo.find((col) => col.name === "edge_style")) {
+    database.exec("ALTER TABLE canvas_edges ADD COLUMN edge_style TEXT NOT NULL DEFAULT 'solid'");
+  }
+  if (!edgeTableInfo.find((col) => col.name === "arrow_start")) {
+    database.exec("ALTER TABLE canvas_edges ADD COLUMN arrow_start INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!edgeTableInfo.find((col) => col.name === "arrow_end")) {
+    database.exec("ALTER TABLE canvas_edges ADD COLUMN arrow_end INTEGER NOT NULL DEFAULT 0");
+  }
 }

@@ -339,3 +339,32 @@
 - [x] Update BacklinksPanel with pagination
 - [x] Verify type checks (server + client) and tests (37 server + 4 client)
 
+## Phase 32: Projects (Kanban Boards & Artifact Registry) ✅
+
+- [x] DB schema: projects, project_groups, project_columns, project_cards, project_artifacts
+- [x] ProjectRepository with full CRUD + prepared statements
+- [x] REST API endpoints (groups, columns, cards, artifacts)
+- [x] Client types + RTK Query endpoints with Project/ProjectList tags
+- [x] Shared useMouseDrag hook (canvas + kanban)
+- [x] ProjectsPage — project list grid
+- [x] ProjectOverviewPage — groups list + global artifacts
+- [x] ProjectGroupPage — kanban board + group artifacts (tabs)
+- [x] KanbanColumn, KanbanCard, CardEditor components
+- [x] ArtifactCard, ArtifactPickerModal components
+- [x] Drag-and-drop: cards between columns, column reorder
+- [x] Navigation links + routes in App.tsx
+- [ ] Tests for repositories, API handlers, and components
+
+## Phase 33: Architecture Diagramming ✅
+
+- [x] Schema migration: ALTER canvas_edges for label, style, arrow columns
+- [x] CanvasRepository + routes updated for new edge fields
+- [x] New shape types: rectangle, rounded_rectangle, circle, diamond, cylinder, cloud, hexagon
+- [x] Shape palette toolbar (click shape → place on canvas)
+- [x] Shape rendering (SVG per type with centered label)
+- [x] Edge labels, arrowheads (start/end), dashed/dotted styles
+- [x] Connection ports (edges snap to shape edge midpoints)
+- [x] SVG export alongside existing PNG export
+- [x] "New Diagram" template preset (grid, snap, shape palette)
+- [ ] Tests
+

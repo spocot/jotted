@@ -161,7 +161,7 @@ export interface CanvasItem {
   id: string;
   canvasId: string;
   noteId: string | null;
-  type: "text_box" | "note_pin" | "image";
+  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
   text: string;
   color: string;
   x: number;
@@ -178,10 +178,77 @@ export interface CanvasEdge {
   sourceItemId: string;
   targetItemId: string;
   type: "straight" | "curved";
+  label?: string;
+  edgeStyle?: "solid" | "dashed" | "dotted";
+  arrowStart?: number;
+  arrowEnd?: number;
   createdAt: string;
 }
 
 export interface CanvasWithDetails extends Canvas {
   items: CanvasItem[];
   edges: CanvasEdge[];
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGroup {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectColumn {
+  id: string;
+  groupId: string;
+  title: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectCard {
+  id: string;
+  columnId: string;
+  title: string;
+  description: string;
+  noteId: string | null;
+  dueDate: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectArtifact {
+  id: string;
+  projectId: string;
+  groupId: string | null;
+  title: string;
+  description: string;
+  artifactType: string;
+  referenceId: string | null;
+  referenceUrl: string | null;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectWithDetails extends Project {
+  groups: Array<
+    ProjectGroup & {
+      columns: Array<ProjectColumn & { cards: ProjectCard[] }>;
+      artifacts: ProjectArtifact[];
+    }
+  >;
+  globalArtifacts: ProjectArtifact[];
 }

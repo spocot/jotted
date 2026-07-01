@@ -21,6 +21,12 @@ import type {
   CanvasWithDetails,
   CanvasItem,
   CanvasEdge,
+  Project,
+  ProjectWithDetails,
+  ProjectGroup,
+  ProjectColumn,
+  ProjectCard,
+  ProjectArtifact,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -64,6 +70,7 @@ export const apiSlice = createApi({
     "Upload",
     "Calendar",
     "Canvas",
+    "Project",
     "Graph",
   ],
   endpoints: (builder) => ({
@@ -576,6 +583,345 @@ export const apiSlice = createApi({
         "Canvas",
       ],
     }),
+
+    // ---- Projects ----
+    getProjects: builder.query<Project[], void>({
+      query: () => "/projects",
+      providesTags: ["Project"],
+    }),
+
+    getProject: builder.query<ProjectWithDetails, string>({
+      query: (id) => `/projects/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Project", id }],
+    }),
+
+    createProject: builder.mutation<
+      Project,
+      { title?: string; description?: string; status?: string; startDate?: string; endDate?: string } | void
+    >({
+      query: (payload) => ({
+        url: "/projects",
+        method: "POST",
+        body: payload ?? { title: "Untitled Project" },
+      }),
+      invalidatesTags: ["Project"],
+    }),
+
+    updateProject: builder.mutation<
+      Project,
+      {
+        id: string;
+        payload: {
+          title?: string;
+          description?: string;
+          status?: string;
+          startDate?: string | null;
+          endDate?: string | null;
+        };
+      }
+    >({
+      query: ({ id, payload }) => ({
+        url: `/projects/${id}`,
+        method: "PUT",
+        body: payload,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Project", id },
+        "Project",
+      ],
+    }),
+
+    deleteProject: builder.mutation<void, string>({
+      query: (id) => ({ url: `/projects/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Project"],
+    }),
+
+    // ---- Groups ----
+    createGroup: builder.mutation<
+      ProjectGroup,
+      { projectId: string; title?: string; description?: string }
+    >({
+      query: ({ projectId, title, description }) => ({
+        url: `/projects/${projectId}/groups`,
+        method: "POST",
+        body: { title, description },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateGroup: builder.mutation<
+      ProjectGroup,
+      { projectId: string; groupId: string; title?: string; description?: string }
+    >({
+      query: ({ projectId, groupId, title, description }) => ({
+        url: `/projects/${projectId}/groups/${groupId}`,
+        method: "PUT",
+        body: { title, description },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteGroup: builder.mutation<
+      void,
+      { projectId: string; groupId: string }
+    >({
+      query: ({ projectId, groupId }) => ({
+        url: `/projects/${projectId}/groups/${groupId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    reorderGroups: builder.mutation<
+      ProjectGroup[],
+      { projectId: string; orderedIds: string[] }
+    >({
+      query: ({ projectId, orderedIds }) => ({
+        url: `/projects/${projectId}/groups/reorder`,
+        method: "PUT",
+        body: { orderedIds },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Columns ----
+    createColumn: builder.mutation<
+      ProjectColumn,
+      { projectId: string; groupId: string; title?: string }
+    >({
+      query: ({ projectId, groupId, title }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/columns`,
+        method: "POST",
+        body: { title },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateColumn: builder.mutation<
+      ProjectColumn,
+      { projectId: string; groupId: string; columnId: string; title?: string }
+    >({
+      query: ({ projectId, groupId, columnId, title }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/columns/${columnId}`,
+        method: "PUT",
+        body: { title },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteColumn: builder.mutation<
+      void,
+      { projectId: string; groupId: string; columnId: string }
+    >({
+      query: ({ projectId, groupId, columnId }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/columns/${columnId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    reorderColumns: builder.mutation<
+      ProjectColumn[],
+      { projectId: string; groupId: string; orderedIds: string[] }
+    >({
+      query: ({ projectId, groupId, orderedIds }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/columns/reorder`,
+        method: "PUT",
+        body: { orderedIds },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Cards ----
+    createCard: builder.mutation<
+      ProjectCard,
+      {
+        projectId: string;
+        groupId: string;
+        columnId: string;
+        title?: string;
+        description?: string;
+        noteId?: string;
+        dueDate?: string;
+      }
+    >({
+      query: ({ projectId, groupId, columnId, title, description, noteId, dueDate }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/cards`,
+        method: "POST",
+        body: { columnId, title, description, noteId, dueDate },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateCard: builder.mutation<
+      ProjectCard,
+      {
+        projectId: string;
+        groupId: string;
+        cardId: string;
+        title?: string;
+        description?: string;
+        noteId?: string | null;
+        dueDate?: string | null;
+      }
+    >({
+      query: ({ projectId, groupId, cardId, title, description, noteId, dueDate }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/cards/${cardId}`,
+        method: "PUT",
+        body: { title, description, noteId, dueDate },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteCard: builder.mutation<
+      void,
+      { projectId: string; groupId: string; cardId: string }
+    >({
+      query: ({ projectId, groupId, cardId }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/cards/${cardId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    moveCard: builder.mutation<
+      ProjectCard,
+      { projectId: string; groupId: string; cardId: string; targetColumnId: string; position?: number }
+    >({
+      query: ({ projectId, groupId, cardId, targetColumnId, position }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/cards/${cardId}/move`,
+        method: "PUT",
+        body: { targetColumnId, position },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    reorderCards: builder.mutation<
+      ProjectCard[],
+      { projectId: string; groupId: string; columnId: string; orderedIds: string[] }
+    >({
+      query: ({ projectId, groupId, columnId, orderedIds }) => ({
+        url: `/projects/${projectId}/groups/${groupId}/cards/reorder/${columnId}`,
+        method: "PUT",
+        body: { orderedIds },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Artifacts ----
+    getArtifacts: builder.query<
+      ProjectArtifact[],
+      { projectId: string; groupId?: string }
+    >({
+      query: ({ projectId, groupId }) => {
+        const sp = new URLSearchParams();
+        if (groupId) sp.set("groupId", groupId);
+        const qs = sp.toString();
+        return `/projects/${projectId}/artifacts${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    createArtifact: builder.mutation<
+      ProjectArtifact,
+      {
+        projectId: string;
+        groupId?: string | null;
+        title?: string;
+        description?: string;
+        artifactType?: string;
+        referenceId?: string;
+        referenceUrl?: string;
+      }
+    >({
+      query: ({ projectId, groupId, title, description, artifactType, referenceId, referenceUrl }) => ({
+        url: `/projects/${projectId}/artifacts`,
+        method: "POST",
+        body: { groupId, title, description, artifactType, referenceId, referenceUrl },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateArtifact: builder.mutation<
+      ProjectArtifact,
+      {
+        projectId: string;
+        artifactId: string;
+        title?: string;
+        description?: string;
+        artifactType?: string;
+        referenceId?: string | null;
+        referenceUrl?: string | null;
+      }
+    >({
+      query: ({ projectId, artifactId, title, description, artifactType, referenceId, referenceUrl }) => ({
+        url: `/projects/${projectId}/artifacts/${artifactId}`,
+        method: "PUT",
+        body: { title, description, artifactType, referenceId, referenceUrl },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteArtifact: builder.mutation<
+      void,
+      { projectId: string; artifactId: string }
+    >({
+      query: ({ projectId, artifactId }) => ({
+        url: `/projects/${projectId}/artifacts/${artifactId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
   }),
 });
 
@@ -633,4 +979,26 @@ export const {
   useUpdateCanvasEdgeMutation,
   useDeleteCanvasEdgeMutation,
   useBatchUpdateCanvasMutation,
+  useGetProjectsQuery,
+  useGetProjectQuery,
+  useCreateProjectMutation,
+  useUpdateProjectMutation,
+  useDeleteProjectMutation,
+  useCreateGroupMutation,
+  useUpdateGroupMutation,
+  useDeleteGroupMutation,
+  useReorderGroupsMutation,
+  useCreateColumnMutation,
+  useUpdateColumnMutation,
+  useDeleteColumnMutation,
+  useReorderColumnsMutation,
+  useCreateCardMutation,
+  useUpdateCardMutation,
+  useDeleteCardMutation,
+  useMoveCardMutation,
+  useReorderCardsMutation,
+  useGetArtifactsQuery,
+  useCreateArtifactMutation,
+  useUpdateArtifactMutation,
+  useDeleteArtifactMutation,
 } = apiSlice;
