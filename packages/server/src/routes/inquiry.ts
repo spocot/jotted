@@ -111,6 +111,49 @@ export function createInquiryRouter(): Router {
   );
 
   router.get(
+    "/tables/:table/foreign-keys",
+    asyncHandler(async (req, res) => {
+      const db = getDb();
+      const table = req.params.table as string;
+      validateTable(table);
+
+      const fks = db
+        .prepare(`PRAGMA foreign_key_list("${table}")`)
+        .all() as {
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+        on_update: string;
+        on_delete: string;
+        match: string;
+      }[];
+
+      const grouped: Record<
+        number,
+        { id: number; table: string; from: string[]; to: string[] }
+      > = {};
+      for (const fk of fks) {
+        if (!grouped[fk.id]) {
+          grouped[fk.id] = { id: fk.id, table: fk.table, from: [], to: [] };
+        }
+        grouped[fk.id].from.push(fk.from);
+        grouped[fk.id].to.push(fk.to);
+      }
+
+      res.json(
+        Object.values(grouped).map((g) => ({
+          id: g.id,
+          table: g.table,
+          from: g.from,
+          to: g.to,
+        })),
+      );
+    }),
+  );
+
+  router.get(
     "/tables/:table/rows/:rowKey",
     asyncHandler(async (req, res) => {
       const db = getDb();

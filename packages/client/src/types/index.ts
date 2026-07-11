@@ -380,3 +380,10 @@ export interface InquiryColumnInfo {
 }
 
 export type InquiryRow = Record<string, unknown>;
+
+export interface InquiryForeignKey {
+  id: number;
+  table: string;
+  from: string[];
+  to: string[];
+}

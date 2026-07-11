@@ -36,6 +36,7 @@ import type {
   CanvasVersion,
   InquiryColumnInfo,
   InquiryRow,
+  InquiryForeignKey,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -1400,6 +1401,13 @@ export const apiSlice = createApi({
         { type: "Inquiry", id: `row:${table}:${rowKey}` },
       ],
     }),
+
+    getInquiryTableForeignKeys: builder.query<InquiryForeignKey[], string>({
+      query: (table) => `/inquiry/tables/${table}/foreign-keys`,
+      providesTags: (_result, _error, table) => [
+        { type: "Inquiry", id: `fks:${table}` },
+      ],
+    }),
   }),
 });
 
@@ -1520,4 +1528,5 @@ export const {
   useLazyGetInquiryTableRowsQuery,
   useGetInquiryTableRowQuery,
   useLazyGetInquiryTableRowQuery,
+  useGetInquiryTableForeignKeysQuery,
 } = apiSlice;

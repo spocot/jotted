@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import {
   useGetInquiryTablesQuery,
   useGetInquiryTableSchemaQuery,
+  useGetInquiryTableForeignKeysQuery,
   useLazyGetInquiryTableRowsQuery,
   useLazyGetInquiryTableRowQuery,
 } from "../store/redux/api";
@@ -25,6 +26,10 @@ export default function InquiryPage() {
 
   const { data: tables = [], isLoading: tablesLoading } = useGetInquiryTablesQuery();
   const { data: schemaData, isLoading: schemaLoading } = useGetInquiryTableSchemaQuery(
+    selectedTable ?? "",
+    { skip: !selectedTable },
+  );
+  const { data: foreignKeys = [] } = useGetInquiryTableForeignKeysQuery(
     selectedTable ?? "",
     { skip: !selectedTable },
   );
@@ -101,6 +106,35 @@ export default function InquiryPage() {
     [selectedTable, fetchRow],
   );
 
+  const handleForeignKeyClick = useCallback(
+    async (refTable: string, refColumn: string, value: string) => {
+      setSelectedTable(refTable);
+      setRows([]);
+      setOffset(0);
+      setSortColumn(refColumn);
+      setSortOrder("DESC");
+
+      const rowResult = await fetchRow({ table: refTable, rowKey: value });
+      if (rowResult.data) {
+        setSelectedRowKey(value);
+      }
+
+      const result = await fetchRows({
+        table: refTable,
+        sort: refColumn,
+        order: "ASC",
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
+      if (result.data) {
+        setRows(result.data.items);
+        setTotal(result.data.total);
+        setHasMore(result.data.hasMore);
+      }
+    },
+    [fetchRows, fetchRow],
+  );
+
   return (
     <div className="h-full flex">
       <div className="w-56 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-900 shrink-0">
@@ -140,6 +174,7 @@ export default function InquiryPage() {
             <InquiryRowTable
               rows={rows}
               columns={schemaData ?? []}
+              foreignKeys={foreignKeys}
               total={total}
               offset={offset}
               limit={PAGE_SIZE}
@@ -151,6 +186,7 @@ export default function InquiryPage() {
               onPrevPage={handlePrevPage}
               onNextPage={handleNextPage}
               onRowClick={handleRowClick}
+              onForeignKeyClick={handleForeignKeyClick}
               selectedRowKey={selectedRowKey}
             />
           </>

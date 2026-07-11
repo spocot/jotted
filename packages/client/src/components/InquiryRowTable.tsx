@@ -3,12 +3,14 @@ import {
   IconArrowDown,
   IconChevronLeft,
   IconChevronRight,
+  IconExternalLink,
 } from "@tabler/icons-react";
-import type { InquiryRow, InquiryColumnInfo } from "../types";
+import type { InquiryRow, InquiryColumnInfo, InquiryForeignKey } from "../types";
 
 interface InquiryRowTableProps {
   rows: InquiryRow[];
   columns: InquiryColumnInfo[];
+  foreignKeys: InquiryForeignKey[];
   total: number;
   offset: number;
   limit: number;
@@ -20,12 +22,14 @@ interface InquiryRowTableProps {
   onPrevPage: () => void;
   onNextPage: () => void;
   onRowClick: (rowKey: string) => void;
+  onForeignKeyClick: (table: string, column: string, value: string) => void;
   selectedRowKey: string | null;
 }
 
 export default function InquiryRowTable({
   rows,
   columns,
+  foreignKeys,
   total,
   offset,
   limit,
@@ -37,11 +41,21 @@ export default function InquiryRowTable({
   onPrevPage,
   onNextPage,
   onRowClick,
+  onForeignKeyClick,
   selectedRowKey,
 }: InquiryRowTableProps) {
   const colNames = columns.map((c) => c.name);
   const pkColumn = columns.find((c) => c.pk > 0);
   const hasPk = pkColumn != null;
+
+  const fkByColumn = new Map<string, InquiryForeignKey>();
+  for (const fk of foreignKeys) {
+    for (const fromCol of fk.from) {
+      if (!fkByColumn.has(fromCol)) {
+        fkByColumn.set(fromCol, fk);
+      }
+    }
+  }
 
   const getRowKey = (row: InquiryRow): string => {
     if (hasPk) {
@@ -146,6 +160,8 @@ export default function InquiryRowTable({
                           : typeof val === "object"
                             ? JSON.stringify(val)
                             : String(val);
+                      const fk = fkByColumn.get(name);
+                      const isFk = fk != null && val !== null && val !== undefined;
                       return (
                         <td
                           key={name}
@@ -156,6 +172,18 @@ export default function InquiryRowTable({
                             <span className="text-gray-400 dark:text-gray-500 italic">
                               NULL
                             </span>
+                          ) : isFk ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onForeignKeyClick(fk.table, fk.to[0], String(val));
+                              }}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline inline-flex items-center gap-0.5 max-w-full truncate"
+                              title={`Navigate to ${fk.table}.${fk.to[0]} = ${val}`}
+                            >
+                              <span className="truncate">{display}</span>
+                              <IconExternalLink className="w-3 h-3 shrink-0" />
+                            </button>
                           ) : (
                             display
                           )}
