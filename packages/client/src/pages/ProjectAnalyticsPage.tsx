@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useGetProjectQuery } from "../store/redux/api";
-import { IconArrowLeft, IconChartBar } from "@tabler/icons-react";
-import type { ProjectWithDetails } from "../types";
+import { useGetProjectQuery, useGetMilestonesQuery } from "../store/redux/api";
+import { IconArrowLeft, IconChartBar, IconFlag } from "@tabler/icons-react";
+import type { ProjectWithDetails, ProjectMilestone } from "../types";
 
 function getCardStats(project: ProjectWithDetails) {
   let total = 0;
@@ -69,10 +69,33 @@ function BarChart({
   );
 }
 
+function getMilestoneStats(milestones: ProjectMilestone[]) {
+  const total = milestones.length;
+  const completed = milestones.filter((m) => m.completed).length;
+  const now = new Date();
+  const overdue = milestones.filter(
+    (m) => !m.completed && m.dueDate && new Date(m.dueDate) < now,
+  ).length;
+  const upcoming = milestones.filter(
+    (m) =>
+      !m.completed &&
+      m.dueDate &&
+      new Date(m.dueDate) >= now &&
+      new Date(m.dueDate) <=
+        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
+  ).length;
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return { total, completed, overdue, upcoming, completionRate };
+}
+
 export default function ProjectAnalyticsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: project } = useGetProjectQuery(id ?? "", { skip: !id });
+  const { data: milestones = [] } = useGetMilestonesQuery(
+    { projectId: id ?? "" },
+    { skip: !id },
+  );
 
   if (!project) {
     return (
@@ -84,6 +107,7 @@ export default function ProjectAnalyticsPage() {
 
   const stats = getCardStats(project);
   const completionRate = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+  const msStats = getMilestoneStats(milestones);
 
   const labelData = Object.values(stats.labelCounts)
     .sort((a, b) => b.count - a.count)
@@ -189,11 +213,67 @@ export default function ProjectAnalyticsPage() {
         )}
       </div>
 
-      {stats.total === 0 && (
+      {msStats.total > 0 && (
+        <>
+          {/* Milestone summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {msStats.total}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Total milestones</p>
+            </div>
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {msStats.completionRate}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Completed ({msStats.completed}/{msStats.total})
+              </p>
+            </div>
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <p className="text-2xl font-bold text-red-500 dark:text-red-400">
+                {msStats.overdue}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Overdue</p>
+            </div>
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">
+                {msStats.upcoming}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Due this week</p>
+            </div>
+          </div>
+
+          {/* Milestone completion bar */}
+          <div className="mb-8">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <IconFlag className="w-4 h-4" />
+              Milestone Progress
+            </h2>
+            <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 rounded-full transition-all"
+                style={{ width: `${msStats.completionRate}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-gray-400">
+                {msStats.completed} completed
+              </span>
+              <span className="text-xs text-gray-400">
+                {msStats.total - msStats.completed} remaining
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {stats.total === 0 && msStats.total === 0 && (
         <div className="text-center py-12">
           <IconChartBar className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
           <p className="text-sm text-gray-400">
-            No cards to analyze. Add cards to your board to see analytics.
+            No cards or milestones to analyze. Add cards to your board or milestones to see analytics.
           </p>
         </div>
       )}

@@ -14,6 +14,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import ProjectOverviewPage from "./pages/ProjectOverviewPage";
 import ProjectGroupPage from "./pages/ProjectGroupPage";
 import ProjectAnalyticsPage from "./pages/ProjectAnalyticsPage";
+import ProjectMilestonesPage from "./pages/ProjectMilestonesPage";
 import ProjectTimelinePage from "./pages/ProjectTimelinePage";
 import TemplatesPage from "./pages/TemplatesPage";
 import InquiryPage from "./pages/InquiryPage";
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="/project/:id/group/:groupId" element={<ProjectGroupPage />} />
         <Route path="/project/:id/analytics" element={<ProjectAnalyticsPage />} />
         <Route path="/project/:id/timeline" element={<ProjectTimelinePage />} />
+        <Route path="/project/:id/milestones" element={<ProjectMilestonesPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/inquiry" element={<InquiryPage />} />
         </Routes>

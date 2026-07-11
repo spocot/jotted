@@ -562,6 +562,57 @@ export function createProjectsRouter(projectRepo: ProjectRepository): Router {
     }),
   );
 
+  router.patch(
+    "/:id/milestones/:milestoneId/toggle",
+    asyncHandler(async (req, res) => {
+      const { completed } = req.body;
+      if (typeof completed !== "boolean") throw new BadRequest("completed (boolean) is required");
+      const milestone = projectRepo.toggleMilestone(
+        req.params.id as string,
+        req.params.milestoneId as string,
+        completed,
+      );
+      if (!milestone) throw new NotFound("Milestone not found");
+      res.json(milestone);
+    }),
+  );
+
+  router.post(
+    "/:id/milestones/:milestoneId/cards",
+    asyncHandler(async (req, res) => {
+      const { cardIds } = req.body;
+      if (!Array.isArray(cardIds) || cardIds.length === 0)
+        throw new BadRequest("cardIds (non-empty array) is required");
+      projectRepo.linkCardsToMilestone(
+        req.params.milestoneId as string,
+        cardIds,
+      );
+      res.status(201).json({ linked: cardIds.length });
+    }),
+  );
+
+  router.delete(
+    "/:id/milestones/:milestoneId/cards/:cardId",
+    asyncHandler(async (req, res) => {
+      const removed = projectRepo.unlinkCardFromMilestone(
+        req.params.milestoneId as string,
+        req.params.cardId as string,
+      );
+      if (!removed) throw new NotFound("Card not linked to milestone");
+      res.status(204).end();
+    }),
+  );
+
+  router.get(
+    "/:id/milestones/:milestoneId/cards",
+    asyncHandler(async (req, res) => {
+      const cardIds = projectRepo.getCardsForMilestone(
+        req.params.milestoneId as string,
+      );
+      res.json(cardIds);
+    }),
+  );
+
   // ---- Card Templates ----
 
   router.get(

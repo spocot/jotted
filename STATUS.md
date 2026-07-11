@@ -447,36 +447,32 @@
 - [x] Canvas Versioning (named snapshots, version list, restore)
 - [x] Keyboard-driven Shape Placement (arrow keys to nudge, Tab to cycle)
 
-## Phase 37: Raw Inquiry (Database Explorer) ⬜
+## Phase 37: Raw Inquiry (Database Explorer) ✅
 
 ### Backend
-- [ ] `routes/inquiry.ts` — new router mounted at `/api/inquiry`
-- [ ] `GET /api/inquiry/tables` — list all user-facing tables
-- [ ] `GET /api/inquiry/tables/:table/schema` — column metadata via `PRAGMA table_info`
-- [ ] `GET /api/inquiry/tables/:table/rows` — paginated rows with validated sort/order
-- [ ] `GET /api/inquiry/tables/:table/rows/:rowKey` — single row by primary key
-- [ ] Table name whitelisting against `sqlite_master`, parameterized queries only
+- [x] `routes/inquiry.ts` — new router mounted at `/api/inquiry`
+- [x] `GET /api/inquiry/tables` — list all user-facing tables
+- [x] `GET /api/inquiry/tables/:table/schema` — column metadata via `PRAGMA table_info`
+- [x] `GET /api/inquiry/tables/:table/rows` — paginated rows with validated sort/order
+- [x] `GET /api/inquiry/tables/:table/rows/:rowKey` — single row by primary key
+- [x] Table name whitelisting against `sqlite_master`, parameterized queries only
 
 ### Frontend Types
-- [ ] Add `InquiryColumnInfo` and `InquiryRow` to `types/index.ts`
+- [x] Add `InquiryColumnInfo` and `InquiryRow` to `types/index.ts`
 
 ### RTK Query
-- [ ] Add four query endpoints to `api.ts` (`getInquiryTables`, `getInquiryTableSchema`, `getInquiryTableRows`, `getInquiryTableRow`) with `"Inquiry"` tag type
+- [x] Add four query endpoints to `api.ts` (`getInquiryTables`, `getInquiryTableSchema`, `getInquiryTableRows`, `getInquiryTableRow`) with `"Inquiry"` tag type
 
 ### Components
-- [ ] `TableList.tsx` — sidebar panel with clickable table names and filter input
-- [ ] `TableSchema.tsx` — collapsible column definitions panel (name, type, PK/NOT-NULL badges)
-- [ ] `RowTable.tsx` — sortable HTML table with pagination controls
-- [ ] `RowJsonPanel.tsx` — slide-out JSON viewer for a single row with copy button
-- [ ] `InquiryPage.tsx` — main page at `/inquiry` with sidebar + schema + table + detail layout
+- [x] `TableList.tsx` — sidebar panel with clickable table names and filter input
+- [x] `TableSchema.tsx` — collapsible column definitions panel (name, type, PK/NOT-NULL badges)
+- [x] `RowTable.tsx` — sortable HTML table with pagination controls
+- [x] `RowJsonPanel.tsx` — slide-out JSON viewer for a single row with copy button
+- [x] `InquiryPage.tsx` — main page at `/inquiry` with sidebar + schema + table + detail layout
 
 ### Routing & Navigation
-- [ ] Add `<Route path="/inquiry" element={<InquiryPage />} />` in `App.tsx`
-- [ ] Add `Inquiry` nav link in `Layout.tsx` header
-
-### Verification
-- [ ] Run `npx -w packages/server tsc --noEmit` and `npx -w packages/client tsc --noEmit`
-- [ ] Smoke-test with `npm run dev`
+- [x] Add `<Route path="/inquiry" element={<InquiryPage />} />` in `App.tsx`
+- [x] Add `Inquiry` nav link in `Layout.tsx` header
 
 ### Future Enhancements (to be completed in a later phase)
 - [ ] Custom SQL query input with server-side safety constraints
@@ -485,4 +481,31 @@
 - [ ] Row count pre-fetch badges per table in sidebar
 - [ ] Column-level search/filter within a table
 - [ ] Virtual FTS table visibility toggle
+
+## Phase 38: Milestones — Full Implementation ✅
+
+- [x] DB migration: add `completed` (INTEGER) and `completed_at` (TEXT) to `project_milestones`
+- [x] Update `ProjectMilestone` types (server + client) with `completed` and `completedAt` fields
+- [x] `PATCH /api/projects/:id/milestones/:milestoneId/toggle` — toggle completion endpoint
+- [x] Client: RTK Query `useToggleMilestoneMutation` hook
+- [x] `ProjectMilestonesPage` at `/project/:id/milestones` — dedicated page with:
+  - [x] Completion progress bar ("5 of 8 completed")
+  - [x] Filter tabs: All / Pending / Completed
+  - [x] Sort: by due date, title, position
+  - [x] Inline add form (title, description, due date)
+  - [x] Checkbox toggle + strikethrough for completed
+  - [x] Due date color coding (overdue/upcoming/completed)
+  - [x] Drag-to-reorder (reuses updateMilestone position)
+  - [x] Empty state with create prompt
+- [x] Navigation: add "Milestones" button in ProjectOverviewPage header
+- [x] Route: `<Route path="/project/:id/milestones" element={<ProjectMilestonesPage />} />`
+- [x] Reduce inline milestones in ProjectOverviewPage to summary card linking to dedicated page
+- [x] Timeline: render milestones as diamond markers alongside cards on ProjectTimelinePage
+- [x] Analytics: add milestone stats to ProjectAnalyticsPage (completed %, overdue count) + timeline chart
+- [x] Link milestones to cards: new `project_milestone_cards` M:N join table + endpoints
+- [x] Verify type checking passes
+
+### Future (lower priority)
+- [ ] KanbanCard milestone badges (show linked milestone name with color-coded status)
+- [ ] CRM-like milestone board with swim-lanes
 

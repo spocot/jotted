@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useGetProjectQuery } from "../store/redux/api";
-import { IconArrowLeft, IconCalendarEvent } from "@tabler/icons-react";
+import { useGetProjectQuery, useGetMilestonesQuery } from "../store/redux/api";
+import { IconArrowLeft, IconCalendarEvent, IconFlag } from "@tabler/icons-react";
 
 interface TimelineCard {
   id: string;
@@ -33,6 +33,10 @@ export default function ProjectTimelinePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: project } = useGetProjectQuery(id ?? "", { skip: !id });
+  const { data: milestones = [] } = useGetMilestonesQuery(
+    { projectId: id ?? "" },
+    { skip: !id },
+  );
 
   if (!project) {
     return (
@@ -66,20 +70,29 @@ export default function ProjectTimelinePage() {
   // Sort by due date
   timelineCards.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  // Compute timeline range
+  // Compute timeline range — include both cards and milestones
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   let minDate: Date;
   let maxDate: Date;
 
-  if (timelineCards.length > 0) {
-    const dates = timelineCards
-      .map((c) => parseDate(c.dueDate))
-      .filter((d): d is Date => d !== null);
-    minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-    maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-    // Add padding: start 7 days before, end 7 days after
+  const allDates: Date[] = [];
+  for (const card of timelineCards) {
+    const d = parseDate(card.dueDate);
+    if (d) allDates.push(d);
+  }
+  for (const ms of milestones) {
+    if (ms.dueDate) {
+      const d = parseDate(ms.dueDate);
+      if (d) allDates.push(d);
+    }
+  }
+
+  if (allDates.length > 0) {
+    const timestamps = allDates.map((d) => d.getTime());
+    minDate = new Date(Math.min(...timestamps));
+    maxDate = new Date(Math.max(...timestamps));
     minDate = addDays(minDate, -7);
     maxDate = addDays(maxDate, 7);
   } else {
@@ -122,12 +135,12 @@ export default function ProjectTimelinePage() {
         </div>
       </div>
 
-      {timelineCards.length === 0 ? (
+      {timelineCards.length === 0 && milestones.length === 0 ? (
         <div className="text-center py-16">
           <IconCalendarEvent className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
           <p className="text-sm text-gray-400">
-            No cards with due dates yet. Add due dates to cards to see them on
-            the timeline.
+            No cards with due dates or milestones yet. Add due dates to cards or
+            milestones to see them on the timeline.
           </p>
         </div>
       ) : (
@@ -136,7 +149,7 @@ export default function ProjectTimelinePage() {
             {/* Header: week/month labels */}
             <div className="flex border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
               <div className="w-[200px] shrink-0 px-3 py-2 text-xs font-semibold text-gray-500 border-r border-gray-200 dark:border-gray-700">
-                Card
+                Item
               </div>
               <div className="relative flex-1" style={{ height: 32 }}>
                 {weeks.map((w, i) => (
@@ -151,7 +164,6 @@ export default function ProjectTimelinePage() {
               </div>
             </div>
 
-            {/* Rows */}
             <div className="relative">
               {/* Today line */}
               {todayOffset >= 0 && todayOffset <= totalDays && (
@@ -165,6 +177,7 @@ export default function ProjectTimelinePage() {
                 </div>
               )}
 
+              {/* Card rows */}
               {timelineCards.map((card, rowIdx) => {
                 const dueDate = parseDate(card.dueDate);
                 if (!dueDate) return null;
@@ -190,15 +203,74 @@ export default function ProjectTimelinePage() {
                       </p>
                     </div>
                     <div className="relative flex-1" style={{ height: 36 }}>
-                      {/* Due date marker */}
                       <div
                         className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${
-                          isOverdue
-                            ? "bg-red-500"
-                            : "bg-blue-500"
+                          isOverdue ? "bg-red-500" : "bg-blue-500"
                         }`}
-                        style={{ left: offset * DAY_WIDTH + DAY_WIDTH / 2 - 6 }}
+                        style={{
+                          left: offset * DAY_WIDTH + DAY_WIDTH / 2 - 6,
+                        }}
                         title={`${card.title} — Due ${formatDateShort(dueDate)}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Milestone rows */}
+              {milestones.length > 0 && timelineCards.length > 0 && (
+                <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ height: 24 }}>
+                  <div className="w-[200px] shrink-0 px-3 py-0.5 border-r border-gray-200 dark:border-gray-700 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Milestones
+                  </div>
+                  <div className="flex-1" />
+                </div>
+              )}
+              {milestones.map((m) => {
+                if (!m.dueDate) return null;
+                const dueDate = parseDate(m.dueDate);
+                if (!dueDate) return null;
+                const offset = dayDiff(minDate, dueDate);
+                const isOverdue = !m.completed && dueDate < today;
+
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                    style={{ height: 36 }}
+                  >
+                    <div className="w-[200px] shrink-0 px-3 py-2 border-r border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-1.5">
+                        <IconFlag className="w-3 h-3 text-blue-500 shrink-0" />
+                        <span
+                          className={`text-xs font-medium truncate ${
+                            m.completed
+                              ? "line-through text-gray-400"
+                              : "text-gray-900 dark:text-gray-100"
+                          }`}
+                        >
+                          {m.title}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="relative flex-1" style={{ height: 36 }}>
+                      {/* Diamond marker */}
+                      <div
+                        className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 ${
+                          m.completed
+                            ? "bg-green-500"
+                            : isOverdue
+                              ? "bg-red-500"
+                              : "bg-blue-500"
+                        }`}
+                        style={{
+                          left: offset * DAY_WIDTH + DAY_WIDTH / 2 - 6,
+                        }}
+                        title={`${m.title} — ${
+                          m.completed ? "Completed" : "Due"
+                        } ${formatDateShort(dueDate)}${
+                          isOverdue ? " (Overdue)" : ""
+                        }`}
                       />
                     </div>
                   </div>

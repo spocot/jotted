@@ -409,4 +409,27 @@ function initSchema(database: Database.Database): void {
       // RENAME may fail if column was already fixed; ignore
     }
   }
+
+  // Migration v11: add completed/completed_at to project_milestones
+  const msTableInfo = database.pragma("table_info(project_milestones)") as Array<{ name: string }>;
+  if (!msTableInfo.find((col) => col.name === "completed")) {
+    database.exec("ALTER TABLE project_milestones ADD COLUMN completed INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!msTableInfo.find((col) => col.name === "completed_at")) {
+    database.exec("ALTER TABLE project_milestones ADD COLUMN completed_at TEXT");
+  }
+
+  // Migration v12: create project_milestone_cards M:N join table
+  const msCardsInfo = database.pragma("table_info(project_milestone_cards)") as Array<{ name: string }>;
+  if (msCardsInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS project_milestone_cards (
+        milestone_id TEXT NOT NULL REFERENCES project_milestones(id) ON DELETE CASCADE,
+        card_id TEXT NOT NULL REFERENCES project_cards(id) ON DELETE CASCADE,
+        PRIMARY KEY (milestone_id, card_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_project_milestone_cards_milestone ON project_milestone_cards(milestone_id);
+      CREATE INDEX IF NOT EXISTS idx_project_milestone_cards_card ON project_milestone_cards(card_id);
+    `);
+  }
 }

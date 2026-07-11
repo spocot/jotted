@@ -602,7 +602,42 @@ jotted/
 
 ---
 
-### Phase 37: Raw Inquiry (Database Explorer)
+### Phase 38: Milestones — Full Implementation
+
+Upgrade the basic milestone CRUD (currently just title + due date, embedded in ProjectOverviewPage) into a complete milestone tracking system.
+
+**Data Model Changes:**
+- Add `completed` (INTEGER, 0/1) and `completed_at` (TEXT, nullable) columns to `project_milestones` via migration
+- New `project_milestone_cards` M:N join table: `milestone_id` + `card_id` with FK cascade deletes
+
+**Backend:**
+| Method | Endpoint | Purpose |
+|---|---|---|
+| PATCH | `/api/projects/:id/milestones/:mid/toggle` | Toggle completion (sets `completed` + `completed_at`) |
+| POST | `/api/projects/:id/milestones/:mid/cards` | Link cards to milestone |
+| DELETE | `/api/projects/:id/milestones/:mid/cards/:cardId` | Unlink card from milestone |
+| GET | `/api/projects/:id/milestones/:mid/cards` | List cards linked to milestone |
+
+**Frontend — New Page (`ProjectMilestonesPage` at `/project/:id/milestones`):**
+- Completion progress bar ("4 of 10 completed — 40%")
+- Filter: All / Pending / Completed tabs
+- Sort: by due date, title, position (dropdown)
+- Inline add form: title, optional description, due date picker
+- Milestone list items: checkbox toggle → strikethrough if complete, description (expandable), due date with overdue/upcoming/completed color coding, edit/delete buttons
+- Drag-to-reorder via existing `useMouseDrag` + `updateMilestone({ position })`
+- Empty state with prompt and create button
+
+**Frontend — Integration Points:**
+- ProjectOverviewPage: replace inline milestone list with summary card (+ link to full page)
+- ProjectTimelinePage: render milestones as diamond markers alongside card dots, color-coded by status
+- ProjectAnalyticsPage: add milestone stats card (completed %, overdue count, upcoming count) + milestone timeline chart
+- KanbanCard: show linked milestone badges (flag icon + truncated title, color-coded)
+
+**Routing:** `<Route path="/project/:id/milestones" element={<ProjectMilestonesPage />} />`
+
+**Navigation:** "Milestones" button in ProjectOverviewPage header (next to Analytics and Timeline).
+
+
 
 A developer/power-user page for browsing all database tables, viewing row data in a tabular list, and inspecting individual rows as JSON.
 

@@ -294,6 +294,8 @@ export interface ProjectMilestone {
   title: string;
   description: string;
   dueDate: string | null;
+  completed: boolean;
+  completedAt: string | null;
   position: number;
   createdAt: string;
 }

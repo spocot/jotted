@@ -64,6 +64,8 @@ export interface ProjectMilestone {
   title: string;
   description: string;
   dueDate: string | null;
+  completed: boolean;
+  completedAt: string | null;
   position: number;
   createdAt: string;
 }
@@ -983,7 +985,8 @@ export class ProjectRepository {
   getMilestones(projectId: string): ProjectMilestone[] {
     return this.db
       .prepare(
-        `SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt
+        `SELECT id, project_id AS projectId, title, description, due_date AS dueDate,
+                completed, completed_at AS completedAt, position, created_at AS createdAt
          FROM project_milestones WHERE project_id = ? ORDER BY position ASC`,
       )
       .all(projectId) as ProjectMilestone[];
@@ -1006,7 +1009,7 @@ export class ProjectRepository {
       .run(id, projectId, params.title, params.description ?? "", params.dueDate ?? null, count);
     return this.db
       .prepare(
-        "SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?",
+        "SELECT id, project_id AS projectId, title, description, due_date AS dueDate, completed, completed_at AS completedAt, position, created_at AS createdAt FROM project_milestones WHERE id = ?",
       )
       .get(id) as ProjectMilestone;
   }
@@ -1040,13 +1043,13 @@ export class ProjectRepository {
     }
     if (fields.length === 0) {
       return this.db
-        .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
+        .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, completed, completed_at AS completedAt, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
         .get(milestoneId) as ProjectMilestone;
     }
     values.push(milestoneId);
     this.db.prepare(`UPDATE project_milestones SET ${fields.join(", ")} WHERE id = ?`).run(...values);
     return this.db
-      .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
+      .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, completed, completed_at AS completedAt, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
       .get(milestoneId) as ProjectMilestone;
   }
 
@@ -1055,5 +1058,54 @@ export class ProjectRepository {
       .prepare("DELETE FROM project_milestones WHERE id = ? AND project_id = ?")
       .run(milestoneId, projectId);
     return result.changes > 0;
+  }
+
+  toggleMilestone(
+    projectId: string,
+    milestoneId: string,
+    completed: boolean,
+  ): ProjectMilestone | null {
+    const existing = this.db
+      .prepare("SELECT id FROM project_milestones WHERE id = ? AND project_id = ?")
+      .get(milestoneId, projectId);
+    if (!existing) return null;
+    const completedInt = completed ? 1 : 0;
+    const completedAt = completed ? new Date().toISOString() : null;
+    this.db
+      .prepare(
+        "UPDATE project_milestones SET completed = ?, completed_at = ? WHERE id = ?",
+      )
+      .run(completedInt, completedAt, milestoneId);
+    return this.db
+      .prepare(
+        "SELECT id, project_id AS projectId, title, description, due_date AS dueDate, completed, completed_at AS completedAt, position, created_at AS createdAt FROM project_milestones WHERE id = ?",
+      )
+      .get(milestoneId) as ProjectMilestone;
+  }
+
+  linkCardsToMilestone(milestoneId: string, cardIds: string[]): void {
+    const insert = this.db.prepare(
+      "INSERT OR IGNORE INTO project_milestone_cards (milestone_id, card_id) VALUES (?, ?)",
+    );
+    const tx = this.db.transaction((ids: string[]) => {
+      for (const cardId of ids) {
+        insert.run(milestoneId, cardId);
+      }
+    });
+    tx(cardIds);
+  }
+
+  unlinkCardFromMilestone(milestoneId: string, cardId: string): boolean {
+    const result = this.db
+      .prepare("DELETE FROM project_milestone_cards WHERE milestone_id = ? AND card_id = ?")
+      .run(milestoneId, cardId);
+    return result.changes > 0;
+  }
+
+  getCardsForMilestone(milestoneId: string): string[] {
+    const rows = this.db
+      .prepare("SELECT card_id FROM project_milestone_cards WHERE milestone_id = ?")
+      .all(milestoneId) as { card_id: string }[];
+    return rows.map((r) => r.card_id);
   }
 }

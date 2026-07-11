@@ -15,9 +15,6 @@ import {
   useUpdateLabelMutation,
   useDeleteLabelMutation,
   useGetMilestonesQuery,
-  useCreateMilestoneMutation,
-  useUpdateMilestoneMutation,
-  useDeleteMilestoneMutation,
 } from "../store/redux/api";
 import {
   IconArrowLeft,
@@ -28,9 +25,9 @@ import {
   IconLayoutKanban,
   IconCopy,
   IconFlag,
-  IconCalendarDue,
   IconChartBar,
   IconCalendarEvent,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
@@ -86,20 +83,11 @@ export default function ProjectOverviewPage() {
   const [editingLabelName, setEditingLabelName] = useState("");
   const [editingLabelColor, setEditingLabelColor] = useState("");
 
-  // Milestone management
+  // Milestones summary
   const { data: milestones = [] } = useGetMilestonesQuery(
     { projectId: id ?? "" },
     { skip: !id },
   );
-  const [createMilestone] = useCreateMilestoneMutation();
-  const [updateMilestone] = useUpdateMilestoneMutation();
-  const [deleteMilestone] = useDeleteMilestoneMutation();
-  const [showNewMilestone, setShowNewMilestone] = useState(false);
-  const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
-  const [newMilestoneDueDate, setNewMilestoneDueDate] = useState("");
-  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
-  const [editingMilestoneTitle, setEditingMilestoneTitle] = useState("");
-  const [editingMilestoneDueDate, setEditingMilestoneDueDate] = useState("");
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -205,35 +193,6 @@ export default function ProjectOverviewPage() {
     const ok = await confirm("Delete this label from all cards?");
     if (!ok) return;
     await deleteLabel({ projectId: project.id, labelId });
-  };
-
-  const handleCreateMilestone = async () => {
-    if (!newMilestoneTitle.trim()) return;
-    await createMilestone({
-      projectId: project.id,
-      title: newMilestoneTitle.trim(),
-      dueDate: newMilestoneDueDate || undefined,
-    });
-    setNewMilestoneTitle("");
-    setNewMilestoneDueDate("");
-    setShowNewMilestone(false);
-  };
-
-  const handleUpdateMilestone = async (milestoneId: string) => {
-    if (!editingMilestoneTitle.trim()) return;
-    await updateMilestone({
-      projectId: project.id,
-      milestoneId,
-      title: editingMilestoneTitle.trim(),
-      dueDate: editingMilestoneDueDate || null,
-    });
-    setEditingMilestoneId(null);
-  };
-
-  const handleDeleteMilestone = async (milestoneId: string) => {
-    const ok = await confirm("Delete this milestone?");
-    if (!ok) return;
-    await deleteMilestone({ projectId: project.id, milestoneId });
   };
 
   const handleAddArtifact = async (selection: {
@@ -399,6 +358,13 @@ export default function ProjectOverviewPage() {
                 >
                   <IconCalendarEvent className="w-3.5 h-3.5" />
                   Timeline
+                </button>
+                <button
+                  onClick={() => navigate(`/project/${id}/milestones`)}
+                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 transition-colors"
+                >
+                  <IconFlag className="w-3.5 h-3.5" />
+                  Milestones
                 </button>
               </div>
             </>
@@ -722,7 +688,7 @@ export default function ProjectOverviewPage() {
         </div>
       </section>
 
-      {/* Milestones section */}
+      {/* Milestones summary */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -730,122 +696,84 @@ export default function ProjectOverviewPage() {
             Milestones
           </h2>
           <button
-            onClick={() => setShowNewMilestone(true)}
+            onClick={() => navigate(`/project/${id}/milestones`)}
             className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 transition-colors"
           >
-            <IconPlus className="w-3 h-3" />
-            Add milestone
+            View All
+            <IconChevronRight className="w-3 h-3" />
           </button>
         </div>
-
-        {showNewMilestone && (
-          <div className="flex gap-2 mb-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-            <input
-              type="text"
-              placeholder="Milestone name..."
-              value={newMilestoneTitle}
-              onChange={(e) => setNewMilestoneTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateMilestone();
-                if (e.key === "Escape") setShowNewMilestone(false);
-              }}
-              className="flex-1 px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            <input
-              type="date"
-              value={newMilestoneDueDate}
-              onChange={(e) => setNewMilestoneDueDate(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            />
+        {milestones.length === 0 ? (
+          <p className="text-sm text-gray-400 py-2">
+            No milestones yet.{" "}
             <button
-              onClick={handleCreateMilestone}
-              disabled={!newMilestoneTitle.trim()}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded transition-colors"
+              onClick={() => navigate(`/project/${id}/milestones`)}
+              className="text-blue-500 hover:text-blue-600"
             >
-              Add
+              Add your first milestone
             </button>
-            <button
-              onClick={() => setShowNewMilestone(false)}
-              className="px-3 py-1.5 text-sm font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {milestones.length === 0 && !showNewMilestone && (
-          <p className="text-sm text-gray-400 py-4 text-center">
-            No milestones yet. Milestones help track important deadlines.
           </p>
-        )}
-
-        <div className="space-y-2">
-          {milestones.map((milestone) => (
-            <div
-              key={milestone.id}
-              className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 group"
-            >
-              {editingMilestoneId === milestone.id ? (
-                <>
-                  <IconFlag className="w-4 h-4 text-blue-500 shrink-0" />
-                  <input
-                    type="text"
-                    value={editingMilestoneTitle}
-                    onChange={(e) => setEditingMilestoneTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleUpdateMilestone(milestone.id);
-                      if (e.key === "Escape") setEditingMilestoneId(null);
-                    }}
-                    className="flex-1 text-sm bg-transparent border-b border-blue-500 outline-none text-gray-900 dark:text-gray-100"
-                    autoFocus
-                  />
-                  <input
-                    type="date"
-                    value={editingMilestoneDueDate}
-                    onChange={(e) => setEditingMilestoneDueDate(e.target.value)}
-                    className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
-                  />
-                </>
-              ) : (
-                <>
-                  <IconFlag className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span className="flex-1 text-sm text-gray-900 dark:text-gray-100">
-                    {milestone.title}
-                  </span>
-                  {milestone.dueDate && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
-                      <IconCalendarDue className="w-3 h-3" />
-                      {new Date(milestone.dueDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  )}
-                </>
-              )}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => {
-                    setEditingMilestoneId(milestone.id);
-                    setEditingMilestoneTitle(milestone.title);
-                    setEditingMilestoneDueDate(milestone.dueDate ?? "");
+        ) : (
+          <>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-2 flex-1 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all"
+                  style={{
+                    width: `${
+                      milestones.length > 0
+                        ? Math.round(
+                            (milestones.filter((m) => m.completed).length /
+                              milestones.length) *
+                              100,
+                          )
+                        : 0
+                    }%`,
                   }}
-                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <IconPencil className="w-3 h-3 text-gray-400" />
-                </button>
-                <button
-                  onClick={() => handleDeleteMilestone(milestone.id)}
-                  className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                >
-                  <IconTrash className="w-3 h-3 text-red-400" />
-                </button>
+                />
               </div>
+              <span className="text-xs font-medium text-gray-500 shrink-0">
+                {milestones.filter((m) => m.completed).length}/
+                {milestones.length}
+              </span>
             </div>
-          ))}
-        </div>
+            <div className="space-y-1">
+              {milestones.slice(0, 3).map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      m.completed
+                        ? "bg-green-400"
+                        : m.dueDate && new Date(m.dueDate) < new Date()
+                          ? "bg-red-400"
+                          : "bg-blue-400"
+                    }`}
+                  />
+                  <span
+                    className={
+                      m.completed
+                        ? "line-through text-gray-400 dark:text-gray-500"
+                        : "text-gray-700 dark:text-gray-300"
+                    }
+                  >
+                    {m.title}
+                  </span>
+                </div>
+              ))}
+              {milestones.length > 3 && (
+                <button
+                  onClick={() => navigate(`/project/${id}/milestones`)}
+                  className="text-xs text-blue-500 hover:text-blue-600 pl-3.5"
+                >
+                  +{milestones.length - 3} more
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Global artifacts section */}

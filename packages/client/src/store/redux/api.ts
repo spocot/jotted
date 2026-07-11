@@ -1309,6 +1309,61 @@ export const apiSlice = createApi({
       ],
     }),
 
+    toggleMilestone: builder.mutation<
+      ProjectMilestone,
+      { projectId: string; milestoneId: string; completed: boolean }
+    >({
+      query: ({ projectId, milestoneId, completed }) => ({
+        url: `/projects/${projectId}/milestones/${milestoneId}/toggle`,
+        method: "PATCH",
+        body: { completed },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    linkCardsToMilestone: builder.mutation<
+      { linked: number },
+      { projectId: string; milestoneId: string; cardIds: string[] }
+    >({
+      query: ({ projectId, milestoneId, cardIds }) => ({
+        url: `/projects/${projectId}/milestones/${milestoneId}/cards`,
+        method: "POST",
+        body: { cardIds },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    unlinkCardFromMilestone: builder.mutation<
+      void,
+      { projectId: string; milestoneId: string; cardId: string }
+    >({
+      query: ({ projectId, milestoneId, cardId }) => ({
+        url: `/projects/${projectId}/milestones/${milestoneId}/cards/${cardId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    getCardsForMilestone: builder.query<
+      string[],
+      { projectId: string; milestoneId: string }
+    >({
+      query: ({ projectId, milestoneId }) =>
+        `/projects/${projectId}/milestones/${milestoneId}/cards`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
     // ---- Card Templates ----
     getCardTemplates: builder.query<ProjectCardTemplate[], { projectId: string }>({
       query: ({ projectId }) => `/projects/${projectId}/card-templates`,
@@ -1512,6 +1567,10 @@ export const {
   useCreateMilestoneMutation,
   useUpdateMilestoneMutation,
   useDeleteMilestoneMutation,
+  useToggleMilestoneMutation,
+  useLinkCardsToMilestoneMutation,
+  useUnlinkCardFromMilestoneMutation,
+  useGetCardsForMilestoneQuery,
   useGetCardTemplatesQuery,
   useCreateCardTemplateMutation,
   useUpdateCardTemplateMutation,
