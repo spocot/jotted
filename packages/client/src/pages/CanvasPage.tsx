@@ -3073,6 +3073,46 @@ export default function CanvasPage() {
                 </div>
               )}
 
+              {/* Phase 36: Port Visualization Hints — inside canvas transform */}
+              {showPortHints && items.find((i) => i.id === showPortHints) && (() => {
+                const item = items.find((i) => i.id === showPortHints)!;
+                const ports = getPortPositions(item);
+                return (
+                  <>
+                    {ports.map((port) => (
+                      <div
+                        key={port.label}
+                        className="absolute w-2 h-2 bg-blue-500 rounded-full pointer-events-auto z-[99999]"
+                        onMouseEnter={() => handlePortHover(showPortHints, port.label)}
+                        style={{
+                          left: port.x - 4,
+                          top: port.y - 4,
+                          border: "2px solid white",
+                          boxShadow: "0 0 0 1px #3b82f6",
+                        }}
+                      >
+                        {activePort?.itemId === showPortHints && activePort?.port === port.label && (
+                          <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50" />
+                        )}
+                      </div>
+                    ))}
+                    {activePort && activePort.itemId === showPortHints && (() => {
+                      const pitem = items.find((i) => i.id === activePort.itemId);
+                      if (!pitem) return null;
+                      const pports = getPortPositions(pitem);
+                      const pport = pports.find((p) => p.label === activePort.port);
+                      if (!pport) return null;
+                      return (
+                        <div
+                          className="absolute w-3 h-3 bg-blue-500 rounded-full pointer-events-none animate-ping opacity-75 z-[99999]"
+                          style={{ left: pport.x - 4, top: pport.y - 4 }}
+                        />
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+
               {/* Rubber-band selection rectangle */}
               {isSelecting && selectRect && (
                 <div
@@ -3608,34 +3648,6 @@ export default function CanvasPage() {
         </div>
       )}
 
-      {/* Phase 36: Port Visualization Hints */}
-      {showPortHints && items.find((i) => i.id === showPortHints) && (() => {
-        const item = items.find((i) => i.id === showPortHints)!;
-        const ports = getPortPositions(item);
-        return (
-          <>
-            {ports.map((port) => (
-              <div
-                key={port.label}
-                className="absolute w-2 h-2 bg-blue-500 rounded-full"
-                onMouseEnter={() => handlePortHover(showPortHints, port.label)}
-                style={{
-                  left: (port.x + panX) * zoom - 3,
-                  top: (port.y + panY) * zoom - 3,
-                  border: "2px solid white",
-                  boxShadow: "0 0 0 1px #3b82f6",
-                  transformOrigin: "0 0",
-                }}
-              >
-                {activePort?.itemId === showPortHints && activePort?.port === port.label && (
-                  <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50" />
-                )}
-              </div>
-            ))}
-          </>
-        );
-      })()}
-
       {/* Phase 36: Version History Panel */}
       {showVersionHistory && selectedCanvasId && (
         <div className="fixed top-16 right-4 z-40 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[60vh] flex flex-col">
@@ -3695,31 +3707,6 @@ export default function CanvasPage() {
             )}
           </div>
         </div>
-      )}
-
-      {/* Phase 36: Connection Port Highlights */}
-      {activePort && (
-        <div
-          className="fixed z-40 w-3 h-3 bg-blue-500 rounded-full pointer-events-none animate-ping opacity-75"
-          style={{
-            left: activePort.itemId ? (() => {
-              const item = items.find(i => i.id === activePort.itemId);
-              if (!item) return 0;
-              const ports = getPortPositions(item);
-              const port = ports.find(p => p.label === activePort.port);
-              if (!port) return 0;
-              return (port.x + panX) * zoom;
-            })() : 0,
-            top: activePort.itemId ? (() => {
-              const item = items.find(i => i.id === activePort.itemId);
-              if (!item) return 0;
-              const ports = getPortPositions(item);
-              const port = ports.find(p => p.label === activePort.port);
-              if (!port) return 0;
-              return (port.y + panY) * zoom;
-            })() : 0,
-          }}
-        />
       )}
 
       {/* Note search modal */}
