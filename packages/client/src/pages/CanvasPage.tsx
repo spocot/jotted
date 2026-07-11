@@ -510,9 +510,18 @@ export default function CanvasPage() {
     (e: React.WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
+      const container = canvasRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
+        setPanX(cx - (cx - panX) * (newZoom / zoom));
+        setPanY(cy - (cy - panY) * (newZoom / zoom));
+        setZoom(newZoom);
+      }
     },
-    [],
+    [zoom, panX, panY],
   );
 
   const snapValue = useCallback(
