@@ -29,7 +29,7 @@ export default function InquiryPage() {
     { skip: !selectedTable },
   );
   const [fetchRows, { isLoading: rowsLoading }] = useLazyGetInquiryTableRowsQuery();
-  const [fetchRow] = useLazyGetInquiryTableRowQuery();
+  const [fetchRow, rowResult] = useLazyGetInquiryTableRowQuery();
 
   const loadRows = useCallback(
     async (table: string, sortCol: string | null, order: string, off: number) => {
@@ -159,8 +159,8 @@ export default function InquiryPage() {
 
       {selectedRowKey && (
         <InquiryJsonPanel
-          row={((fetchRow as { data?: InquiryRow }).data) ?? null}
-          isLoading={false}
+          row={rowResult.data ?? null}
+          isLoading={rowResult.isLoading}
           onClose={() => setSelectedRowKey(null)}
         />
       )}
