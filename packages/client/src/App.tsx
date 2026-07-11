@@ -13,6 +13,7 @@ import CanvasPage from "./pages/CanvasPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProjectOverviewPage from "./pages/ProjectOverviewPage";
 import ProjectGroupPage from "./pages/ProjectGroupPage";
+import TemplatesPage from "./pages/TemplatesPage";
 import {
   useLazyGetNoteByTitleQuery,
   useCreateNoteMutation,
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/project/:id" element={<ProjectOverviewPage />} />
         <Route path="/project/:id/group/:groupId" element={<ProjectGroupPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
         </Routes>
       </Layout>
     </ConfirmProvider>

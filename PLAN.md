@@ -429,13 +429,66 @@ jotted/
 - E2E: full calendar workflow, version restore flow, canvas create/edit/export, dataview rendering
 - Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits (oldest purge), reminder timezone handling
 
-### Phase 28: Note Templates
+### Phase 28: Templates (Notes + Projects) ✅ *(tests pending)*
 
-- Server CRUD for templates
-- Template picker on new-note creation
-- Built-in defaults (Daily Note, Meeting Notes, To-Do)
-- "Save as template" action from editor
-- Template variables: `{{date}}`, `{{title}}`
+**Data Model:**
+
+- New `templates` table: `id, type (note|project), name, description, content (JSON blob), created_at, updated_at`
+  - **Note template `content`** schema: `{ title: string; body: TipTap JSON; tags: string[]; folder: string; }`
+  - **Project template `content`** schema:
+    ```json
+    {
+      "groups": [
+        {
+          "name": "Development",
+          "columns": [
+            { "name": "Backlog", "color": "#94a3b8" },
+            { "name": "In Progress", "color": "#3b82f6" },
+            { "name": "Done", "color": "#22c55e" }
+          ],
+          "artifacts": [
+            { "type": "note", "name": "Architecture Decision Record" },
+            { "type": "note", "name": "API Spec" }
+          ]
+        }
+      ]
+    }
+    ```
+
+**Backend (routes/templates.ts + db/template-repository.ts):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/templates?type=note/project` | List templates (filtered by type) |
+| POST | `/api/templates` | Create template |
+| GET | `/api/templates/:id` | Get template detail |
+| PUT | `/api/templates/:id` | Update template |
+| DELETE | `/api/templates/:id` | Delete template |
+| POST | `/api/templates/:id/apply?target=note/project` | Instantiate template → create note or project with groups/columns/cards/artifacts |
+
+- `TemplateRepository` with prepared statements for all CRUD
+- `POST /apply` for notes: creates a new note with title, body, tags, folder from template (replacing `{{date}}` and `{{title}}` variables)
+- `POST /apply` for projects: creates a new project, then groups, then per-group columns (with color), then per-group artifacts as `project_artifacts` rows
+
+**Frontend:**
+
+- `TemplatesPage` (`/templates`) — grid of template cards grouped by type; create/edit/delete
+- `TemplateCard` component — shows name, description, type badge, apply button
+- `TemplateEditorModal` — inline form to create/edit template:
+  - For note templates: capture current note title + editor content + tags + folder
+  - For project templates: dynamic form to add groups, each group with columns (name + color) and predefined artifacts
+- `TemplatePickerModal` — reusable modal shown on new-note and new-project creation; tabs for "Blank" and "From template"
+  - New note: integrates into the existing new-note flow (sidebar button triggers picker)
+  - New project: adds a "From Template" tab in the project creation dialog alongside "Blank"
+- **Note editor**: "Save as template" action (menu item or toolbar button) — captures current title, TipTap JSON content, tags, folder path
+- **Built-in defaults** (seeded via migration or inline):
+  - **Note defaults**: "Daily Note" (`## Tasks\n## Notes`), "Meeting Notes" (`## Attendees\n## Agenda\n## Action Items`), "To-Do" (`## To-Do\n## In Progress\n## Done`)
+  - **Project defaults**:
+    - "Software Project" — groups: Development, QA, Documentation; each with standard kanban columns + typical artifact notes
+    - "Marketing Campaign" — groups: Creative, Social Media, Analytics
+    - "Research Project" — groups: Literature Review, Experiments, Publication
+- **"Save Project as Template"** button on ProjectOverviewPage — captures current groups, columns, and artifact definitions
+- **Template variables**: `{{date}}`, `{{title}}`, `{{today}}` replaced on instantiation; new variables `{{project_name}}`, `{{group_name}}` for project templates
 
 ### Phase 29: Export / Import
 

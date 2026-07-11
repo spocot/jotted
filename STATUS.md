@@ -287,13 +287,35 @@
 - [ ] E2E: calendar workflow, version restore, canvas create/edit/export, dataview rendering
 - [ ] Edge cases: ICS URL unreachable/malformed, large canvas performance, version storage limits, timezone handling
 
-## Phase 28: Note Templates ⬜
+## Phase 28: Templates (Notes + Projects) ✅
 
-- [ ] Server CRUD for templates
-- [ ] Template picker on new-note creation
-- [ ] Built-in defaults (Daily Note, Meeting Notes, To-Do)
-- [ ] "Save as template" action from editor
-- [ ] Template variables: `{{date}}`, `{{title}}`
+### Data Model
+- [x] `templates` table: id, type (note|project), name, description, content (JSON), timestamps
+- [x] Note template content schema: title, body (TipTap JSON), tags, folder
+- [x] Project template content schema: groups with columns (name, color) + predefined artifacts
+
+### Backend
+- [x] TemplateRepository with full CRUD prepared statements
+- [x] `GET /api/templates?type=note|project` — list templates
+- [x] `POST /api/templates` — create template
+- [x] `GET /api/templates/:id` — get detail
+- [x] `PUT /api/templates/:id` — update
+- [x] `DELETE /api/templates/:id` — delete
+- [x] `POST /api/templates/:id/apply?target=note` — instantiate as new note (replace variables, set tags/folder)
+- [x] `POST /api/templates/:id/apply?target=project` — create project + groups + columns + artifacts from template
+- [x] Built-in template seeding (migration or on-startup)
+
+### Frontend
+- [x] `TemplatesPage` at `/templates` — template grid grouped by type, CRUD actions
+- [x] `TemplateCard` component — name, description, type badge, apply/edit/delete
+- [x] `TemplateEditorModal` — create/edit note or project templates (dynamic form for project structure)
+- [x] `TemplatePickerModal` — reusable picker shown on new-note / new-project creation (Blank vs From template tabs)
+- [x] Note editor — "Save as template" action button
+- [x] ProjectOverviewPage — "Save Project as Template" button
+- [x] ProjectsPage + NoteListPage — "From Template" buttons that invoke picker
+- [x] Template variables: `{{date}}`, `{{title}}`, `{{today}}`, `{{project_name}}`, `{{group_name}}`
+- [x] Client types + RTK Query endpoints for templates
+- [ ] Tests for repository, API handlers, and components
 
 ## Phase 29: Export / Import ⬜
 

@@ -252,3 +252,35 @@ export interface ProjectWithDetails extends Project {
   >;
   globalArtifacts: ProjectArtifact[];
 }
+
+export interface Template {
+  id: string;
+  type: "note" | "project";
+  name: string;
+  description: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteTemplateContent {
+  title: string;
+  body: string;
+  tags: string[];
+  folder: string;
+}
+
+export interface ProjectTemplateGroupColumn {
+  name: string;
+  color: string;
+}
+
+export interface ProjectTemplateGroup {
+  name: string;
+  columns: ProjectTemplateGroupColumn[];
+  artifacts: Array<{ name: string; type: string }>;
+}
+
+export interface ProjectTemplateContent {
+  groups: ProjectTemplateGroup[];
+}

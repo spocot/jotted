@@ -1,23 +1,36 @@
 import { useState, useEffect, useCallback } from "react";
-import { IconFolder } from "@tabler/icons-react";
+import { IconFolder, IconCopy } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useLazyGetNotesQuery } from "../store/redux/api";
 import type { Note, PageResponse } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 import NoteCard from "../components/NoteCard";
 import CreateNoteModal from "../components/CreateNoteModal";
+import TemplatePickerModal from "../components/TemplatePickerModal";
+import { useAppDispatch } from "../store/redux/hooks";
+import { addToast } from "../store/redux/toastSlice";
 
 const PAGE_SIZE = 50;
 
 export default function NoteListPage() {
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [trigger] = useLazyGetNotesQuery();
+  const dispatch = useAppDispatch();
+
+  const handleTemplateApplied = (result: unknown) => {
+    const note = result as { id?: string; title?: string };
+    if (note?.id) {
+      navigate(`/note/${note.id}`);
+    }
+    dispatch(addToast("Created note from template", "success"));
+  };
 
   useEffect(() => {
     trigger({ limit: PAGE_SIZE, offset: 0 }).then((result: { data?: PageResponse<Note> }) => {
@@ -59,12 +72,21 @@ export default function NoteListPage() {
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">All Notes</h2>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-        >
-          + New Note
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTemplatePicker(true)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors flex items-center gap-1"
+          >
+            <IconCopy className="w-4 h-4" />
+            From Template
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+          >
+            + New Note
+          </button>
+        </div>
       </div>
 
       {initialLoading && notes.length === 0 && <NoteListSkeleton />}
@@ -129,6 +151,14 @@ export default function NoteListPage() {
         }}
         existingTitles={[]}
       />
+
+      {showTemplatePicker && (
+        <TemplatePickerModal
+          target="note"
+          onClose={() => setShowTemplatePicker(false)}
+          onApplied={handleTemplateApplied}
+        />
+      )}
     </div>
   );
 }

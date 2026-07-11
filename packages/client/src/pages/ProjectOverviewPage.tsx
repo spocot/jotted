@@ -9,6 +9,7 @@ import {
   useDeleteGroupMutation,
   useCreateArtifactMutation,
   useDeleteArtifactMutation,
+  useCreateTemplateMutation,
 } from "../store/redux/api";
 import {
   IconArrowLeft,
@@ -17,10 +18,13 @@ import {
   IconPlus,
   IconPencil,
   IconLayoutKanban,
+  IconCopy,
 } from "@tabler/icons-react";
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
 import { useConfirm } from "../hooks/useConfirm";
+import { useAppDispatch } from "../store/redux/hooks";
+import { addToast } from "../store/redux/toastSlice";
 
 const STATUS_OPTIONS = ["planning", "active", "completed", "archived"];
 const STATUS_COLORS: Record<string, string> = {
@@ -51,6 +55,7 @@ export default function ProjectOverviewPage() {
   const [deleteGroup] = useDeleteGroupMutation();
   const [createArtifact] = useCreateArtifactMutation();
   const [deleteArtifact] = useDeleteArtifactMutation();
+  const dispatch = useAppDispatch();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -145,6 +150,36 @@ export default function ProjectOverviewPage() {
     const ok = await confirm("Remove this artifact?");
     if (!ok) return;
     await deleteArtifact({ projectId: project.id, artifactId });
+  };
+
+  const [createTemplate] = useCreateTemplateMutation();
+
+  const handleSaveProjectAsTemplate = async () => {
+    if (!project) return;
+    const groups = project.groups?.map((g) => ({
+      title: g.title,
+      columns: g.columns?.map((c) => ({
+        name: c.title,
+        color: "",
+      })) ?? [],
+      artifacts: g.artifacts?.map((a) => ({
+        name: a.title,
+        type: a.artifactType,
+      })) ?? [],
+    })) ?? [];
+    try {
+      await createTemplate({
+        type: "project",
+        name: `Project: ${project.title}`,
+        description: `Template from "${project.title}"`,
+        content: JSON.stringify({
+          groups,
+        }),
+      }).unwrap();
+      dispatch(addToast("Template saved", "success"));
+    } catch {
+      dispatch(addToast("Failed to save template", "error"));
+    }
   };
 
   return (
@@ -252,6 +287,13 @@ export default function ProjectOverviewPage() {
           )}
         </div>
         <div className="flex gap-2 shrink-0 ml-4">
+          <button
+            onClick={handleSaveProjectAsTemplate}
+            className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+            title="Save as template"
+          >
+            <IconCopy className="w-4 h-4 text-gray-400" />
+          </button>
           <button
             onClick={handleStartEdit}
             className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"

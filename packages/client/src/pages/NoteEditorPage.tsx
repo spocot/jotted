@@ -15,6 +15,7 @@ import {
   useAddNoteTagMutation,
   useRemoveNoteTagMutation,
   useUploadFileMutation,
+  useCreateTemplateMutation,
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -222,6 +223,30 @@ export default function NoteEditorPage() {
     }
   };
 
+  const [createTemplate] = useCreateTemplateMutation();
+
+  const handleSaveAsTemplate = async () => {
+    if (!selectedNote) return;
+    const tagNames = selectedNote.tags.map((t) => t.name);
+    const bodyContent = editor ? JSON.stringify(editor.getJSON()) : selectedNote.content;
+    try {
+      await createTemplate({
+        type: "note",
+        name: `Note: ${selectedNote.title}`,
+        description: `Template from "${selectedNote.title}"`,
+        content: JSON.stringify({
+          title: selectedNote.title,
+          body: bodyContent,
+          tags: tagNames,
+          folder: selectedNote.path,
+        }),
+      }).unwrap();
+      dispatch(addToast("Template saved", "success"));
+    } catch {
+      dispatch(addToast("Failed to save template", "error"));
+    }
+  };
+
   // Save immediately before navigation
   const titleRef = useRef(title);
   useEffect(() => {
@@ -426,6 +451,14 @@ export default function NoteEditorPage() {
                 label="Code block"
               >
                 {`{ }`}
+              </ToolbarButton>
+
+              <ToolbarButton
+                onClick={handleSaveAsTemplate}
+                active={false}
+                label="Save as template"
+              >
+                📋
               </ToolbarButton>
 
               <div className="flex-1" />

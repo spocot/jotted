@@ -9,7 +9,9 @@ import {
   IconPlus,
   IconFolder,
   IconDots,
+  IconCopy,
 } from "@tabler/icons-react";
+import TemplatePickerModal from "../components/TemplatePickerModal";
 
 const STATUS_COLORS: Record<string, string> = {
   planning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -33,6 +35,7 @@ export default function ProjectsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -47,17 +50,35 @@ export default function ProjectsPage() {
     setMenuOpen(null);
   };
 
+  const handleTemplateApplied = (result: unknown) => {
+    const proj = result as { id?: string };
+    if (proj?.id) {
+      navigate(`/project/${proj.id}`);
+    } else {
+      navigate("/projects");
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">Projects</h1>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-        >
-          <IconPlus className="w-4 h-4" />
-          New Project
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowTemplatePicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 rounded-lg transition-colors"
+          >
+            <IconCopy className="w-4 h-4" />
+            From Template
+          </button>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <IconPlus className="w-4 h-4" />
+            New Project
+          </button>
+        </div>
       </div>
 
       {isCreating && (
@@ -149,6 +170,14 @@ export default function ProjectsPage() {
           </div>
         ))}
       </div>
+
+      {showTemplatePicker && (
+        <TemplatePickerModal
+          target="project"
+          onClose={() => setShowTemplatePicker(false)}
+          onApplied={handleTemplateApplied}
+        />
+      )}
     </div>
   );
 }

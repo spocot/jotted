@@ -27,6 +27,7 @@ import type {
   ProjectColumn,
   ProjectCard,
   ProjectArtifact,
+  Template,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -72,6 +73,7 @@ export const apiSlice = createApi({
     "Canvas",
     "Project",
     "Graph",
+    "Template",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -922,6 +924,55 @@ export const apiSlice = createApi({
         "Project",
       ],
     }),
+
+    // ---- Templates ----
+    getTemplates: builder.query<Template[], { type?: "note" | "project" }>({
+      query: ({ type }) => {
+        const sp = new URLSearchParams();
+        if (type) sp.set("type", type);
+        const qs = sp.toString();
+        return `/templates${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: ["Template"],
+    }),
+
+    getTemplate: builder.query<Template, string>({
+      query: (id) => `/templates/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Template", id }],
+    }),
+
+    createTemplate: builder.mutation<
+      Template,
+      { type: "note" | "project"; name: string; description?: string; content: string }
+    >({
+      query: (body) => ({ url: "/templates", method: "POST", body }),
+      invalidatesTags: ["Template"],
+    }),
+
+    updateTemplate: builder.mutation<
+      Template,
+      { id: string; type?: "note" | "project"; name?: string; description?: string; content?: string }
+    >({
+      query: ({ id, ...body }) => ({ url: `/templates/${id}`, method: "PUT", body }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: "Template", id }, "Template"],
+    }),
+
+    deleteTemplate: builder.mutation<void, string>({
+      query: (id) => ({ url: `/templates/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Template"],
+    }),
+
+    applyTemplate: builder.mutation<
+      unknown,
+      { id: string; target: "note" | "project" }
+    >({
+      query: ({ id, target }) => ({
+        url: `/templates/${id}/apply?target=${target}`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { target }) =>
+        target === "note" ? ["NoteList"] : ["Project"],
+    }),
   }),
 });
 
@@ -1001,4 +1052,10 @@ export const {
   useCreateArtifactMutation,
   useUpdateArtifactMutation,
   useDeleteArtifactMutation,
+  useGetTemplatesQuery,
+  useGetTemplateQuery,
+  useCreateTemplateMutation,
+  useUpdateTemplateMutation,
+  useDeleteTemplateMutation,
+  useApplyTemplateMutation,
 } = apiSlice;

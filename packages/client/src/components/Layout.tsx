@@ -79,6 +79,9 @@ export default function Layout({ children }: LayoutProps) {
           <Link to="/canvas" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Canvas
           </Link>
+          <Link to="/templates" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
+            Templates
+          </Link>
           <Link to="/calendar" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Calendar
           </Link>

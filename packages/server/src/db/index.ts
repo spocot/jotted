@@ -202,6 +202,23 @@ function initSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_project_artifacts_group_id ON project_artifacts(group_id, position);
   `);
 
+  // Migration v4: create templates table
+  const templateTableInfo = database.pragma("table_info(templates)") as Array<{ name: string }>;
+  if (templateTableInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS templates (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL DEFAULT 'note',
+        name TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_templates_type ON templates(type);
+    `);
+  }
+
   // Migration v3: add edge style fields for architecture diagramming
   const edgeTableInfo = database.pragma("table_info(canvas_edges)") as Array<{ name: string }>;
   if (!edgeTableInfo.find((col) => col.name === "label")) {
