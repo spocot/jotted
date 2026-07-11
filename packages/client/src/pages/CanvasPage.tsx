@@ -73,6 +73,28 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
+/** Recursively collect IDs of all children of group items */
+function expandGroupChildren(
+  selectedIds: Set<string>,
+  items: CanvasItem[],
+): Set<string> {
+  const result = new Set(selectedIds);
+  const stack = [...selectedIds];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    const item = items.find((i) => i.id === id);
+    if (item?.childIds) {
+      for (const childId of item.childIds) {
+        if (!result.has(childId)) {
+          result.add(childId);
+          stack.push(childId);
+        }
+      }
+    }
+  }
+  return result;
+}
+
 /** Compute edge port at shape boundary (N/S/E/W midpoint) */
 function getEdgePort(item: CanvasItem, tx: number, ty: number): { x: number; y: number } {
   const cx = item.x + item.width / 2;
@@ -1129,6 +1151,9 @@ export default function CanvasPage() {
         }
         setSelectedItemIds(newSelectedIds);
 
+        // Expand to include children of any group items in the selection
+        const expandedIds = expandGroupChildren(newSelectedIds, items);
+
         // Snapshot for undo at drag start (one entry for the whole drag)
         pushUndo();
 
@@ -1140,14 +1165,14 @@ export default function CanvasPage() {
         setDragOffset({ x: offsetX, y: offsetY });
 
         const startPositions = new Map<string, { x: number; y: number }>();
-        for (const sid of newSelectedIds) {
+        for (const sid of expandedIds) {
           const si = items.find((i) => i.id === sid);
           if (si) {
             startPositions.set(sid, { x: si.x, y: si.y });
           }
         }
         setDragStartPositions(startPositions);
-        setDraggingItemIds(newSelectedIds);
+        setDraggingItemIds(expandedIds);
         anchorDragItemIdRef.current = item.id;
       }
     },
@@ -1185,33 +1210,34 @@ export default function CanvasPage() {
   const handleDeleteSelected = useCallback(() => {
     if (selectedItemIds.size === 0) return;
     pushUndo();
-    const deletedIds = [...selectedItemIds];
-    const updatedItems = items.filter((i) => !selectedItemIds.has(i.id));
+    const expandedIds = expandGroupChildren(selectedItemIds, items);
+    const updatedItems = items.filter((i) => !expandedIds.has(i.id));
     const deletedEdgeIds = edges
       .filter(
-        (e) => selectedItemIds.has(e.sourceItemId) || selectedItemIds.has(e.targetItemId),
+        (e) => expandedIds.has(e.sourceItemId) || expandedIds.has(e.targetItemId),
       )
       .map((e) => e.id);
     const updatedEdges = edges.filter(
-      (e) => !selectedItemIds.has(e.sourceItemId) && !selectedItemIds.has(e.targetItemId),
+      (e) => !expandedIds.has(e.sourceItemId) && !expandedIds.has(e.targetItemId),
     );
     setItems(updatedItems);
     setEdges(updatedEdges);
     setSelectedItemIds(new Set());
     scheduleAutoSave(updatedItems, updatedEdges, {
-      deletedItemIds: deletedIds,
+      deletedItemIds: [...expandedIds],
       deletedEdgeIds: deletedEdgeIds,
     });
-    dispatch(addToast(deletedIds.length > 1 ? `${deletedIds.length} items deleted` : "Item deleted", "info"));
+    dispatch(addToast(expandedIds.size > 1 ? `${expandedIds.size} items deleted` : "Item deleted", "info"));
   }, [selectedItemIds, items, edges, scheduleAutoSave, dispatch, pushUndo]);
 
   const handleColorChange = useCallback(
     (color: string) => {
       if (selectedItemIds.size === 0) return;
       pushUndo();
+      const expandedIds = expandGroupChildren(selectedItemIds, items);
       setItems((prev) =>
         prev.map((item) =>
-          selectedItemIds.has(item.id) ? { ...item, color } : item,
+          expandedIds.has(item.id) ? { ...item, color } : item,
         ),
       );
       setItemColor(color);
@@ -1223,11 +1249,12 @@ export default function CanvasPage() {
   const handleBringToFront = useCallback(() => {
     if (selectedItemIds.size === 0) return;
     pushUndo();
+    const expandedIds = expandGroupChildren(selectedItemIds, items);
     const maxZ = Math.max(...items.map((i) => i.zIndex), 0);
     let nextZ = maxZ + 1;
     setItems((prev) =>
       prev.map((item) => {
-        if (!selectedItemIds.has(item.id)) return item;
+        if (!expandedIds.has(item.id)) return item;
         return { ...item, zIndex: nextZ++ };
       }),
     );
@@ -1238,9 +1265,10 @@ export default function CanvasPage() {
     (size: number) => {
       if (selectedItemIds.size === 0) return;
       pushUndo();
+      const expandedIds = expandGroupChildren(selectedItemIds, items);
       setItems((prev) =>
         prev.map((item) =>
-          selectedItemIds.has(item.id) ? { ...item, fontSize: size } : item,
+          expandedIds.has(item.id) ? { ...item, fontSize: size } : item,
         ),
       );
       setItemFontSize(size);
@@ -1253,9 +1281,10 @@ export default function CanvasPage() {
     if (selectedItemIds.size === 0) return;
     const newWeight = itemFontWeight === "bold" ? "normal" : "bold";
     pushUndo();
+    const expandedIds = expandGroupChildren(selectedItemIds, items);
     setItems((prev) =>
       prev.map((item) =>
-        selectedItemIds.has(item.id) ? { ...item, fontWeight: newWeight as "normal" | "bold" } : item,
+        expandedIds.has(item.id) ? { ...item, fontWeight: newWeight as "normal" | "bold" } : item,
       ),
     );
     setItemFontWeight(newWeight as "normal" | "bold");
@@ -1266,9 +1295,10 @@ export default function CanvasPage() {
     if (selectedItemIds.size === 0) return;
     const newStyle = itemFontStyle === "italic" ? "normal" : "italic";
     pushUndo();
+    const expandedIds = expandGroupChildren(selectedItemIds, items);
     setItems((prev) =>
       prev.map((item) =>
-        selectedItemIds.has(item.id) ? { ...item, fontStyle: newStyle as "normal" | "italic" } : item,
+        expandedIds.has(item.id) ? { ...item, fontStyle: newStyle as "normal" | "italic" } : item,
       ),
     );
     setItemFontStyle(newStyle as "normal" | "italic");
@@ -1603,7 +1633,7 @@ export default function CanvasPage() {
       y: minY - 10,
       width: maxX - minX + 20,
       height: maxY - minY + 20,
-      zIndex: Math.max(...items.map((i) => i.zIndex), 0) + 1,
+      zIndex: Math.min(...groupItems.map((i) => i.zIndex)) - 1,
       createdAt: new Date().toISOString(),
       fontSize: 14,
       fontWeight: "bold",
@@ -3180,9 +3210,10 @@ export default function CanvasPage() {
                             pushUndo();
                             const startX = e.clientX;
                             const startY = e.clientY;
-                            // Record initial sizes for all selected items
+                              // Record initial sizes for all selected items
                             const initialSizes = new Map<string, { width: number; height: number }>();
-                            for (const sid of selectedItemIds) {
+                            const expandedIdsResize = selectedItemIds;
+                            for (const sid of expandedIdsResize) {
                               const si = items.find((i) => i.id === sid);
                               if (si) {
                                 initialSizes.set(sid, { width: si.width, height: si.height });
@@ -3320,7 +3351,8 @@ export default function CanvasPage() {
                             const startX = e.clientX;
                             const startY = e.clientY;
                             const initialSizes = new Map<string, { width: number; height: number }>();
-                            for (const sid of selectedItemIds) {
+                            const expandedIdsRS = selectedItemIds;
+                            for (const sid of expandedIdsRS) {
                               const si = items.find((i) => i.id === sid);
                               if (si) {
                                 initialSizes.set(sid, { width: si.width, height: si.height });
@@ -3375,6 +3407,63 @@ export default function CanvasPage() {
                           </svg>
                         </div>
                       </>
+                    ) : item.type === "group" ? (
+                      <>
+                        <div className="absolute inset-0 border-2 border-dashed border-gray-400 dark:border-gray-500 bg-gray-200/10 dark:bg-gray-700/10 rounded-lg pointer-events-none">
+                          <div className="absolute -top-5 left-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-gray-800/80 px-1.5 py-0.5 rounded">
+                            {item.text}
+                          </div>
+                        </div>
+                        {/* Resize handle */}
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize z-10"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            pushUndo();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const initialSizes = new Map<string, { width: number; height: number }>();
+                            const expandedResizeIds2 = selectedItemIds;
+                            for (const sid of expandedResizeIds2) {
+                              const si = items.find((i) => i.id === sid);
+                              if (si) {
+                                initialSizes.set(sid, { width: si.width, height: si.height });
+                              }
+                            }
+                            if (initialSizes.size === 0) {
+                              initialSizes.set(item.id, { width: item.width, height: item.height });
+                            }
+                            const handleMouseMove = (ev: MouseEvent) => {
+                              const dx = (ev.clientX - startX) / zoom;
+                              const dy = (ev.clientY - startY) / zoom;
+                              setItems((prev) =>
+                                prev.map((i) => {
+                                  const initSize = initialSizes.get(i.id);
+                                  if (!initSize) return i;
+                                  let w = Math.max(60, initSize.width + dx);
+                                  let h = Math.max(40, initSize.height + dy);
+                                  if (snapToGrid) {
+                                    w = snapValue(w);
+                                    h = snapValue(h);
+                                  }
+                                  return { ...i, width: w, height: h };
+                                }),
+                              );
+                            };
+                            const handleMouseUp = () => {
+                              window.removeEventListener("mousemove", handleMouseMove);
+                              window.removeEventListener("mouseup", handleMouseUp);
+                              scheduleAutoSave(items, edges);
+                            };
+                            window.addEventListener("mousemove", handleMouseMove);
+                            window.addEventListener("mouseup", handleMouseUp);
+                          }}
+                        >
+                          <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" viewBox="0 0 10 10" fill="currentColor">
+                            <path d="M10 0v2L2 10H0z" />
+                          </svg>
+                        </div>
+                      </>
                     ) : (
                       <div className="p-3 h-full flex flex-col">
                         {editingItemId === item.id ? (
@@ -3417,7 +3506,8 @@ export default function CanvasPage() {
                             const startX = e.clientX;
                             const startY = e.clientY;
                             const initialSizes = new Map<string, { width: number; height: number }>();
-                            for (const sid of selectedItemIds) {
+                            const expandedResizeIds = selectedItemIds;
+                            for (const sid of expandedResizeIds) {
                               const si = items.find((i) => i.id === sid);
                               if (si) {
                                 initialSizes.set(sid, { width: si.width, height: si.height });
