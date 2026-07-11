@@ -161,7 +161,7 @@ export interface CanvasItem {
   id: string;
   canvasId: string;
   noteId: string | null;
-  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
+  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon" | "group";
   text: string;
   color: string;
   x: number;
@@ -169,6 +169,34 @@ export interface CanvasItem {
   width: number;
   height: number;
   zIndex: number;
+  createdAt: string;
+  fontSize?: number;
+  fontWeight?: "normal" | "bold";
+  fontStyle?: "normal" | "italic";
+  lockAspectRatio?: boolean;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  groupId?: string | null;
+  childIds?: string[];
+}
+
+export interface CanvasVersion {
+  id: string;
+  canvasId: string;
+  title: string;
+  description: string;
+  items: CanvasItem[];
+  edges: CanvasEdge[];
+  thumbnail?: string;
+  createdAt: string;
+}
+
+export interface CanvasGroup {
+  id: string;
+  canvasId: string;
+  label: string;
   createdAt: string;
 }
 

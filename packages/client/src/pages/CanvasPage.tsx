@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork, IconDotsVertical, IconShape, IconSquare, IconCircle, IconHexagon, IconCloud, IconDiamond } from "@tabler/icons-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { IconTrash, IconMinus, IconPlus, IconLayoutKanban, IconPointer, IconLink, IconTypography, IconMapPin, IconChevronUp, IconPhoto, IconLasso, IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconMagnet, IconLayoutAlignCenter, IconHierarchy, IconNetwork, IconDotsVertical, IconShape, IconSquare, IconCircle, IconHexagon, IconCloud, IconDiamond, IconSettings, IconFolders, IconArrowsSplit2, IconCategory, IconMaximize, IconArrowUp, IconX, IconBold, IconItalic, IconDeviceDesktop, IconServer, IconDatabase, IconRouter, IconCloudComputing, IconHexagon as IconHexagon2 } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as d3 from "d3";
 import {
@@ -12,6 +12,10 @@ import {
   useLazyGetNotesQuery,
   useGetAllUploadsQuery,
   useUploadFileMutation,
+  useGetCanvasVersionsQuery,
+  useCreateCanvasVersionMutation,
+  useRestoreCanvasVersionMutation,
+  useDeleteCanvasVersionMutation,
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -85,6 +89,24 @@ function getEdgePort(item: CanvasItem, tx: number, ty: number): { x: number; y: 
   }
 }
 
+function getShapeConstraints(type: CanvasItem["type"]) {
+  switch (type) {
+    case "circle":
+      return { minWidth: 60, minHeight: 60, maxWidth: 800, maxHeight: 800, lockAspectRatio: true };
+    case "diamond":
+    case "hexagon":
+      return { minWidth: 80, minHeight: 60, maxWidth: 800, maxHeight: 600, lockAspectRatio: false };
+    case "cylinder":
+      return { minWidth: 80, minHeight: 60, maxWidth: 600, maxHeight: 800, lockAspectRatio: false };
+    case "cloud":
+      return { minWidth: 100, minHeight: 60, maxWidth: 800, maxHeight: 500, lockAspectRatio: false };
+    case "rounded_rectangle":
+      return { minWidth: 80, minHeight: 50, maxWidth: 1200, maxHeight: 800, lockAspectRatio: false };
+    default:
+      return { minWidth: ITEM_MIN_WIDTH, minHeight: ITEM_MIN_HEIGHT, maxWidth: 1200, maxHeight: 800, lockAspectRatio: false };
+  }
+}
+
 export default function CanvasPage() {
   const navigate = useNavigate();
   const { id: paramId } = useParams<{ id: string }>();
@@ -102,6 +124,19 @@ export default function CanvasPage() {
     skip: !selectedCanvasId,
   });
 
+  // Phase 36: Versioning hooks
+  const { data: canvasVersions = [] } = useGetCanvasVersionsQuery(selectedCanvasId ?? "", {
+    skip: !selectedCanvasId,
+  });
+  const [createCanvasVersion] = useCreateCanvasVersionMutation();
+  const [restoreCanvasVersion] = useRestoreCanvasVersionMutation();
+  const [deleteCanvasVersion] = useDeleteCanvasVersionMutation();
+
+  const getCanvasVersions = useCallback(
+    (_canvasId: string) => canvasVersions,
+    [canvasVersions],
+  );
+
   // Local state for canvas items and edges
   const [items, setItems] = useState<CanvasItem[]>([]);
   const [edges, setEdges] = useState<CanvasEdge[]>([]);
@@ -118,6 +153,8 @@ export default function CanvasPage() {
   type Tool = "select" | "lasso" | "connect" | "text_box" | "note_pin";
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
   const [draggingItemIds, setDraggingItemIds] = useState<Set<string>>(new Set());
   const [dragStartPositions, setDragStartPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
@@ -125,7 +162,21 @@ export default function CanvasPage() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [itemColor, setItemColor] = useState(COLORS[0]);
+  const [itemFontSize, setItemFontSize] = useState(14);
+  const [itemFontWeight, setItemFontWeight] = useState<"normal" | "bold">("normal");
+  const [itemFontStyle, setItemFontStyle] = useState<"normal" | "italic">("normal");
   const anchorDragItemIdRef = useRef<string | null>(null);
+
+  // Phase 36: Architecture Canvas Enhancements
+  const [showEdgeEditor, setShowEdgeEditor] = useState(false);
+  const [edgeEditorPos, setEdgeEditorPos] = useState({ x: 0, y: 0 });
+  const [showPortHints, setShowPortHints] = useState<string | null>(null);
+  const [activePort, setActivePort] = useState<{ itemId: string; port: "N" | "S" | "E" | "W" } | null>(null);
+  const [showStencilLibrary, setShowStencilLibrary] = useState(false);
+  const [stencilCategory, setStencilCategory] = useState<"aws" | "erd" | "c4" | "network">("aws");
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [placementMode, setPlacementMode] = useState<{ shapeType: CanvasItem["type"] | null; tempItem: CanvasItem | null }>({ shapeType: null, tempItem: null });
+  const [placementPreviewPos, setPlacementPreviewPos] = useState({ x: 0, y: 0 });
 
   // Rubber-band selection
   const [isSelecting, setIsSelecting] = useState(false);
@@ -146,6 +197,7 @@ export default function CanvasPage() {
   const [showOverflow, setShowOverflow] = useState(false);
   const [showShapes, setShowShapes] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(true);
 
   // Note search for pinning
   const [showNoteSearch, setShowNoteSearch] = useState(false);
@@ -262,6 +314,16 @@ export default function CanvasPage() {
               zIndex: i.zIndex,
               noteId: i.noteId,
               type: i.type,
+              lockAspectRatio: i.lockAspectRatio,
+              minWidth: i.minWidth,
+              minHeight: i.minHeight,
+              maxWidth: i.maxWidth,
+              maxHeight: i.maxHeight,
+              groupId: i.groupId,
+              childIds: i.childIds,
+              fontSize: i.fontSize,
+              fontWeight: i.fontWeight,
+              fontStyle: i.fontStyle,
             })),
             edges: updatedEdges.map((e) => ({
               id: e.id,
@@ -599,6 +661,26 @@ export default function CanvasPage() {
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (placementMode.shapeType && placementMode.tempItem) {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const snappedX = snapToGrid ? snapValue(coords.x) : coords.x;
+        const snappedY = snapToGrid ? snapValue(coords.y) : coords.y;
+        pushUndo();
+        const newItem: CanvasItem = {
+          ...placementMode.tempItem,
+          id: crypto.randomUUID(),
+          canvasId: selectedCanvasId!,
+          x: snappedX - placementMode.tempItem.width / 2,
+          y: snappedY - placementMode.tempItem.height / 2,
+          createdAt: new Date().toISOString(),
+        };
+        const updatedItems = [...items, newItem];
+        setItems(updatedItems);
+        setSelectedItemIds(new Set([newItem.id]));
+        scheduleAutoSave(updatedItems, edges);
+        dispatch(addToast(`${placementMode.shapeType.replace("_", " ")} placed`, "success"));
+        return;
+      }
       if (activeTool === "lasso" && e.button === 0) {
         // Start rubber-band selection
         const coords = getCanvasCoords(e.clientX, e.clientY);
@@ -618,11 +700,18 @@ export default function CanvasPage() {
         e.preventDefault();
       }
     },
-    [activeTool, panX, panY, getCanvasCoords],
+    [activeTool, panX, panY, getCanvasCoords, placementMode, snapToGrid, snapValue, selectedCanvasId, pushUndo, items, edges, scheduleAutoSave, dispatch],
   );
 
   const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      if (placementMode.shapeType && placementMode.tempItem) {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const snappedX = snapToGrid ? snapValue(coords.x) : coords.x;
+        const snappedY = snapToGrid ? snapValue(coords.y) : coords.y;
+        setPlacementPreviewPos({ x: snappedX, y: snappedY });
+        return;
+      }
       if (isSelecting && selectRect) {
         const coords = getCanvasCoords(e.clientX, e.clientY);
         setSelectRect((prev) =>
@@ -737,7 +826,7 @@ export default function CanvasPage() {
         });
       }
     },
-    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset, snapToGrid, snapValue, snapToGuides, computeAlignmentGuides, items],
+    [isSelecting, selectRect, getCanvasCoords, isPanning, draggingItemIds, dragStartPositions, panX, panY, zoom, dragOffset, snapToGrid, snapValue, snapToGuides, computeAlignmentGuides, items, placementMode, snapToGrid, snapValue],
   );
 
   const handleCanvasMouseUp = useCallback(() => {
@@ -1145,6 +1234,47 @@ export default function CanvasPage() {
     scheduleAutoSave(items, edges);
   }, [selectedItemIds, items, edges, scheduleAutoSave, pushUndo]);
 
+  const handleFontSizeChange = useCallback(
+    (size: number) => {
+      if (selectedItemIds.size === 0) return;
+      pushUndo();
+      setItems((prev) =>
+        prev.map((item) =>
+          selectedItemIds.has(item.id) ? { ...item, fontSize: size } : item,
+        ),
+      );
+      setItemFontSize(size);
+      scheduleAutoSave(items, edges);
+    },
+    [selectedItemIds, items, edges, scheduleAutoSave, pushUndo],
+  );
+
+  const handleFontWeightToggle = useCallback(() => {
+    if (selectedItemIds.size === 0) return;
+    const newWeight = itemFontWeight === "bold" ? "normal" : "bold";
+    pushUndo();
+    setItems((prev) =>
+      prev.map((item) =>
+        selectedItemIds.has(item.id) ? { ...item, fontWeight: newWeight as "normal" | "bold" } : item,
+      ),
+    );
+    setItemFontWeight(newWeight as "normal" | "bold");
+    scheduleAutoSave(items, edges);
+  }, [selectedItemIds, itemFontWeight, items, edges, scheduleAutoSave, pushUndo]);
+
+  const handleFontStyleToggle = useCallback(() => {
+    if (selectedItemIds.size === 0) return;
+    const newStyle = itemFontStyle === "italic" ? "normal" : "italic";
+    pushUndo();
+    setItems((prev) =>
+      prev.map((item) =>
+        selectedItemIds.has(item.id) ? { ...item, fontStyle: newStyle as "normal" | "italic" } : item,
+      ),
+    );
+    setItemFontStyle(newStyle as "normal" | "italic");
+    scheduleAutoSave(items, edges);
+  }, [selectedItemIds, itemFontStyle, items, edges, scheduleAutoSave, pushUndo]);
+
   // ---- Adding Items ----
 
   const handleAddTextBox = useCallback(() => {
@@ -1377,7 +1507,353 @@ export default function CanvasPage() {
     [edges, items, scheduleAutoSave, pushUndo],
   );
 
-  // ---- Export ----
+  // ---- Phase 36: Edge Property Editor ----
+
+  const handleSelectEdge = useCallback(
+    (edgeId: string, e: React.MouseEvent, _clientX: number, _clientY: number) => {
+      e.stopPropagation();
+      setSelectedEdgeId(selectedEdgeId === edgeId ? null : edgeId);
+      setSelectedItemIds(new Set());
+      if (selectedEdgeId !== edgeId) {
+        const edge = edges.find((ed) => ed.id === edgeId);
+        if (edge) {
+          const src = items.find((i) => i.id === edge.sourceItemId);
+          const tgt = items.find((i) => i.id === edge.targetItemId);
+          if (src && tgt) {
+            const midX = (src.x + src.width / 2 + tgt.x + tgt.width / 2) / 2;
+            const midY = (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+              setEdgeEditorPos({
+                x: (midX + panX) * zoom - rect.left + 20,
+                y: (midY + panY) * zoom - rect.top - 40,
+              });
+            }
+          }
+          setShowEdgeEditor(true);
+        }
+      }
+    },
+    [selectedEdgeId, edges, items, panX, panY, zoom],
+  );
+
+  const handleUpdateEdge = useCallback(
+    (edgeId: string, updates: Partial<Pick<CanvasEdge, "label" | "edgeStyle" | "arrowStart" | "arrowEnd" | "type">>) => {
+      pushUndo();
+      const updatedEdges = edges.map((ed) =>
+        ed.id === edgeId ? { ...ed, ...updates } : ed,
+      );
+      setEdges(updatedEdges);
+      scheduleAutoSave(items, updatedEdges);
+    },
+    [edges, items, scheduleAutoSave, pushUndo],
+  );
+
+  // ---- Phase 36: Port Visualization ----
+
+  const handleItemMouseEnter = useCallback((itemId: string) => {
+    setShowPortHints(itemId);
+    setHoveredItemId(itemId);
+  }, []);
+
+  const handleItemMouseLeave = useCallback((itemId: string) => {
+    if (showPortHints === itemId) setShowPortHints(null);
+    if (hoveredItemId === itemId) setHoveredItemId(null);
+    if (activePort?.itemId === itemId) setActivePort(null);
+  }, [showPortHints, hoveredItemId, activePort]);
+
+  const handlePortHover = useCallback((itemId: string, port: "N" | "S" | "E" | "W") => {
+    setActivePort({ itemId, port });
+  }, []);
+
+  const closeEdgeEditor = useCallback(() => {
+    setShowEdgeEditor(false);
+    setSelectedEdgeId(null);
+  }, []);
+
+  function getPortPositions(item: CanvasItem) {
+    return [
+      { label: "N" as const, x: item.x + item.width / 2, y: item.y },
+      { label: "S" as const, x: item.x + item.width / 2, y: item.y + item.height },
+      { label: "E" as const, x: item.x + item.width, y: item.y + item.height / 2 },
+      { label: "W" as const, x: item.x, y: item.y + item.height / 2 },
+    ];
+  }
+
+  // ---- Phase 36: Grouping ----
+
+  const handleGroupItems = useCallback(() => {
+    if (selectedItemIds.size < 2) return;
+    pushUndo();
+    const groupId = crypto.randomUUID();
+    const groupItems = items.filter((i) => selectedItemIds.has(i.id));
+    const minX = Math.min(...groupItems.map((i) => i.x));
+    const minY = Math.min(...groupItems.map((i) => i.y));
+    const maxX = Math.max(...groupItems.map((i) => i.x + i.width));
+    const maxY = Math.max(...groupItems.map((i) => i.y + i.height));
+    
+    const groupItem: CanvasItem = {
+      id: groupId,
+      canvasId: selectedCanvasId!,
+      noteId: null,
+      type: "group",
+      text: "Group",
+      color: "#64748b",
+      x: minX - 10,
+      y: minY - 10,
+      width: maxX - minX + 20,
+      height: maxY - minY + 20,
+      zIndex: Math.max(...items.map((i) => i.zIndex), 0) + 1,
+      createdAt: new Date().toISOString(),
+      fontSize: 14,
+      fontWeight: "bold",
+      fontStyle: "normal",
+      lockAspectRatio: false,
+      childIds: groupItems.map((i) => i.id),
+    };
+
+    const updatedItems = items.map((i) =>
+      selectedItemIds.has(i.id) ? { ...i, groupId } : i,
+    );
+    setItems([...updatedItems, groupItem]);
+    setSelectedItemIds(new Set([groupId]));
+    scheduleAutoSave([...updatedItems, groupItem], edges);
+    dispatch(addToast(`${selectedItemIds.size} items grouped`, "success"));
+  }, [selectedItemIds, items, selectedCanvasId, edges, scheduleAutoSave, dispatch, pushUndo]);
+
+  const handleUngroupItems = useCallback(() => {
+    if (selectedItemIds.size !== 1) return;
+    const groupItem = items.find((i) => i.id === [...selectedItemIds][0]);
+    if (!groupItem || groupItem.type !== "group") return;
+    pushUndo();
+    const childIds = groupItem.childIds || [];
+    const updatedItems = items
+      .filter((i) => i.id !== groupItem.id)
+      .map((i) => (childIds.includes(i.id) ? { ...i, groupId: null } : i));
+    setItems(updatedItems);
+    setSelectedItemIds(new Set(childIds));
+    scheduleAutoSave(updatedItems, edges);
+    dispatch(addToast("Group ungrouped", "success"));
+  }, [selectedItemIds, items, edges, scheduleAutoSave, dispatch, pushUndo]);
+
+  // ---- Phase 36: Stencil Library ----
+
+  const STENCIL_TEMPLATES = useMemo(() => ({
+    aws: [
+      { type: "rectangle" as CanvasItem["type"], label: "EC2", icon: IconDeviceDesktop, color: "#FF9900" },
+      { type: "cylinder" as CanvasItem["type"], label: "RDS", icon: IconDatabase, color: "#527FFF" },
+      { type: "cloud" as CanvasItem["type"], label: "S3", icon: IconCloudComputing, color: "#569A31" },
+      { type: "hexagon" as CanvasItem["type"], label: "Lambda", icon: IconHexagon2, color: "#FF9900" },
+      { type: "diamond" as CanvasItem["type"], label: "Route 53", icon: IconDiamond, color: "#FF9900" },
+      { type: "rectangle" as CanvasItem["type"], label: "ALB", icon: IconServer, color: "#FF9900" },
+    ],
+    erd: [
+      { type: "rectangle" as CanvasItem["type"], label: "Entity", icon: IconSquare, color: "#3B82F6" },
+      { type: "diamond" as CanvasItem["type"], label: "Relationship", icon: IconDiamond, color: "#EF4444" },
+      { type: "rounded_rectangle" as CanvasItem["type"], label: "Attribute", icon: IconCircle, color: "#22C55E" },
+      { type: "hexagon" as CanvasItem["type"], label: "Weak Entity", icon: IconHexagon2, color: "#F59E0B" },
+    ],
+    c4: [
+      { type: "rectangle" as CanvasItem["type"], label: "System", icon: IconServer, color: "#1168BD" },
+      { type: "cylinder" as CanvasItem["type"], label: "Database", icon: IconDatabase, color: "#1168BD" },
+      { type: "rounded_rectangle" as CanvasItem["type"], label: "Container", icon: IconSquare, color: "#1168BD" },
+      { type: "cloud" as CanvasItem["type"], label: "External System", icon: IconCloudComputing, color: "#1168BD" },
+    ],
+    network: [
+      { type: "rectangle" as CanvasItem["type"], label: "Router", icon: IconRouter, color: "#6B7280" },
+      { type: "hexagon" as CanvasItem["type"], label: "Switch", icon: IconHexagon2, color: "#6B7280" },
+      { type: "cylinder" as CanvasItem["type"], label: "Server", icon: IconServer, color: "#6B7280" },
+      { type: "diamond" as CanvasItem["type"], label: "Firewall", icon: IconDiamond, color: "#EF4444" },
+    ],
+  }), []);
+
+  const handleAddStencilItem = useCallback(
+    (template: { type: CanvasItem["type"]; label: string; color: string }) => {
+      if (!selectedCanvasId) return;
+      pushUndo();
+      const newItem: CanvasItem = {
+        id: crypto.randomUUID(),
+        canvasId: selectedCanvasId,
+        noteId: null,
+        type: template.type,
+        text: template.label,
+        color: template.color,
+        x: 100 + Math.random() * 200,
+        y: 100 + Math.random() * 200,
+        width: 140,
+        height: 100,
+        zIndex: items.length,
+        createdAt: new Date().toISOString(),
+        fontSize: 14,
+        fontWeight: "bold",
+        fontStyle: "normal",
+        lockAspectRatio: getShapeConstraints(template.type).lockAspectRatio,
+        minWidth: getShapeConstraints(template.type).minWidth,
+        minHeight: getShapeConstraints(template.type).minHeight,
+        maxWidth: getShapeConstraints(template.type).maxWidth,
+        maxHeight: getShapeConstraints(template.type).maxHeight,
+      };
+      const updatedItems = [...items, newItem];
+      setItems(updatedItems);
+      setSelectedItemIds(new Set([newItem.id]));
+      scheduleAutoSave(updatedItems, edges);
+      dispatch(addToast(`${template.label} added from stencil`, "success"));
+    },
+    [selectedCanvasId, items, edges, scheduleAutoSave, dispatch, pushUndo, getShapeConstraints],
+  );
+
+  // ---- Phase 36: Canvas Versioning ----
+
+  const [createVersionTitle, setCreateVersionTitle] = useState("");
+  const [createVersionDescription, setCreateVersionDescription] = useState("");
+
+  const handleCreateVersion = useCallback(async () => {
+    if (!selectedCanvasId || !createVersionTitle.trim()) return;
+    try {
+      await createCanvasVersion({
+        canvasId: selectedCanvasId,
+        title: createVersionTitle,
+        description: createVersionDescription,
+        items,
+        edges,
+        thumbnail: undefined,
+      }).unwrap();
+      setCreateVersionTitle("");
+      setCreateVersionDescription("");
+      dispatch(addToast("Version saved", "success"));
+    } catch {
+      dispatch(addToast("Failed to save version", "error"));
+    }
+  }, [selectedCanvasId, createVersionTitle, createVersionDescription, items, edges, dispatch]);
+
+  const handleRestoreVersion = useCallback(async (versionId: string) => {
+    if (!selectedCanvasId) return;
+    try {
+      const result = await restoreCanvasVersion({ canvasId: selectedCanvasId, versionId }).unwrap();
+      dispatch(addToast("Version restored", "success"));
+      return result;
+    } catch {
+      dispatch(addToast("Failed to restore version", "error"));
+    }
+  }, [selectedCanvasId, dispatch]);
+
+  const handleDeleteVersion = useCallback(async (versionId: string) => {
+    if (!selectedCanvasId) return;
+    try {
+      await deleteCanvasVersion({ canvasId: selectedCanvasId, versionId }).unwrap();
+      dispatch(addToast("Version deleted", "success"));
+    } catch {
+      dispatch(addToast("Failed to delete version", "error"));
+    }
+  }, [selectedCanvasId, dispatch]);
+
+  // ---- Phase 36: Keyboard-driven Placement ----
+
+  const handleShapeSelectForPlacement = useCallback(
+    (shapeType: CanvasItem["type"]) => {
+      if (!selectedCanvasId) return;
+      const constraints = getShapeConstraints(shapeType);
+      const tempItem: CanvasItem = {
+        id: "preview-" + Date.now(),
+        canvasId: selectedCanvasId,
+        noteId: null,
+        type: shapeType,
+        text: shapeType.replace("_", " "),
+        color: COLORS[0],
+        x: 0,
+        y: 0,
+        width: constraints.minWidth || 140,
+        height: constraints.minHeight || 100,
+        zIndex: items.length,
+        createdAt: new Date().toISOString(),
+        fontSize: 14,
+        fontWeight: "normal",
+        fontStyle: "normal",
+        lockAspectRatio: constraints.lockAspectRatio,
+        minWidth: constraints.minWidth,
+        minHeight: constraints.minHeight,
+        maxWidth: constraints.maxWidth,
+        maxHeight: constraints.maxHeight,
+      };
+      setPlacementMode({ shapeType, tempItem });
+      setPlacementPreviewPos({ x: 100, y: 100 });
+      setActiveTool("select");
+    },
+    [selectedCanvasId, items, getShapeConstraints],
+  );
+
+  // Update handleKeyDown for placement mode
+  const handleKeyDownWithPlacement = useCallback(
+    (e: KeyboardEvent) => {
+      if (placementMode.shapeType && placementMode.tempItem) {
+        switch (e.key) {
+          case "Tab":
+            e.preventDefault();
+            const shapeTypes: CanvasItem["type"][] = ["rectangle", "rounded_rectangle", "circle", "diamond", "hexagon", "cylinder", "cloud"];
+            const currentIndex = shapeTypes.indexOf(placementMode.shapeType);
+            const nextIndex = (currentIndex + 1) % shapeTypes.length;
+            handleShapeSelectForPlacement(shapeTypes[nextIndex]);
+            return;
+          case "Escape":
+            setPlacementMode({ shapeType: null, tempItem: null });
+            setPlacementPreviewPos({ x: 0, y: 0 });
+            return;
+          default:
+            if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+              e.preventDefault();
+              return;
+            }
+        }
+      }
+      
+      // Regular keyboard shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        handleRedo();
+      }
+      if (selectedEdgeId && (e.key === "Delete" || e.key === "Backspace")) {
+        if (editingItemId) return;
+        e.preventDefault();
+        // Use handleDeleteEdge logic directly
+        pushUndo();
+        const updatedEdges = edges.filter((ed) => ed.id !== selectedEdgeId);
+        setEdges(updatedEdges);
+        scheduleAutoSave(items, updatedEdges, { deletedEdgeIds: [selectedEdgeId] });
+        setSelectedEdgeId(null);
+      }
+    },
+    [placementMode, placementPreviewPos, selectedCanvasId, items, edges, scheduleAutoSave, dispatch, pushUndo, selectedEdgeId, handleUndo, handleRedo, editingItemId, getShapeConstraints, handleShapeSelectForPlacement]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDownWithPlacement);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDownWithPlacement);
+    };
+  }, [handleKeyDownWithPlacement]);
+
+  // ---- Phase 36: Font/Color sync with selection ----
+
+  useEffect(() => {
+    if (selectedItemIds.size === 1) {
+      const sel = items.find((i) => i.id === [...selectedItemIds][0]);
+      if (sel) {
+        setItemColor(sel.color);
+        setItemFontSize(sel.fontSize ?? 14);
+        setItemFontWeight(sel.fontWeight ?? "normal");
+        setItemFontStyle(sel.fontStyle ?? "normal");
+      }
+    }
+  }, [selectedItemIds, items]);
 
   const handleExportPng = useCallback(async () => {
     const container = canvasRef.current;
@@ -1617,13 +2093,12 @@ export default function CanvasPage() {
 
         // Text
         ctx.fillStyle = "#ffffff";
-        ctx.font = "13px system-ui, sans-serif";
+        const fontSize = item.fontSize ?? 13;
+        const fontWeight = item.fontWeight === "bold" ? "bold " : "";
+        const fontStyle = item.fontStyle === "italic" ? "italic " : "";
+        ctx.font = `${fontStyle}${fontWeight}${fontSize}px system-ui, sans-serif`;
         ctx.textBaseline = "middle";
         ctx.textAlign = "center";
-
-        if (item.type === "note_pin") {
-          ctx.font = "bold 13px system-ui, sans-serif";
-        }
 
         const lines = item.text.split("\n");
         const lineH = 18;
@@ -1744,6 +2219,73 @@ export default function CanvasPage() {
     URL.revokeObjectURL(link.href);
     dispatch(addToast("Canvas exported as SVG", "success"));
   }, [items, edges, canvasTitle, dispatch]);
+
+  const handleExportMermaid = useCallback(() => {
+    if (items.length === 0) {
+      dispatch(addToast("Canvas is empty", "info"));
+      return;
+    }
+
+    const nodeIds = new Map<string, string>();
+    let counter = 0;
+    let code = "graph TD\n";
+
+    const getNodeId = (item: CanvasItem): string => {
+      if (nodeIds.has(item.id)) return nodeIds.get(item.id)!;
+      const id = `N${counter++}`;
+      nodeIds.set(item.id, id);
+      const label = (item.text || item.type.replace("_", " ")).replace(/"/g, '\\"');
+      let nodeDef: string;
+      switch (item.type) {
+        case "rounded_rectangle":
+          nodeDef = `${id}("${label}")`;
+          break;
+        case "circle":
+          nodeDef = `${id}(("${label}"))`;
+          break;
+        case "diamond":
+          nodeDef = `${id}{"${label}"}`;
+          break;
+        case "hexagon":
+          nodeDef = `${id}{{"${label}"}}`;
+          break;
+        case "cylinder":
+          nodeDef = `${id}[("${label}")]`;
+          break;
+        case "cloud":
+          nodeDef = `${id}>"${label}"]`;
+          break;
+        default:
+          nodeDef = `${id}["${label}"]`;
+          break;
+      }
+      code += `  ${nodeDef}\n`;
+      return id;
+    };
+
+    items.forEach((item) => getNodeId(item));
+
+    for (const edge of edges) {
+      const srcId = nodeIds.get(edge.sourceItemId);
+      const tgtId = nodeIds.get(edge.targetItemId);
+      if (!srcId || !tgtId) continue;
+      const hasArrow = edge.arrowEnd ?? true;
+      const connector = hasArrow ? "-->" : "---";
+      const label = edge.label ? `|"${edge.label.replace(/"/g, '\\"')}"|` : "";
+      const style = edge.edgeStyle === "dashed" ? "-.->" : edge.edgeStyle === "dotted" ? "-..->" : undefined;
+      if (hasArrow && style) {
+        code += `  ${srcId} ${style} ${tgtId}\n`;
+      } else {
+        code += `  ${srcId} ${connector} ${label} ${tgtId}\n`;
+      }
+    }
+
+    navigator.clipboard.writeText(code).then(() => {
+      dispatch(addToast("Mermaid diagram copied to clipboard", "success"));
+    }).catch(() => {
+      dispatch(addToast("Failed to copy to clipboard", "error"));
+    });
+  }, [items, edges, dispatch]);
 
   // ---- Render ----
 
@@ -1877,14 +2419,37 @@ export default function CanvasPage() {
                 {SHAPE_TYPES.map((shape) => (
                   <button
                     key={shape.type}
-                    onClick={() => handleAddShape(shape.type)}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) {
+                        handleShapeSelectForPlacement(shape.type);
+                        setShowShapes(false);
+                      } else {
+                        handleAddShape(shape.type);
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      handleShapeSelectForPlacement(shape.type);
+                      setShowShapes(false);
+                    }}
                     className="flex flex-col items-center gap-1 px-2 py-1.5 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    title={shape.label}
+                    title={`${shape.label} (Ctrl+Click to place, Right-click to place)`}
                   >
                     <ShapeIcon type={shape.type} className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     <span className="text-gray-500">{shape.label}</span>
                   </button>
                 ))}
+                <div className="col-span-4 pt-1 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => {
+                      handleShapeSelectForPlacement("rectangle");
+                      setShowShapes(false);
+                    }}
+                    className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded py-1 transition-colors"
+                  >
+                    Place Mode (click on canvas)
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1918,6 +2483,35 @@ export default function CanvasPage() {
                   title={color}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Shape text styling */}
+          {selectedItemIds.size >= 1 && (
+            <div className="flex items-center gap-1">
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+              <select
+                value={itemFontSize}
+                onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+                className="text-xs bg-transparent border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-gray-600 dark:text-gray-400 cursor-pointer"
+                title="Font size"
+              >
+                {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <ToolButton
+                icon={<IconBold />}
+                label="Bold"
+                active={itemFontWeight === "bold"}
+                onClick={handleFontWeightToggle}
+              />
+              <ToolButton
+                icon={<IconItalic />}
+                label="Italic"
+                active={itemFontStyle === "italic"}
+                onClick={handleFontStyleToggle}
+              />
             </div>
           )}
 
@@ -2054,6 +2648,25 @@ export default function CanvasPage() {
 
                 <hr className="border-gray-200 dark:border-gray-700 my-1" />
 
+                {/* Minimap toggle */}
+                <div className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    <IconMaximize className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">Minimap</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showMinimap}
+                      onChange={() => setShowMinimap((v) => !v)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                  </label>
+                </div>
+
+                <hr className="border-gray-200 dark:border-gray-700 my-1" />
+
                 {/* Auto-Layout */}
                 <div className="relative" ref={autoLayoutRef}>
                   <button
@@ -2128,9 +2741,101 @@ export default function CanvasPage() {
                 >
                   SVG
                 </button>
+                <button
+                  onClick={() => { setShowExport(false); handleExportMermaid(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Mermaid
+                </button>
               </div>
             )}
           </div>
+
+          {/* Phase 36: Group/Ungroup */}
+          <div className="flex items-center gap-1">
+            <ToolButton
+              icon={<IconFolders />}
+              label="Group (Ctrl+G)"
+              onClick={handleGroupItems}
+              disabled={selectedItemIds.size < 2}
+            />
+            <ToolButton
+              icon={<IconArrowsSplit2 />}
+              label="Ungroup"
+              onClick={handleUngroupItems}
+              disabled={selectedItemIds.size !== 1 || items.find((i) => i.id === [...selectedItemIds][0])?.type !== "group"}
+            />
+          </div>
+
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+
+          {/* Phase 36: Stencil Library */}
+          <div className="relative">
+            <ToolButton
+              icon={<IconCategory />}
+              label="Stencil Library"
+              active={showStencilLibrary}
+              onClick={() => setShowStencilLibrary((v) => !v)}
+            />
+            {showStencilLibrary && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 z-50 w-64">
+                <div className="flex gap-1 mb-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                  {(["aws", "erd", "c4", "network"] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setStencilCategory(cat)}
+                      className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                        stencilCategory === cat
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
+                          : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {cat.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-1 max-h-60 overflow-y-auto">
+                  {STENCIL_TEMPLATES[stencilCategory].map((tmpl) => (
+                    <button
+                      key={tmpl.label}
+                      onClick={() => handleAddStencilItem(tmpl)}
+                      className="flex flex-col items-center gap-1 px-2 py-2 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      title={tmpl.label}
+                    >
+                      <tmpl.icon className="w-5 h-5" style={{ color: tmpl.color }} />
+                      <span className="text-gray-500">{tmpl.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+
+          {/* Phase 36: Version History */}
+          <ToolButton
+            icon={<IconSettings />}
+            label="Version History"
+            active={showVersionHistory}
+            onClick={() => setShowVersionHistory((v) => !v)}
+          />
+
+          {/* Phase 36: Placement Mode Indicator */}
+          {placementMode.shapeType && (
+            <div className="flex items-center gap-1 ml-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 rounded border border-amber-300 dark:border-amber-700">
+              <IconArrowUp className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                Placing: {placementMode.shapeType.replace("_", " ")} — click canvas to place
+              </span>
+              <button
+                onClick={() => { setPlacementMode({ shapeType: null, tempItem: null }); }}
+                className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
+              >
+                <IconX className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Canvas area */}
@@ -2247,7 +2952,7 @@ export default function CanvasPage() {
                         markerStart={edge.arrowStart ? "url(#arrowhead-start)" : undefined}
                         markerEnd={edge.arrowEnd ?? true ? "url(#arrowhead)" : undefined}
                         className="pointer-events-auto cursor-pointer hover:stroke-red-400"
-                        onClick={(e) => handleDeleteEdge(edge.id, e as unknown as React.MouseEvent)}
+                        onClick={(e) => handleSelectEdge(edge.id, e as unknown as React.MouseEvent, e.clientX, e.clientY)}
                       />
                       {edge.label && (
                         <g transform={`translate(${midX}, ${midY})`}>
@@ -2345,6 +3050,29 @@ export default function CanvasPage() {
                 ))}
               </svg>
 
+              {/* Phase 36: Placement Preview — shown inside canvas transform */}
+              {placementMode.shapeType && placementMode.tempItem && (
+                <div
+                  className="absolute pointer-events-none z-[999999]"
+                  style={{
+                    left: placementPreviewPos.x - placementMode.tempItem.width / 2,
+                    top: placementPreviewPos.y - placementMode.tempItem.height / 2,
+                    width: placementMode.tempItem.width,
+                    height: placementMode.tempItem.height,
+                    border: "2px dashed #3b82f6",
+                    borderRadius: placementMode.tempItem.type === "rounded_rectangle" ? 12 : 4,
+                    backgroundColor: "rgba(59,130,246,0.15)",
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xs font-medium">
+                    {placementMode.tempItem.text}
+                  </div>
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-blue-600 dark:text-blue-400 bg-white/90 dark:bg-gray-800/90 px-1.5 py-0.5 rounded">
+                    click to place · Tab to cycle · Esc to cancel
+                  </div>
+                </div>
+              )}
+
               {/* Rubber-band selection rectangle */}
               {isSelecting && selectRect && (
                 <div
@@ -2370,6 +3098,8 @@ export default function CanvasPage() {
                     key={item.id}
                     onMouseDown={(e) => handleItemMouseDown(e, item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
+                    onMouseEnter={() => handleItemMouseEnter(item.id)}
+                    onMouseLeave={() => handleItemMouseLeave(item.id)}
                     className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none ${
                       isDiagramItem(item) ? "" : "overflow-hidden"
                     } ${
@@ -2428,8 +3158,19 @@ export default function CanvasPage() {
                                 prev.map((i) => {
                                   const initSize = initialSizes.get(i.id);
                                   if (!initSize) return i;
-                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
-                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  const constraints = getShapeConstraints(i.type);
+                                  let w = Math.max(constraints.minWidth, initSize.width + dx);
+                                  w = Math.min(constraints.maxWidth, w);
+                                  let h = Math.max(constraints.minHeight, initSize.height + dy);
+                                  h = Math.min(constraints.maxHeight, h);
+                                  if (constraints.lockAspectRatio && i.lockAspectRatio !== false) {
+                                    const aspect = initSize.width / initSize.height;
+                                    if (Math.abs(dx) > Math.abs(dy)) {
+                                      h = w / aspect;
+                                    } else {
+                                      w = h * aspect;
+                                    }
+                                  }
                                   if (snapToGrid) {
                                     w = snapValue(w);
                                     h = snapValue(h);
@@ -2518,7 +3259,14 @@ export default function CanvasPage() {
                         </svg>
                         {item.text && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-sm text-white font-medium drop-shadow-sm px-2 text-center leading-tight">
+                            <span
+                              className="text-white drop-shadow-sm px-2 text-center leading-tight"
+                              style={{
+                                fontSize: (item.fontSize ?? 14) * zoom,
+                                fontWeight: item.fontWeight ?? "normal",
+                                fontStyle: item.fontStyle ?? "normal",
+                              }}
+                            >
                               {item.text}
                             </span>
                           </div>
@@ -2548,8 +3296,19 @@ export default function CanvasPage() {
                                 prev.map((i) => {
                                   const initSize = initialSizes.get(i.id);
                                   if (!initSize) return i;
-                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
-                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  const constraints = getShapeConstraints(i.type);
+                                  let w = Math.max(constraints.minWidth, initSize.width + dx);
+                                  w = Math.min(constraints.maxWidth, w);
+                                  let h = Math.max(constraints.minHeight, initSize.height + dy);
+                                  h = Math.min(constraints.maxHeight, h);
+                                  if (constraints.lockAspectRatio && i.lockAspectRatio !== false) {
+                                    const aspect = initSize.width / initSize.height;
+                                    if (Math.abs(dx) > Math.abs(dy)) {
+                                      h = w / aspect;
+                                    } else {
+                                      w = h * aspect;
+                                    }
+                                  }
                                   if (snapToGrid) {
                                     w = snapValue(w);
                                     h = snapValue(h);
@@ -2634,8 +3393,19 @@ export default function CanvasPage() {
                                 prev.map((i) => {
                                   const initSize = initialSizes.get(i.id);
                                   if (!initSize) return i;
-                                  let w = Math.max(ITEM_MIN_WIDTH, initSize.width + dx);
-                                  let h = Math.max(ITEM_MIN_HEIGHT, initSize.height + dy);
+                                  const constraints = getShapeConstraints(i.type);
+                                  let w = Math.max(constraints.minWidth, initSize.width + dx);
+                                  w = Math.min(constraints.maxWidth, w);
+                                  let h = Math.max(constraints.minHeight, initSize.height + dy);
+                                  h = Math.min(constraints.maxHeight, h);
+                                  if (constraints.lockAspectRatio && i.lockAspectRatio !== false) {
+                                    const aspect = initSize.width / initSize.height;
+                                    if (Math.abs(dx) > Math.abs(dy)) {
+                                      h = w / aspect;
+                                    } else {
+                                      w = h * aspect;
+                                    }
+                                  }
                                   if (snapToGrid) {
                                     w = snapValue(w);
                                     h = snapValue(h);
@@ -2667,8 +3437,290 @@ export default function CanvasPage() {
                 ))}
             </div>
           )}
+
+      {/* Phase 36: Mini-map */}
+      {showMinimap && selectedCanvasId && items.length > 0 && (() => {
+        const mapW = 180;
+        const mapH = 130;
+        const pad = 40;
+        const minX = Math.min(...items.map((i) => i.x)) - pad;
+        const minY = Math.min(...items.map((i) => i.y)) - pad;
+        const maxX = Math.max(...items.map((i) => i.x + i.width)) + pad;
+        const maxY = Math.max(...items.map((i) => i.y + i.height)) + pad;
+        const bw = maxX - minX || 1;
+        const bh = maxY - minY || 1;
+        const scale = Math.min(mapW / bw, mapH / bh);
+        const container = canvasRef.current;
+        const containerRect = container?.getBoundingClientRect();
+        const viewW = containerRect ? containerRect.width / zoom : 800;
+        const viewH = containerRect ? containerRect.height / zoom : 600;
+        const viewX = -panX / zoom;
+        const viewY = -panY / zoom;
+
+        return (
+          <div className="absolute bottom-3 right-3 z-20 rounded-md shadow-md border border-gray-300 dark:border-gray-700 overflow-hidden opacity-90 hover:opacity-100 transition-opacity">
+            <svg width={mapW} height={mapH}>
+              <rect width={mapW} height={mapH} fill="#f8fafc" className="dark:hidden" />
+              <rect width={mapW} height={mapH} fill="#1e293b" className="hidden dark:block" />
+              {edges.map((edge) => {
+                const src = items.find((i) => i.id === edge.sourceItemId);
+                const tgt = items.find((i) => i.id === edge.targetItemId);
+                if (!src || !tgt) return null;
+                return (
+                  <line
+                    key={edge.id}
+                    x1={(src.x + src.width / 2 - minX) * scale}
+                    y1={(src.y + src.height / 2 - minY) * scale}
+                    x2={(tgt.x + tgt.width / 2 - minX) * scale}
+                    y2={(tgt.y + tgt.height / 2 - minY) * scale}
+                    stroke="#94a3b8"
+                    strokeWidth={0.5}
+                  />
+                );
+              })}
+              {items.map((item) => {
+                const rx = (item.x - minX) * scale;
+                const ry = (item.y - minY) * scale;
+                const rw = Math.max(2, item.width * scale);
+                const rh = Math.max(2, item.height * scale);
+                return (
+                  <rect
+                    key={item.id}
+                    x={rx}
+                    y={ry}
+                    width={rw}
+                    height={rh}
+                    fill={item.color}
+                    opacity={0.7}
+                    rx={item.type === "rounded_rectangle" ? 2 : 0}
+                  />
+                );
+              })}
+              <rect
+                x={(viewX - minX) * scale}
+                y={(viewY - minY) * scale}
+                width={viewW * scale}
+                height={viewH * scale}
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth={1.5}
+                rx={1}
+              />
+            </svg>
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onMouseDown={(e) => {
+                const svgRect = e.currentTarget.getBoundingClientRect();
+                const clickX = e.clientX - svgRect.left;
+                const clickY = e.clientY - svgRect.top;
+                const canvasX = clickX / scale + minX;
+                const canvasY = clickY / scale + minY;
+                if (container) {
+                  const cr = container.getBoundingClientRect();
+                  setPanX(cr.width / 2 - canvasX * zoom);
+                  setPanY(cr.height / 2 - canvasY * zoom);
+                }
+              }}
+            />
+          </div>
+        );
+      })()}
+
         </div>
-      </div>
+
+        </div>
+
+      {/* Phase 36: Edge Property Editor */}
+      {showEdgeEditor && selectedEdgeId && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[220px] pointer-events-auto"
+          style={{
+            left: edgeEditorPos.x,
+            top: edgeEditorPos.y,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Edge Properties</span>
+            <button onClick={closeEdgeEditor} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Label</label>
+              <input
+                type="text"
+                value={edges.find((e) => e.id === selectedEdgeId)?.label || ""}
+                onChange={(e) => handleUpdateEdge(selectedEdgeId, { label: e.target.value })}
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                placeholder="Edge label"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Line Style</label>
+              <select
+                value={edges.find((e) => e.id === selectedEdgeId)?.edgeStyle || "solid"}
+                onChange={(e) => handleUpdateEdge(selectedEdgeId, { edgeStyle: e.target.value as CanvasEdge["edgeStyle"] })}
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+              >
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Line Type</label>
+              <select
+                value={edges.find((e) => e.id === selectedEdgeId)?.type || "straight"}
+                onChange={(e) => handleUpdateEdge(selectedEdgeId, { type: e.target.value as CanvasEdge["type"] })}
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+              >
+                <option value="straight">Straight</option>
+                <option value="curved">Curved</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={!!edges.find((e) => e.id === selectedEdgeId)?.arrowStart}
+                  onChange={(e) => handleUpdateEdge(selectedEdgeId, { arrowStart: e.target.checked ? 1 : 0 })}
+                  className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Start Arrow
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={!!edges.find((e) => e.id === selectedEdgeId)?.arrowEnd}
+                  onChange={(e) => handleUpdateEdge(selectedEdgeId, { arrowEnd: e.target.checked ? 1 : 0 })}
+                  className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                End Arrow
+              </label>
+            </div>
+            <button
+              onClick={(e) => { closeEdgeEditor(); handleDeleteEdge(selectedEdgeId, e); }}
+              className="w-full mt-2 px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              Delete Edge
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 36: Port Visualization Hints */}
+      {showPortHints && items.find((i) => i.id === showPortHints) && (() => {
+        const item = items.find((i) => i.id === showPortHints)!;
+        const ports = getPortPositions(item);
+        return (
+          <>
+            {ports.map((port) => (
+              <div
+                key={port.label}
+                className="absolute w-2 h-2 bg-blue-500 rounded-full"
+                onMouseEnter={() => handlePortHover(showPortHints, port.label)}
+                style={{
+                  left: (port.x + panX) * zoom - 3,
+                  top: (port.y + panY) * zoom - 3,
+                  border: "2px solid white",
+                  boxShadow: "0 0 0 1px #3b82f6",
+                  transformOrigin: "0 0",
+                }}
+              >
+                {activePort?.itemId === showPortHints && activePort?.port === port.label && (
+                  <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50" />
+                )}
+              </div>
+            ))}
+          </>
+        );
+      })()}
+
+      {/* Phase 36: Version History Panel */}
+      {showVersionHistory && selectedCanvasId && (
+        <div className="fixed top-16 right-4 z-40 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[60vh] flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Version History</span>
+            <button onClick={() => setShowVersionHistory(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">&times;</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            <div className="p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
+              <input
+                type="text"
+                value={createVersionTitle}
+                onChange={(e) => setCreateVersionTitle(e.target.value)}
+                placeholder="Version title"
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+              />
+              <input
+                type="text"
+                value={createVersionDescription}
+                onChange={(e) => setCreateVersionDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="w-full mt-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+              />
+              <button
+                onClick={handleCreateVersion}
+                disabled={!createVersionTitle.trim()}
+                className="w-full mt-2 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Version
+              </button>
+            </div>
+            <hr className="border-gray-200 dark:border-gray-700 my-1" />
+            {getCanvasVersions(selectedCanvasId).map((version) => (
+              <div
+                key={version.id}
+                className="p-2 hover:bg-gray-50 dark:hover:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
+                onClick={() => handleRestoreVersion(version.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{version.title}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteVersion(version.id); }}
+                    className="text-gray-400 hover:text-red-500 text-xs px-1"
+                    title="Delete version"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{version.description}</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{new Date(version.createdAt).toLocaleString()}</div>
+              </div>
+            ))}
+            {getCanvasVersions(selectedCanvasId).length === 0 && (
+              <div className="text-center text-gray-400 dark:text-gray-500 py-4 text-sm">
+                No versions saved yet
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Phase 36: Connection Port Highlights */}
+      {activePort && (
+        <div
+          className="fixed z-40 w-3 h-3 bg-blue-500 rounded-full pointer-events-none animate-ping opacity-75"
+          style={{
+            left: activePort.itemId ? (() => {
+              const item = items.find(i => i.id === activePort.itemId);
+              if (!item) return 0;
+              const ports = getPortPositions(item);
+              const port = ports.find(p => p.label === activePort.port);
+              if (!port) return 0;
+              return (port.x + panX) * zoom;
+            })() : 0,
+            top: activePort.itemId ? (() => {
+              const item = items.find(i => i.id === activePort.itemId);
+              if (!item) return 0;
+              const ports = getPortPositions(item);
+              const port = ports.find(p => p.label === activePort.port);
+              if (!port) return 0;
+              return (port.y + panY) * zoom;
+            })() : 0,
+          }}
+        />
+      )}
 
       {/* Note search modal */}
       {showNoteSearch && (

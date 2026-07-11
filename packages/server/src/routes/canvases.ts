@@ -2,10 +2,11 @@ import { Router } from "express";
 import type { CanvasRepository } from "../db/canvas-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, NotFound } from "../lib/errors.js";
+import { v4 as uuid } from "uuid";
 
 const VALID_ITEM_TYPES = [
   "text_box", "note_pin", "image",
-  "rectangle", "rounded_rectangle", "circle", "diamond", "cylinder", "cloud", "hexagon",
+  "rectangle", "rounded_rectangle", "circle", "diamond", "cylinder", "cloud", "hexagon", "group",
 ];
 
 export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
@@ -146,6 +147,109 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
     }),
   );
 
+  // ---- Groups ----
+
+  // Create group
+  router.post(
+    "/:id/groups",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const { groupId, label } = req.body;
+      if (!groupId || typeof groupId !== "string") {
+        throw new BadRequest("groupId is required");
+      }
+      canvasRepo.createGroup(canvasId, groupId, label);
+      res.status(201).json({ id: groupId, canvasId, label: label ?? "", createdAt: new Date().toISOString() });
+    }),
+  );
+
+  // Delete group
+  router.delete(
+    "/:id/groups/:groupId",
+    asyncHandler(async (req, res) => {
+      const { canvasId, groupId } = { canvasId: req.params.id as string, groupId: req.params.groupId as string };
+      canvasRepo.deleteGroup(groupId);
+      res.status(204).end();
+    }),
+  );
+
+  // List groups for canvas
+  router.get(
+    "/:id/groups",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const groups = canvasRepo.getGroupsByCanvas(canvasId);
+      res.json(groups);
+    }),
+  );
+
+  // ---- Versions ----
+
+  // Create version (snapshot)
+  router.post(
+    "/:id/versions",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const { title, description, items, edges, thumbnail } = req.body;
+      if (!title || typeof title !== "string") {
+        throw new BadRequest("title is required");
+      }
+      if (!Array.isArray(items) || !Array.isArray(edges)) {
+        throw new BadRequest("items and edges arrays are required");
+      }
+      const version = canvasRepo.createVersion(canvasId, title, description ?? "", items, edges, thumbnail);
+      res.status(201).json(version);
+    }),
+  );
+
+  // Delete version
+  router.delete(
+    "/:id/versions/:versionId",
+    asyncHandler(async (req, res) => {
+      const { canvasId, versionId } = { canvasId: req.params.id as string, versionId: req.params.versionId as string };
+      const deleted = canvasRepo.deleteVersion(versionId);
+      if (!deleted) throw new NotFound("Version not found");
+      res.status(204).end();
+    }),
+  );
+
+  // List versions for canvas
+  router.get(
+    "/:id/versions",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const versions = canvasRepo.getVersionsByCanvas(canvasId);
+      res.json(versions);
+    }),
+  );
+
+  // Get single version
+  router.get(
+    "/:id/versions/:versionId",
+    asyncHandler(async (req, res) => {
+      const { versionId } = { versionId: req.params.versionId as string };
+      const version = canvasRepo.getVersionById(versionId);
+      if (!version) throw new NotFound("Version not found");
+      res.json(version);
+    }),
+  );
+
+  // Restore version
+  router.post(
+    "/:id/versions/:versionId/restore",
+    asyncHandler(async (req, res) => {
+      const { canvasId, versionId } = { canvasId: req.params.id as string, versionId: req.params.versionId as string };
+      const version = canvasRepo.getVersionById(versionId);
+      if (!version) throw new NotFound("Version not found");
+      const result = canvasRepo.batchUpdate(canvasId, {
+        items: version.items as any,
+        edges: version.edges as any,
+      });
+      if (!result) throw new NotFound("Canvas not found");
+      res.json(result);
+    }),
+  );
+
   // ---- Edges ----
 
   // Add edge
@@ -194,6 +298,120 @@ export function createCanvasesRouter(canvasRepo: CanvasRepository): Router {
       const { canvasId, edgeId } = { canvasId: req.params.id as string, edgeId: req.params.edgeId as string };
       const deleted = canvasRepo.deleteEdge(canvasId, edgeId);
       if (!deleted) throw new NotFound("Edge not found");
+      res.status(204).end();
+    }),
+  );
+
+  // ---- Groups ----
+
+  // Group selected items
+  router.post(
+    "/:id/groups",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const { itemIds, label } = req.body;
+      if (!itemIds || !Array.isArray(itemIds) || itemIds.length < 2) {
+        throw new BadRequest("itemIds array with at least 2 items is required");
+      }
+      const groupId = uuid();
+      const now = new Date().toISOString();
+      canvasRepo.db.prepare("INSERT INTO canvas_groups (id, canvas_id, label, created_at) VALUES (?, ?, ?, ?)").run(groupId, canvasId, label ?? "", now);
+      const updateStmt = canvasRepo.db.prepare("UPDATE canvas_items SET group_id = ? WHERE id = ? AND canvas_id = ?");
+      for (const itemId of itemIds) {
+        updateStmt.run(groupId, itemId, canvasId);
+      }
+      res.status(201).json({ id: groupId, canvasId, label: label ?? "", createdAt: now });
+    }),
+  );
+
+  // Ungroup
+  router.delete(
+    "/:id/groups/:groupId",
+    asyncHandler(async (req, res) => {
+      const { canvasId, groupId } = { canvasId: req.params.id as string, groupId: req.params.groupId as string };
+      canvasRepo.db.prepare("UPDATE canvas_items SET group_id = NULL WHERE group_id = ? AND canvas_id = ?").run(groupId, canvasId);
+      canvasRepo.db.prepare("DELETE FROM canvas_groups WHERE id = ? AND canvas_id = ?").run(groupId, canvasId);
+      res.status(204).end();
+    }),
+  );
+
+  // List groups
+  router.get(
+    "/:id/groups",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const groups = canvasRepo.db.prepare("SELECT id, canvas_id AS canvasId, label, created_at AS createdAt FROM canvas_groups WHERE canvas_id = ?").all(canvasId);
+      res.json(groups);
+    }),
+  );
+
+  // ---- Versions ----
+
+  // Create version snapshot
+  router.post(
+    "/:id/versions",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const { title, description, items, edges, thumbnail } = req.body;
+      if (!items || !edges) {
+        throw new BadRequest("items and edges are required");
+      }
+      const id = uuid();
+      const now = new Date().toISOString();
+      canvasRepo.db.prepare("INSERT INTO canvas_versions (id, canvas_id, title, description, items, edges, thumbnail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(id, canvasId, title ?? `Version ${now}`, description ?? "", JSON.stringify(items), JSON.stringify(edges), thumbnail ?? null, now);
+      res.status(201).json({ id, canvasId, title: title ?? `Version ${now}`, description: description ?? "", thumbnail, createdAt: now });
+    }),
+  );
+
+  // List versions
+  router.get(
+    "/:id/versions",
+    asyncHandler(async (req, res) => {
+      const canvasId = req.params.id as string;
+      const versions = canvasRepo.db.prepare("SELECT id, canvas_id AS canvasId, title, description, items, edges, thumbnail, created_at AS createdAt FROM canvas_versions WHERE canvas_id = ? ORDER BY created_at DESC").all(canvasId) as any[];
+      const parsed = versions.map((v) => ({
+        ...v,
+        items: JSON.parse(v.items),
+        edges: JSON.parse(v.edges),
+      }));
+      res.json(parsed);
+    }),
+  );
+
+  // Get version
+  router.get(
+    "/:id/versions/:versionId",
+    asyncHandler(async (req, res) => {
+      const { canvasId, versionId } = { canvasId: req.params.id as string, versionId: req.params.versionId as string };
+      const version = canvasRepo.db.prepare("SELECT id, canvas_id AS canvasId, title, description, items, edges, thumbnail, created_at AS createdAt FROM canvas_versions WHERE id = ? AND canvas_id = ?").get(versionId, canvasId) as any;
+      if (!version) throw new NotFound("Version not found");
+      res.json({ ...version, items: JSON.parse(version.items), edges: JSON.parse(version.edges) });
+    }),
+  );
+
+  // Restore version
+  router.post(
+    "/:id/versions/:versionId/restore",
+    asyncHandler(async (req, res) => {
+      const { canvasId, versionId } = { canvasId: req.params.id as string, versionId: req.params.versionId as string };
+      const version = canvasRepo.db.prepare("SELECT items, edges FROM canvas_versions WHERE id = ? AND canvas_id = ?").get(versionId, canvasId) as any;
+      if (!version) throw new NotFound("Version not found");
+      const items = JSON.parse(version.items);
+      const edges = JSON.parse(version.edges);
+      const result = canvasRepo.batchUpdate(canvasId, { items, edges });
+      if (!result) throw new NotFound("Canvas not found");
+      res.json(result);
+    }),
+  );
+
+  // Delete version
+  router.delete(
+    "/:id/versions/:versionId",
+    asyncHandler(async (req, res) => {
+      const { canvasId, versionId } = { canvasId: req.params.id as string, versionId: req.params.versionId as string };
+      const deleted = canvasRepo.db.prepare("DELETE FROM canvas_versions WHERE id = ? AND canvas_id = ?").run(versionId, canvasId);
+      if (deleted.changes === 0) throw new NotFound("Version not found");
       res.status(204).end();
     }),
   );

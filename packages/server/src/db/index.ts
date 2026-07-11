@@ -94,6 +94,31 @@ function initSchema(database: Database.Database): void {
       width REAL NOT NULL DEFAULT 200,
       height REAL NOT NULL DEFAULT 100,
       z_index INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      lock_aspect_ratio INTEGER NOT NULL DEFAULT 0,
+      min_width REAL NOT NULL DEFAULT 0,
+      min_height REAL NOT NULL DEFAULT 0,
+      max_width REAL NOT NULL DEFAULT 0,
+      max_height REAL NOT NULL DEFAULT 0,
+      group_id TEXT REFERENCES canvas_groups(id) ON DELETE SET NULL,
+      child_ids TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS canvas_groups (
+      id TEXT PRIMARY KEY,
+      canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+      label TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS canvas_versions (
+      id TEXT PRIMARY KEY,
+      canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      items TEXT NOT NULL DEFAULT '[]',
+      edges TEXT NOT NULL DEFAULT '[]',
+      thumbnail TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -294,9 +319,77 @@ function initSchema(database: Database.Database): void {
     database.exec("ALTER TABLE canvas_edges ADD COLUMN arrow_end INTEGER NOT NULL DEFAULT 0");
   }
 
+  // Migration v6: add shape styling and grouping fields to canvas_items
+  const canvasItemTableInfo = database.pragma("table_info(canvas_items)") as Array<{ name: string }>;
+  if (!canvasItemTableInfo.find((col) => col.name === "lock_aspect_ratio")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN lock_aspect_ratio INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "min_width")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN min_width REAL");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "min_height")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN min_height REAL");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "max_width")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN max_width REAL");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "max_height")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN max_height REAL");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "group_id")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN group_id TEXT REFERENCES canvas_items(id) ON DELETE SET NULL");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "font_size")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN font_size INTEGER");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "font_weight")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN font_weight TEXT");
+  }
+  if (!canvasItemTableInfo.find((col) => col.name === "font_style")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN font_style TEXT");
+  }
+
+  // Migration v7: create canvas_groups table for group membership
+  const groupTableInfo = database.pragma("table_info(canvas_groups)") as Array<{ name: string }>;
+  if (groupTableInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS canvas_groups (
+        id TEXT PRIMARY KEY REFERENCES canvas_items(id) ON DELETE CASCADE,
+        canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+        label TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_canvas_groups_canvas_id ON canvas_groups(canvas_id);
+    `);
+  }
+
+  // Migration v8: create canvas_versions table for versioning
+  const versionTableInfo = database.pragma("table_info(canvas_versions)") as Array<{ name: string }>;
+  if (versionTableInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS canvas_versions (
+        id TEXT PRIMARY KEY,
+        canvas_id TEXT NOT NULL REFERENCES canvases(id) ON DELETE CASCADE,
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        items TEXT NOT NULL DEFAULT '[]',
+        edges TEXT NOT NULL DEFAULT '[]',
+        thumbnail TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_canvas_versions_canvas_id ON canvas_versions(canvas_id);
+    `);
+  }
+
   // Migration v5: add color column to project_columns
   const colTableInfo = database.pragma("table_info(project_columns)") as Array<{ name: string }>;
   if (!colTableInfo.find((col) => col.name === "color")) {
     database.exec("ALTER TABLE project_columns ADD COLUMN color TEXT NOT NULL DEFAULT ''");
+  }
+
+  // Migration v9: add child_ids column to canvas_items for shape grouping
+  const itemTableInfoFinal = database.pragma("table_info(canvas_items)") as Array<{ name: string }>;
+  if (!itemTableInfoFinal.find((col) => col.name === "child_ids")) {
+    database.exec("ALTER TABLE canvas_items ADD COLUMN child_ids TEXT");
   }
 }

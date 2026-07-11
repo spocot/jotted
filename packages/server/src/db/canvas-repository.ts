@@ -12,7 +12,7 @@ export interface CanvasItem {
   id: string;
   canvasId: string;
   noteId: string | null;
-  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
+  type: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon" | "group";
   text: string;
   color: string;
   x: number;
@@ -21,6 +21,16 @@ export interface CanvasItem {
   height: number;
   zIndex: number;
   createdAt: string;
+  lockAspectRatio?: number;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  groupId?: string | null;
+  childIds?: string | null;
+  fontSize?: number;
+  fontWeight?: string;
+  fontStyle?: string;
 }
 
 export interface CanvasEdge {
@@ -41,6 +51,17 @@ export interface CanvasWithDetails extends Canvas {
   edges: CanvasEdge[];
 }
 
+export interface CanvasVersion {
+  id: string;
+  canvasId: string;
+  title: string;
+  description: string;
+  items: CanvasItem[];
+  edges: CanvasEdge[];
+  thumbnail?: string;
+  createdAt: string;
+}
+
 export class CanvasRepository {
   private insertCanvasStmt: Database.Statement;
   private updateCanvasStmt: Database.Statement;
@@ -59,6 +80,18 @@ export class CanvasRepository {
   private getEdgeByIdStmt: Database.Statement;
   private getMaxZIndexStmt: Database.Statement;
 
+  // Group statements
+  private insertGroupStmt: Database.Statement;
+  private deleteGroupStmt: Database.Statement;
+  private getGroupsByCanvasStmt: Database.Statement;
+  private getGroupChildrenStmt: Database.Statement;
+
+  // Version statements
+  private insertVersionStmt: Database.Statement;
+  private deleteVersionStmt: Database.Statement;
+  private getVersionsByCanvasStmt: Database.Statement;
+  private getVersionByIdStmt: Database.Statement;
+
   constructor(public db: Database.Database) {
     this.insertCanvasStmt = db.prepare(
       "INSERT INTO canvases (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
@@ -74,19 +107,19 @@ export class CanvasRepository {
       "SELECT id, title, created_at AS createdAt, updated_at AS updatedAt FROM canvases ORDER BY updated_at DESC",
     );
     this.insertItemStmt = db.prepare(
-      "INSERT INTO canvas_items (id, canvas_id, note_id, type, text, color, x, y, width, height, z_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO canvas_items (id, canvas_id, note_id, type, text, color, x, y, width, height, z_index, created_at, lock_aspect_ratio, min_width, min_height, max_width, max_height, group_id, child_ids, font_size, font_weight, font_style) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     this.updateItemStmt = db.prepare(
-      "UPDATE canvas_items SET note_id = ?, type = ?, text = ?, color = ?, x = ?, y = ?, width = ?, height = ?, z_index = ? WHERE id = ? AND canvas_id = ?",
+      "UPDATE canvas_items SET note_id = ?, type = ?, text = ?, color = ?, x = ?, y = ?, width = ?, height = ?, z_index = ?, lock_aspect_ratio = ?, min_width = ?, min_height = ?, max_width = ?, max_height = ?, group_id = ?, child_ids = ?, font_size = ?, font_weight = ?, font_style = ? WHERE id = ? AND canvas_id = ?",
     );
     this.deleteItemStmt = db.prepare(
       "DELETE FROM canvas_items WHERE id = ? AND canvas_id = ?",
     );
     this.getItemsByCanvasStmt = db.prepare(
-      "SELECT id, canvas_id AS canvasId, note_id AS noteId, type, text, color, x, y, width, height, z_index AS zIndex, created_at AS createdAt FROM canvas_items WHERE canvas_id = ? ORDER BY z_index ASC",
+      "SELECT id, canvas_id AS canvasId, note_id AS noteId, type, text, color, x, y, width, height, z_index AS zIndex, created_at AS createdAt, lock_aspect_ratio AS lockAspectRatio, min_width AS minWidth, min_height AS minHeight, max_width AS maxWidth, max_height AS maxHeight, group_id AS groupId, child_ids AS childIds, font_size AS fontSize, font_weight AS fontWeight, font_style AS fontStyle FROM canvas_items WHERE canvas_id = ? ORDER BY z_index ASC",
     );
     this.getItemByIdStmt = db.prepare(
-      "SELECT id, canvas_id AS canvasId, note_id AS noteId, type, text, color, x, y, width, height, z_index AS zIndex, created_at AS createdAt FROM canvas_items WHERE id = ?",
+      "SELECT id, canvas_id AS canvasId, note_id AS noteId, type, text, color, x, y, width, height, z_index AS zIndex, created_at AS createdAt, lock_aspect_ratio AS lockAspectRatio, min_width AS minWidth, min_height AS minHeight, max_width AS maxWidth, max_height AS maxHeight, group_id AS groupId, child_ids AS childIds, font_size AS fontSize, font_weight AS fontWeight, font_style AS fontStyle FROM canvas_items WHERE id = ?",
     );
     this.insertEdgeStmt = db.prepare(
       "INSERT INTO canvas_edges (id, canvas_id, source_item_id, target_item_id, type, label, edge_style, arrow_start, arrow_end, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -105,6 +138,34 @@ export class CanvasRepository {
     );
     this.getMaxZIndexStmt = db.prepare(
       "SELECT COALESCE(MAX(z_index), 0) AS maxZ FROM canvas_items WHERE canvas_id = ?",
+    );
+
+    // Group statements
+    this.insertGroupStmt = db.prepare(
+      "INSERT INTO canvas_groups (id, canvas_id, label, created_at) VALUES (?, ?, ?, ?)",
+    );
+    this.deleteGroupStmt = db.prepare(
+      "DELETE FROM canvas_groups WHERE id = ?",
+    );
+    this.getGroupsByCanvasStmt = db.prepare(
+      "SELECT id, canvas_id AS canvasId, label, created_at AS createdAt FROM canvas_groups WHERE canvas_id = ?",
+    );
+    this.getGroupChildrenStmt = db.prepare(
+      "SELECT id FROM canvas_items WHERE group_id = ? AND canvas_id = ?",
+    );
+
+    // Version statements
+    this.insertVersionStmt = db.prepare(
+      "INSERT INTO canvas_versions (id, canvas_id, title, description, items, edges, thumbnail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    this.deleteVersionStmt = db.prepare(
+      "DELETE FROM canvas_versions WHERE id = ?",
+    );
+    this.getVersionsByCanvasStmt = db.prepare(
+      "SELECT id, canvas_id AS canvasId, title, description, items, edges, thumbnail, created_at AS createdAt FROM canvas_versions WHERE canvas_id = ? ORDER BY created_at DESC",
+    );
+    this.getVersionByIdStmt = db.prepare(
+      "SELECT id, canvas_id AS canvasId, title, description, items, edges, thumbnail, created_at AS createdAt FROM canvas_versions WHERE id = ?",
     );
   }
 
@@ -154,13 +215,23 @@ export class CanvasRepository {
     canvasId: string,
     params: {
       noteId?: string | null;
-      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
+      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon" | "group";
       text?: string;
       color?: string;
       x?: number;
       y?: number;
       width?: number;
       height?: number;
+      lockAspectRatio?: boolean;
+      minWidth?: number;
+      minHeight?: number;
+      maxWidth?: number;
+      maxHeight?: number;
+      groupId?: string | null;
+      childIds?: string[];
+      fontSize?: number;
+      fontWeight?: string;
+      fontStyle?: string;
     },
   ): CanvasItem | null {
     const canvas = this.getById(canvasId);
@@ -181,6 +252,16 @@ export class CanvasRepository {
       params.height ?? 100,
       maxZ + 1,
       now,
+      params.lockAspectRatio ? 1 : 0,
+      params.minWidth ?? 0,
+      params.minHeight ?? 0,
+      params.maxWidth ?? 0,
+      params.maxHeight ?? 0,
+      params.groupId ?? null,
+      params.childIds ? JSON.stringify(params.childIds) : null,
+      params.fontSize ?? null,
+      params.fontWeight ?? null,
+      params.fontStyle ?? null,
     );
     return this.getItemByIdStmt.get(id) as CanvasItem | null;
   }
@@ -190,7 +271,7 @@ export class CanvasRepository {
     itemId: string,
     params: {
       noteId?: string | null;
-      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
+      type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon" | "group";
       text?: string;
       color?: string;
       x?: number;
@@ -198,6 +279,16 @@ export class CanvasRepository {
       width?: number;
       height?: number;
       zIndex?: number;
+      lockAspectRatio?: boolean;
+      minWidth?: number;
+      minHeight?: number;
+      maxWidth?: number;
+      maxHeight?: number;
+      groupId?: string | null;
+      childIds?: string[];
+      fontSize?: number;
+      fontWeight?: string;
+      fontStyle?: string;
     },
   ): CanvasItem | null {
     const existing = this.getItemByIdStmt.get(itemId) as CanvasItem | undefined;
@@ -212,6 +303,16 @@ export class CanvasRepository {
       params.width ?? existing.width,
       params.height ?? existing.height,
       params.zIndex ?? existing.zIndex,
+      params.lockAspectRatio !== undefined ? (params.lockAspectRatio ? 1 : 0) : existing.lockAspectRatio,
+      params.minWidth ?? existing.minWidth,
+      params.minHeight ?? existing.minHeight,
+      params.maxWidth ?? existing.maxWidth,
+      params.maxHeight ?? existing.maxHeight,
+      params.groupId !== undefined ? params.groupId : existing.groupId,
+      params.childIds !== undefined ? (params.childIds ? JSON.stringify(params.childIds) : null) : existing.childIds,
+      params.fontSize ?? existing.fontSize,
+      params.fontWeight ?? existing.fontWeight,
+      params.fontStyle ?? existing.fontStyle,
       itemId,
       canvasId,
     );
@@ -302,7 +403,7 @@ export class CanvasRepository {
       items?: Array<{
         id: string;
         noteId?: string | null;
-        type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon";
+        type?: "text_box" | "note_pin" | "image" | "rectangle" | "rounded_rectangle" | "circle" | "diamond" | "cylinder" | "cloud" | "hexagon" | "group";
         text?: string;
         color?: string;
         x?: number;
@@ -310,6 +411,16 @@ export class CanvasRepository {
         width?: number;
         height?: number;
         zIndex?: number;
+        lockAspectRatio?: boolean;
+        minWidth?: number;
+        minHeight?: number;
+        maxWidth?: number;
+        maxHeight?: number;
+        groupId?: string | null;
+        childIds?: string[];
+        fontSize?: number;
+        fontWeight?: string;
+        fontStyle?: string;
       }>;
       edges?: Array<{
         id: string;
@@ -354,6 +465,16 @@ export class CanvasRepository {
               item.width ?? existing.width,
               item.height ?? existing.height,
               item.zIndex ?? existing.zIndex,
+              item.lockAspectRatio !== undefined ? (item.lockAspectRatio ? 1 : 0) : (existing.lockAspectRatio ?? 0),
+              item.minWidth ?? existing.minWidth ?? 0,
+              item.minHeight ?? existing.minHeight ?? 0,
+              item.maxWidth ?? existing.maxWidth ?? 0,
+              item.maxHeight ?? existing.maxHeight ?? 0,
+              item.groupId ?? existing.groupId ?? null,
+              item.childIds ? JSON.stringify(item.childIds) : (existing.childIds ?? null),
+              item.fontSize ?? existing.fontSize ?? null,
+              item.fontWeight ?? existing.fontWeight ?? null,
+              item.fontStyle ?? existing.fontStyle ?? null,
               item.id,
               canvasId,
             );
@@ -371,6 +492,16 @@ export class CanvasRepository {
               item.height ?? 100,
               item.zIndex ?? (this.getMaxZIndexStmt.get(canvasId) as { maxZ: number }).maxZ + 1,
               new Date().toISOString(),
+              item.lockAspectRatio ? 1 : 0,
+              item.minWidth ?? 0,
+              item.minHeight ?? 0,
+              item.maxWidth ?? 0,
+              item.maxHeight ?? 0,
+              item.groupId ?? null,
+              item.childIds ? JSON.stringify(item.childIds) : null,
+              item.fontSize ?? null,
+              item.fontWeight ?? null,
+              item.fontStyle ?? null,
             );
           }
         }
@@ -419,5 +550,84 @@ export class CanvasRepository {
       "DELETE FROM canvas_edges WHERE canvas_id = ? AND (source_item_id = ? OR target_item_id = ?)",
     );
     stmt.run(canvasId, itemId, itemId);
+  }
+
+  // ---- Group Methods ----
+
+  createGroup(canvasId: string, groupId: string, label?: string): void {
+    const now = new Date().toISOString();
+    this.insertGroupStmt.run(groupId, canvasId, label ?? "", now);
+  }
+
+  deleteGroup(groupId: string): void {
+    // Clear group_id from children first
+    this.db.prepare("UPDATE canvas_items SET group_id = NULL WHERE group_id = ?").run(groupId);
+    this.deleteGroupStmt.run(groupId);
+  }
+
+  getGroupsByCanvas(canvasId: string): Array<{ id: string; canvasId: string; label: string; createdAt: string }> {
+    return this.getGroupsByCanvasStmt.all(canvasId) as Array<{ id: string; canvasId: string; label: string; createdAt: string }>;
+  }
+
+  getGroupChildren(groupId: string, canvasId: string): string[] {
+    const rows = this.getGroupChildrenStmt.all(groupId, canvasId) as Array<{ id: string }>;
+    return rows.map((r) => r.id);
+  }
+
+  // ---- Version Methods ----
+
+  createVersion(
+    canvasId: string,
+    title: string,
+    description: string,
+    items: CanvasItem[],
+    edges: CanvasEdge[],
+    thumbnail?: string,
+  ): CanvasVersion {
+    const id = uuid();
+    const now = new Date().toISOString();
+    this.insertVersionStmt.run(
+      id,
+      canvasId,
+      title,
+      description,
+      JSON.stringify(items),
+      JSON.stringify(edges),
+      thumbnail ?? null,
+      now,
+    );
+    return this.getVersionByIdStmt.get(id) as CanvasVersion;
+  }
+
+  deleteVersion(versionId: string): boolean {
+    const existing = this.getVersionByIdStmt.get(versionId);
+    if (!existing) return false;
+    this.deleteVersionStmt.run(versionId);
+    return true;
+  }
+
+  getVersionsByCanvas(canvasId: string): CanvasVersion[] {
+    const rows = this.getVersionsByCanvasStmt.all(canvasId) as Array<CanvasVersion & { items: string; edges: string }>;
+    return rows.map((row) => ({
+      ...row,
+      items: JSON.parse(row.items).map((item: any) => ({
+        ...item,
+        lockAspectRatio: item.lockAspectRatio === 1 || item.lockAspectRatio === true,
+      })),
+      edges: JSON.parse(row.edges),
+    }));
+  }
+
+  getVersionById(versionId: string): CanvasVersion | null {
+    const row = this.getVersionByIdStmt.get(versionId) as (CanvasVersion & { items: string; edges: string }) | undefined;
+    if (!row) return null;
+    return {
+      ...row,
+      items: JSON.parse(row.items).map((item: any) => ({
+        ...item,
+        lockAspectRatio: item.lockAspectRatio === 1 || item.lockAspectRatio === true,
+      })),
+      edges: JSON.parse(row.edges),
+    };
   }
 }

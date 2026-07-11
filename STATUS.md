@@ -434,16 +434,16 @@
 - [x] Project Analytics Dashboard (/project/:id/analytics route, charts)
 - [x] Card Templates (project_card_templates table, template picker in CardEditor)
 
-## Phase 36: Architecture Canvas Enhancements ⬜
+## Phase 36: Architecture Canvas Enhancements ✅
 
-- [ ] Edge Property Editor (floating panel for label, style, arrows on edge select)
-- [ ] Shape Connection Port Visualization (N/S/E/W port dots on hover)
-- [ ] Shape Grouping (group/ungroup, move/resize as unit)
-- [ ] Stencil Library (pre-built diagram templates: AWS, ERD, C4, network)
-- [ ] Mini-map (overview minimap in corner, viewport rectangle, click to navigate)
-- [ ] Shape Text Styling (font size, bold/italic controls for shape labels)
-- [ ] Export to Mermaid (generate Mermaid syntax from canvas)
-- [ ] Shape Resize Constraints (lock aspect ratio, min/max sizes)
-- [ ] Canvas Versioning (named snapshots, version list, restore)
-- [ ] Keyboard-driven Shape Placement (arrow keys to nudge, Tab to cycle)
+- [x] Edge Property Editor (floating panel for label, style, arrows on edge select)
+- [x] Shape Connection Port Visualization (N/S/E/W port dots on hover)
+- [x] Shape Grouping (group/ungroup, move/resize as unit)
+- [x] Stencil Library (pre-built diagram templates: AWS, ERD, C4, network)
+- [x] Mini-map (overview minimap in corner, viewport rectangle, click to navigate)
+- [x] Shape Text Styling (font size, bold/italic controls for shape labels)
+- [x] Export to Mermaid (generate Mermaid syntax from canvas)
+- [x] Shape Resize Constraints (lock aspect ratio, min/max sizes)
+- [x] Canvas Versioning (named snapshots, version list, restore)
+- [x] Keyboard-driven Shape Placement (arrow keys to nudge, Tab to cycle)
 
