@@ -613,6 +613,14 @@ export function createProjectsRouter(projectRepo: ProjectRepository): Router {
     }),
   );
 
+  router.get(
+    "/:id/card-milestones",
+    asyncHandler(async (req, res) => {
+      const links = projectRepo.getCardMilestonesForProject(req.params.id as string);
+      res.json(links);
+    }),
+  );
+
   // ---- Card Templates ----
 
   router.get(

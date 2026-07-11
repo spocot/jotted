@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   useGetProjectQuery,
@@ -7,6 +7,7 @@ import {
   useUpdateMilestoneMutation,
   useDeleteMilestoneMutation,
   useToggleMilestoneMutation,
+  useGetCardMilestonesQuery,
 } from "../store/redux/api";
 import {
   IconArrowLeft,
@@ -16,8 +17,11 @@ import {
   IconTrash,
   IconCalendarDue,
   IconChevronDown,
+  IconLayoutKanban,
+  IconList,
+  IconGripVertical,
 } from "@tabler/icons-react";
-import type { ProjectMilestone } from "../types";
+import type { ProjectMilestone, ProjectCard } from "../types";
 import { useConfirm } from "../hooks/useConfirm";
 
 type FilterTab = "all" | "pending" | "completed";
@@ -49,6 +53,12 @@ export default function ProjectMilestonesPage() {
   const [updateMilestone] = useUpdateMilestoneMutation();
   const [deleteMilestone] = useDeleteMilestoneMutation();
   const [toggleMilestone] = useToggleMilestoneMutation();
+  const { data: cardMilestones = [] } = useGetCardMilestonesQuery(
+    id ?? "",
+    { skip: !id },
+  );
+
+  const [activeTab, setActiveTab] = useState<"list" | "board">("list");
 
   const [filter, setFilter] = useState<FilterTab>("all");
   const [sort, setSort] = useState<SortField>("position");
@@ -168,6 +178,38 @@ export default function ProjectMilestonesPage() {
       ? Math.round((completed / milestones.length) * 100)
       : 0;
 
+  // Board data: milestone columns with their linked cards
+  const boardData = useMemo(() => {
+    const allCards: ProjectCard[] = [];
+    for (const g of project?.groups ?? []) {
+      for (const c of g.columns) {
+        allCards.push(...c.cards);
+      }
+    }
+    const cardMap = new Map<string, ProjectCard>();
+    for (const c of allCards) {
+      cardMap.set(c.id, c);
+    }
+
+    const milestoneCards = new Map<string, ProjectCard[]>();
+    const assignedCardIds = new Set<string>();
+    for (const link of cardMilestones) {
+      const card = cardMap.get(link.cardId);
+      if (!card) continue;
+      assignedCardIds.add(link.cardId);
+      const existing = milestoneCards.get(link.milestoneId);
+      if (existing) {
+        existing.push(card);
+      } else {
+        milestoneCards.set(link.milestoneId, [card]);
+      }
+    }
+
+    const unassignedCards = allCards.filter((c) => !assignedCardIds.has(c.id));
+
+    return { milestoneCards, unassignedCards };
+  }, [project, cardMilestones]);
+
   if (!project) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -222,6 +264,234 @@ export default function ProjectMilestonesPage() {
         </div>
       )}
 
+      {/* Tab bar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          <button
+            onClick={() => setActiveTab("list")}
+            className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              activeTab === "list"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            <IconList className="w-3.5 h-3.5" />
+            List
+          </button>
+          <button
+            onClick={() => setActiveTab("board")}
+            className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              activeTab === "board"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            <IconLayoutKanban className="w-3.5 h-3.5" />
+            Board
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            setShowNewForm(true);
+            setEditingId(null);
+          }}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+        >
+          <IconPlus className="w-4 h-4" />
+          Add milestone
+        </button>
+      </div>
+
+      {/* Board view */}
+      {activeTab === "board" ? (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {/* Unassigned column */}
+          <div className="shrink-0 w-64 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">
+              Unassigned
+              <span className="ml-1 text-gray-400 font-normal normal-case">
+                ({boardData.unassignedCards.length})
+              </span>
+            </h3>
+            <div className="space-y-2">
+              {boardData.unassignedCards.map((card) => (
+                <div
+                  key={card.id}
+                  onClick={() => {
+                    const g = project?.groups.find((g2) =>
+                      g2.columns.some((c2) => c2.id === card.columnId),
+                    );
+                    if (g) navigate(`/project/${id}/group/${g.id}`);
+                  }}
+                  className="p-2 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:shadow-sm transition-shadow text-sm text-gray-900 dark:text-gray-100 truncate"
+                  title={card.title}
+                >
+                  {card.title}
+                </div>
+              ))}
+              {boardData.unassignedCards.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-4">
+                  No unassigned cards
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Milestone columns */}
+          {milestones.map((ms) => {
+            const cards = boardData.milestoneCards.get(ms.id) ?? [];
+            return (
+              <div
+                key={ms.id}
+                className={`shrink-0 w-64 rounded-xl p-3 border ${
+                  ms.completed
+                    ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10"
+                    : isOverdue(ms)
+                      ? "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10"
+                      : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="shrink-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ms.completed}
+                      onChange={() =>
+                        toggleMilestone({
+                          projectId: id!,
+                          milestoneId: ms.id,
+                          completed: !ms.completed,
+                        })
+                      }
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
+                  <div className="flex-1 min-w-0">
+                    <h3
+                      className={`text-xs font-semibold truncate ${
+                        ms.completed
+                          ? "line-through text-gray-400"
+                          : "text-gray-700 dark:text-gray-300"
+                      }`}
+                      title={ms.title}
+                    >
+                      {ms.title}
+                    </h3>
+                    {ms.dueDate && (
+                      <span
+                        className={`text-[10px] ${
+                          ms.completed
+                            ? "text-green-500"
+                            : isOverdue(ms)
+                              ? "text-red-500"
+                              : "text-gray-400"
+                        }`}
+                      >
+                        {isOverdue(ms) ? "Overdue — " : ""}
+                        {formatDate(ms.dueDate)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    {cards.length}
+                  </span>
+                </div>
+
+                {/* Mini progress bar */}
+                {cards.length > 0 && (
+                  <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full mb-2 overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full"
+                      style={{
+                        width: `${
+                          ms.completed
+                            ? 100
+                            : Math.round(
+                                (cards.filter((c) =>
+                                  (c.checklist ?? []).every((i) => i.done),
+                                ).length /
+                                  cards.length) *
+                                  100,
+                              )
+                        }%`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  {cards.map((card) => {
+                    const checklist = card.checklist ?? [];
+                    const doneCount = checklist.filter((i) => i.done).length;
+                    const totalCount = checklist.length;
+                    return (
+                      <div
+                        key={card.id}
+                        onClick={() => {
+                          const g = project?.groups.find((g2) =>
+                            g2.columns.some((c2) => c2.id === card.columnId),
+                          );
+                          if (g)
+                            navigate(`/project/${id}/group/${g.id}`);
+                        }}
+                        className="p-2 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:shadow-sm transition-shadow group"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <IconGripVertical className="w-3 h-3 text-gray-400 shrink-0 opacity-0 group-hover:opacity-100" />
+                          <span className="text-xs text-gray-900 dark:text-gray-100 truncate flex-1">
+                            {card.title}
+                          </span>
+                        </div>
+                        {card.labels && card.labels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1 ml-4.5">
+                            {card.labels.slice(0, 3).map((l) => (
+                              <span
+                                key={l.id}
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: l.color }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {totalCount > 0 && (
+                          <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-400">
+                            <span>
+                              {doneCount}/{totalCount} done
+                            </span>
+                            <div className="h-1 w-12 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-green-500 rounded-full"
+                                style={{
+                                  width: `${Math.round(
+                                    (doneCount / totalCount) * 100,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {cards.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-3">
+                      No cards linked
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {milestones.length === 0 && (
+            <div className="shrink-0 w-64 text-center py-12">
+              <IconFlag className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+              <p className="text-xs text-gray-400">No milestones yet</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       {/* Filters + Add */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -265,17 +535,6 @@ export default function ProjectMilestonesPage() {
             </button>
           </div>
         </div>
-
-        <button
-          onClick={() => {
-            setShowNewForm(true);
-            setEditingId(null);
-          }}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-        >
-          <IconPlus className="w-4 h-4" />
-          Add milestone
-        </button>
       </div>
 
       {/* New milestone form */}
@@ -510,6 +769,8 @@ export default function ProjectMilestonesPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

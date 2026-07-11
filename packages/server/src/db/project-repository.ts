@@ -1108,4 +1108,29 @@ export class ProjectRepository {
       .all(milestoneId) as { card_id: string }[];
     return rows.map((r) => r.card_id);
   }
+
+  getCardMilestonesForProject(projectId: string): Array<{
+    cardId: string;
+    milestoneId: string;
+    milestoneTitle: string;
+    completed: boolean;
+    dueDate: string | null;
+  }> {
+    return this.db
+      .prepare(
+        `SELECT pmc.card_id AS cardId, pmc.milestone_id AS milestoneId,
+                pm.title AS milestoneTitle, pm.completed, pm.due_date AS dueDate
+         FROM project_milestone_cards pmc
+         JOIN project_milestones pm ON pm.id = pmc.milestone_id
+         WHERE pm.project_id = ?
+         ORDER BY pm.position ASC`,
+      )
+      .all(projectId) as Array<{
+        cardId: string;
+        milestoneId: string;
+        milestoneTitle: string;
+        completed: boolean;
+        dueDate: string | null;
+      }>;
+  }
 }

@@ -14,6 +14,7 @@ import {
   useGetLabelsQuery,
   useAddLabelToCardMutation,
   useGetCardTemplatesQuery,
+  useGetCardMilestonesQuery,
 } from "../store/redux/api";
 import {
   IconArrowLeft,
@@ -117,6 +118,10 @@ export default function ProjectGroupPage() {
   );
   const { data: cardTemplates = [] } = useGetCardTemplatesQuery(
     { projectId: id ?? "" },
+    { skip: !id },
+  );
+  const { data: cardMilestones = [] } = useGetCardMilestonesQuery(
+    id ?? "",
     { skip: !id },
   );
 
@@ -658,6 +663,7 @@ export default function ProjectGroupPage() {
                 onDeleteColumn={handleDeleteColumnAction}
                 onCardDragStart={handleCardDragStart}
                 onCardDrop={handleColumnDrop}
+                cardMilestones={cardMilestones}
               />
             );
           })}

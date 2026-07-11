@@ -37,6 +37,7 @@ import type {
   InquiryColumnInfo,
   InquiryRow,
   InquiryForeignKey,
+  CardMilestoneLink,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -1364,6 +1365,16 @@ export const apiSlice = createApi({
       ],
     }),
 
+    getCardMilestones: builder.query<
+      CardMilestoneLink[],
+      string
+    >({
+      query: (projectId) => `/projects/${projectId}/card-milestones`,
+      providesTags: (_result, _error, projectId) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
     // ---- Card Templates ----
     getCardTemplates: builder.query<ProjectCardTemplate[], { projectId: string }>({
       query: ({ projectId }) => `/projects/${projectId}/card-templates`,
@@ -1571,6 +1582,7 @@ export const {
   useLinkCardsToMilestoneMutation,
   useUnlinkCardFromMilestoneMutation,
   useGetCardsForMilestoneQuery,
+  useGetCardMilestonesQuery,
   useGetCardTemplatesQuery,
   useCreateCardTemplateMutation,
   useUpdateCardTemplateMutation,

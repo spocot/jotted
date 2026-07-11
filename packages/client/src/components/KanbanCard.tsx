@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import type { ProjectCard } from "../types";
-import { IconCalendarDue, IconGripVertical } from "@tabler/icons-react";
+import type { ProjectCard, CardMilestoneLink } from "../types";
+import { IconCalendarDue, IconGripVertical, IconFlag } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 
 interface KanbanCardProps {
@@ -11,6 +11,23 @@ interface KanbanCardProps {
   onEdit: (card: ProjectCard) => void;
   onDragStart?: (cardId: string, columnId: string, element: HTMLElement) => void;
   onDragEnd?: () => void;
+  milestones?: MilestoneBadge[];
+}
+
+interface MilestoneBadge {
+  milestoneTitle: string;
+  completed: boolean;
+  dueDate: string | null;
+}
+
+export function milestoneBadges(links: CardMilestoneLink[], cardId: string): MilestoneBadge[] {
+  return links
+    .filter((l) => l.cardId === cardId)
+    .map((l) => ({
+      milestoneTitle: l.milestoneTitle,
+      completed: l.completed,
+      dueDate: l.dueDate,
+    }));
 }
 
 export default function KanbanCard({
@@ -21,6 +38,7 @@ export default function KanbanCard({
   onEdit,
   onDragStart,
   onDragEnd,
+  milestones,
 }: KanbanCardProps) {
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -111,6 +129,28 @@ export default function KanbanCard({
                   {label.name}
                 </span>
               ))}
+            </div>
+          )}
+          {milestones && milestones.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {milestones.map((m, i) => {
+                const isOverdue = !m.completed && m.dueDate && new Date(m.dueDate) < new Date();
+                return (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                      m.completed
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : isOverdue
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                    }`}
+                  >
+                    <IconFlag className="w-2.5 h-2.5" />
+                    {m.milestoneTitle}
+                  </span>
+                );
+              })}
             </div>
           )}
           {card.description && (

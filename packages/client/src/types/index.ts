@@ -300,6 +300,14 @@ export interface ProjectMilestone {
   createdAt: string;
 }
 
+export interface CardMilestoneLink {
+  cardId: string;
+  milestoneId: string;
+  milestoneTitle: string;
+  completed: boolean;
+  dueDate: string | null;
+}
+
 export interface ProjectCardTemplate {
   id: string;
   projectId: string;

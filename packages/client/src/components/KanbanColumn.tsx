@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import type { ProjectCard, ProjectColumn } from "../types";
+import type { ProjectCard, ProjectColumn, CardMilestoneLink } from "../types";
 import {
   IconPlus,
   IconDots,
   IconChevronUp,
   IconChevronDown,
 } from "@tabler/icons-react";
-import KanbanCard from "./KanbanCard";
+import KanbanCard, { milestoneBadges } from "./KanbanCard";
 
 type SortField = "position" | "title" | "dueDate" | "createdAt" | "updatedAt";
 
@@ -37,6 +37,7 @@ interface KanbanColumnProps {
     element: HTMLElement,
   ) => void;
   onCardDrop?: (cardId: string, targetColumnId: string) => void;
+  cardMilestones?: CardMilestoneLink[];
 }
 
 export default function KanbanColumn({
@@ -54,6 +55,7 @@ export default function KanbanColumn({
   onDeleteColumn,
   onCardDragStart,
   onCardDrop,
+  cardMilestones,
 }: KanbanColumnProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(column.title);
@@ -267,6 +269,9 @@ export default function KanbanColumn({
             onEdit={onEditCard}
             onDragStart={onCardDragStart}
             onDragEnd={() => setIsDragOver(false)}
+            milestones={
+              cardMilestones ? milestoneBadges(cardMilestones, card.id) : undefined
+            }
           />
         ))}
       </div>

@@ -503,9 +503,7 @@
 - [x] Timeline: render milestones as diamond markers alongside cards on ProjectTimelinePage
 - [x] Analytics: add milestone stats to ProjectAnalyticsPage (completed %, overdue count) + timeline chart
 - [x] Link milestones to cards: new `project_milestone_cards` M:N join table + endpoints
-- [x] Verify type checking passes
-
-### Future (lower priority)
-- [ ] KanbanCard milestone badges (show linked milestone name with color-coded status)
-- [ ] CRM-like milestone board with swim-lanes
+- [x] Milestone Board view: swim-lane tab showing milestones as columns with linked cards + unassigned column
+- [x] KanbanCard milestone badges (colored pills showing milestone name + completion status)
+- [x] Verify type checking + tests pass
 
