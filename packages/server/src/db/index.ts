@@ -100,7 +100,7 @@ function initSchema(database: Database.Database): void {
       min_height REAL NOT NULL DEFAULT 0,
       max_width REAL NOT NULL DEFAULT 0,
       max_height REAL NOT NULL DEFAULT 0,
-      group_id TEXT REFERENCES canvas_groups(id) ON DELETE SET NULL,
+      group_id TEXT,
       child_ids TEXT
     );
 
@@ -337,7 +337,7 @@ function initSchema(database: Database.Database): void {
     database.exec("ALTER TABLE canvas_items ADD COLUMN max_height REAL");
   }
   if (!canvasItemTableInfo.find((col) => col.name === "group_id")) {
-    database.exec("ALTER TABLE canvas_items ADD COLUMN group_id TEXT REFERENCES canvas_items(id) ON DELETE SET NULL");
+    database.exec("ALTER TABLE canvas_items ADD COLUMN group_id TEXT");
   }
   if (!canvasItemTableInfo.find((col) => col.name === "font_size")) {
     database.exec("ALTER TABLE canvas_items ADD COLUMN font_size INTEGER");
@@ -391,5 +391,22 @@ function initSchema(database: Database.Database): void {
   const itemTableInfoFinal = database.pragma("table_info(canvas_items)") as Array<{ name: string }>;
   if (!itemTableInfoFinal.find((col) => col.name === "child_ids")) {
     database.exec("ALTER TABLE canvas_items ADD COLUMN child_ids TEXT");
+  }
+
+  // Migration v10: fix group_id FK — change from canvas_groups to plain TEXT
+  const groupIdCol = (database.pragma("table_info(canvas_items)") as Array<{ name: string }>)
+    .find((col) => col.name === "group_id");
+  if (groupIdCol) {
+    // If the column has a FK to canvas_groups, recreate it without FK
+    try {
+      database.exec(`
+        ALTER TABLE canvas_items RENAME COLUMN group_id TO group_id_old;
+        ALTER TABLE canvas_items ADD COLUMN group_id TEXT;
+        UPDATE canvas_items SET group_id = group_id_old;
+        ALTER TABLE canvas_items DROP COLUMN group_id_old;
+      `);
+    } catch (err) {
+      // RENAME may fail if column was already fixed; ignore
+    }
   }
 }
