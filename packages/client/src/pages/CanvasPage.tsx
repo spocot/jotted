@@ -3140,9 +3140,9 @@ export default function CanvasPage() {
                     onDoubleClick={() => handleItemDoubleClick(item)}
                     onMouseEnter={() => handleItemMouseEnter(item.id)}
                     onMouseLeave={() => handleItemMouseLeave(item.id)}
-                    className={`absolute rounded-lg shadow-lg cursor-move transition-shadow hover:shadow-xl select-none ${
-                      isDiagramItem(item) ? "" : "overflow-hidden"
-                    } ${
+                    className={`absolute ${
+                      isDiagramItem(item) ? "" : "rounded-lg shadow-lg overflow-hidden"
+                    } cursor-move transition-shadow hover:shadow-xl select-none ${
                       selectedItemIds.has(item.id)
                         ? "ring-2 ring-blue-400 dark:ring-blue-500"
                         : ""
@@ -3156,7 +3156,7 @@ export default function CanvasPage() {
                       top: item.y,
                       width: item.width,
                       height: item.height,
-                      backgroundColor: item.type === "image" ? "transparent" : item.color,
+                      backgroundColor: (item.type === "image" || isDiagramItem(item)) ? "transparent" : item.color,
                       zIndex: item.zIndex,
                     }}
                   >
