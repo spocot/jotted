@@ -3342,7 +3342,7 @@ export default function CanvasPage() {
                             <span
                               className="text-white drop-shadow-sm px-2 text-center leading-tight"
                               style={{
-                                fontSize: (item.fontSize ?? 14) * zoom,
+                                fontSize: item.fontSize ?? 14,
                                 fontWeight: item.fontWeight ?? "normal",
                                 fontStyle: item.fontStyle ?? "normal",
                               }}
