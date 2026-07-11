@@ -214,6 +214,7 @@ export interface ProjectColumn {
   id: string;
   groupId: string;
   title: string;
+  color: string;
   position: number;
   createdAt: string;
 }

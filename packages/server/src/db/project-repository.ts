@@ -25,6 +25,7 @@ export interface ProjectColumn {
   id: string;
   groupId: string;
   title: string;
+  color: string;
   position: number;
   createdAt: string;
 }
@@ -129,7 +130,7 @@ export class ProjectRepository {
     );
 
     this.insertColumnStmt = db.prepare(
-      "INSERT INTO project_columns (id, group_id, title, position, created_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO project_columns (id, group_id, title, color, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     );
     this.updateColumnStmt = db.prepare(
       "UPDATE project_columns SET title = ? WHERE id = ? AND group_id = ?",
@@ -138,10 +139,10 @@ export class ProjectRepository {
       "DELETE FROM project_columns WHERE id = ? AND group_id = ?",
     );
     this.getColumnsByGroupStmt = db.prepare(
-      "SELECT id, group_id AS groupId, title, position, created_at AS createdAt FROM project_columns WHERE group_id = ? ORDER BY position ASC",
+      "SELECT id, group_id AS groupId, title, color, position, created_at AS createdAt FROM project_columns WHERE group_id = ? ORDER BY position ASC",
     );
     this.getColumnByIdStmt = db.prepare(
-      "SELECT id, group_id AS groupId, title, position, created_at AS createdAt FROM project_columns WHERE id = ?",
+      "SELECT id, group_id AS groupId, title, color, position, created_at AS createdAt FROM project_columns WHERE id = ?",
     );
 
     this.insertCardStmt = db.prepare(
@@ -343,13 +344,13 @@ export class ProjectRepository {
 
   createColumn(
     groupId: string,
-    params: { title?: string },
+    params: { title?: string; color?: string },
   ): ProjectColumn | null {
     const id = uuid();
     const now = new Date().toISOString();
     const columns = this.getColumns(groupId);
     const position = columns.length;
-    this.insertColumnStmt.run(id, groupId, params.title ?? "New Column", position, now);
+    this.insertColumnStmt.run(id, groupId, params.title ?? "New Column", params.color ?? "", position, now);
     return this.getColumnByIdStmt.get(id) as ProjectColumn | null;
   }
 

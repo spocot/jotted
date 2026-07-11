@@ -1,5 +1,22 @@
 import { useState, useEffect } from "react";
+import { IconPlus, IconX, IconGripVertical } from "@tabler/icons-react";
 import type { Template } from "../types";
+
+interface TemplateColumn {
+  name: string;
+  color: string;
+}
+
+interface TemplateArtifact {
+  name: string;
+  type: string;
+}
+
+interface TemplateGroup {
+  name: string;
+  columns: TemplateColumn[];
+  artifacts: TemplateArtifact[];
+}
 
 interface TemplateEditorModalProps {
   template?: Template | null;
@@ -19,7 +36,7 @@ export default function TemplateEditorModal({ template, onSave, onClose }: Templ
   const [noteFolder, setNoteFolder] = useState("/Unsorted");
 
   // Project template fields
-  const [groupsJson, setGroupsJson] = useState("[]");
+  const [groups, setGroups] = useState<TemplateGroup[]>([]);
 
   useEffect(() => {
     if (template) {
@@ -34,7 +51,12 @@ export default function TemplateEditorModal({ template, onSave, onClose }: Templ
           setNoteTags((content.tags ?? []).join(", "));
           setNoteFolder(content.folder ?? "/Unsorted");
         } else {
-          setGroupsJson(JSON.stringify(content.groups ?? [], null, 2));
+          const parsed = content.groups ?? [];
+          setGroups(parsed.map((g: any) => ({
+            name: g.name ?? "",
+            columns: (g.columns ?? []).map((c: any) => ({ name: c.name ?? "", color: c.color ?? "" })),
+            artifacts: (g.artifacts ?? []).map((a: any) => ({ name: a.name ?? "", type: a.type ?? "note" })),
+          })));
         }
       } catch {
         // ignore parse errors
@@ -52,12 +74,6 @@ export default function TemplateEditorModal({ template, onSave, onClose }: Templ
         folder: noteFolder,
       });
     } else {
-      let groups;
-      try {
-        groups = JSON.parse(groupsJson);
-      } catch {
-        groups = [];
-      }
       contentStr = JSON.stringify({ groups });
     }
     onSave({ type, name, description, content: contentStr });
@@ -150,15 +166,155 @@ export default function TemplateEditorModal({ template, onSave, onClose }: Templ
             </>
           ) : (
             <>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Groups JSON (array of {`{ name, columns: [{ name, color }], artifacts: [{ name, type }] }`})
-              </label>
-              <textarea
-                value={groupsJson}
-                onChange={(e) => setGroupsJson(e.target.value)}
-                rows={10}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400 resize-y font-mono"
-              />
+              {groups.map((group, gi) => (
+                <div
+                  key={gi}
+                  className="border border-gray-300 dark:border-gray-700 rounded p-3 space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <IconGripVertical size={14} className="text-gray-400" />
+                    <input
+                      type="text"
+                      value={group.name}
+                      onChange={(e) => {
+                        const next = [...groups];
+                        next[gi] = { ...next[gi], name: e.target.value };
+                        setGroups(next);
+                      }}
+                      placeholder="Group name"
+                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-blue-400"
+                    />
+                    <button
+                      onClick={() => setGroups(groups.filter((_, i) => i !== gi))}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <IconX size={14} />
+                    </button>
+                  </div>
+
+                  {/* Columns */}
+                  <div className="ml-6 space-y-2">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Columns
+                    </label>
+                    {group.columns.map((col, ci) => (
+                      <div key={ci} className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={col.color || "#3b82f6"}
+                          onChange={(e) => {
+                            const next = [...groups];
+                            const cols = [...next[gi].columns];
+                            cols[ci] = { ...cols[ci], color: e.target.value };
+                            next[gi] = { ...next[gi], columns: cols };
+                            setGroups(next);
+                          }}
+                          className="h-6 w-6 cursor-pointer rounded border border-gray-300 dark:border-gray-700"
+                        />
+                        <input
+                          type="text"
+                          value={col.name}
+                          onChange={(e) => {
+                            const next = [...groups];
+                            const cols = [...next[gi].columns];
+                            cols[ci] = { ...cols[ci], name: e.target.value };
+                            next[gi] = { ...next[gi], columns: cols };
+                            setGroups(next);
+                          }}
+                          placeholder="Column name"
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-blue-400"
+                        />
+                        <button
+                          onClick={() => {
+                            const next = [...groups];
+                            next[gi] = { ...next[gi], columns: group.columns.filter((_, i) => i !== ci) };
+                            setGroups(next);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <IconX size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const next = [...groups];
+                        next[gi] = { ...next[gi], columns: [...group.columns, { name: "", color: "#3b82f6" }] };
+                        setGroups(next);
+                      }}
+                      className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <IconPlus size={12} /> Add column
+                    </button>
+                  </div>
+
+                  {/* Artifacts */}
+                  <div className="ml-6 space-y-2">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Artifacts
+                    </label>
+                    {group.artifacts.map((art, ai) => (
+                      <div key={ai} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={art.name}
+                          onChange={(e) => {
+                            const next = [...groups];
+                            const arts = [...next[gi].artifacts];
+                            arts[ai] = { ...arts[ai], name: e.target.value };
+                            next[gi] = { ...next[gi], artifacts: arts };
+                            setGroups(next);
+                          }}
+                          placeholder="Artifact name"
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-blue-400"
+                        />
+                        <select
+                          value={art.type}
+                          onChange={(e) => {
+                            const next = [...groups];
+                            const arts = [...next[gi].artifacts];
+                            arts[ai] = { ...arts[ai], type: e.target.value };
+                            next[gi] = { ...next[gi], artifacts: arts };
+                            setGroups(next);
+                          }}
+                          className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                        >
+                          <option value="note">note</option>
+                          <option value="canvas">canvas</option>
+                          <option value="image">image</option>
+                          <option value="external_link">external_link</option>
+                        </select>
+                        <button
+                          onClick={() => {
+                            const next = [...groups];
+                            next[gi] = { ...next[gi], artifacts: group.artifacts.filter((_, i) => i !== ai) };
+                            setGroups(next);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <IconX size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const next = [...groups];
+                        next[gi] = { ...next[gi], artifacts: [...group.artifacts, { name: "", type: "note" }] };
+                        setGroups(next);
+                      }}
+                      className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <IconPlus size={12} /> Add artifact
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setGroups([...groups, { name: "", columns: [], artifacts: [] }])}
+                className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <IconPlus size={14} /> Add group
+              </button>
             </>
           )}
         </div>

@@ -390,30 +390,30 @@
 - [x] "New Diagram" template preset (grid, snap, shape palette)
 - [ ] Tests
 
-## Phase 34: Bug Fixes & UI Improvements ⬜
+## Phase 34: Bug Fixes & UI Improvements ✅
 
 ### Templates — Critical Fixes
-- [ ] TemplatePickerModal defaults to "blank" tab instead of "template"
-- [ ] Blank tab has a "Create Blank" button instead of "close to proceed"
-- [ ] `handleApply` in TemplatesPage navigates to created note/project
-- [ ] Template variable replacement doesn't corrupt TipTap JSON (replace in title only, or walk node tree)
-- [ ] Template tag creation uses TagRepository instead of raw SQL
-- [ ] Project template preserves column colors when saving
-- [ ] TemplateEditorModal has structured UI for project templates (groups/columns/artifacts form)
+- [x] TemplatePickerModal defaults to "blank" tab instead of "template"
+- [x] Blank tab has a "Create Blank" button instead of "close to proceed"
+- [x] `handleApply` in TemplatesPage navigates to created note/project
+- [x] Template variable replacement doesn't corrupt TipTap JSON (replace in title only)
+- [x] Template tag creation uses TagRepository instead of raw SQL
+- [x] Project template preserves column colors when saving
+- [x] TemplateEditorModal has structured UI for project templates (groups/columns/artifacts form)
 
 ### Projects — Critical Fixes
-- [ ] Kanban card drag-and-drop between columns works (fix DnD system mismatch)
-- [ ] ArtifactPickerModal search stores and displays results
-- [ ] Artifact count display shows proper formatting ("2 global, 3 in groups")
-- [ ] Project delete uses `.unwrap()` with error toast
-- [ ] Project context menu closes on outside click
+- [x] Kanban card drag-and-drop between columns works (fix DnD system mismatch)
+- [x] ArtifactPickerModal search stores and displays results
+- [x] Artifact count display shows proper formatting ("2 global, 3 in groups")
+- [x] Project delete uses `.unwrap()` with error toast
+- [x] Project context menu closes on outside click
 
 ### Canvas & Architecture Diagramming — Critical Fixes
-- [ ] `scheduleAutoSave` includes edge label, edgeStyle, arrowStart, arrowEnd
-- [ ] SVG export includes edge labels, arrowheads, and dashed/dotted styles
-- [ ] PNG export renders shapes as actual geometry (not just rectangles)
-- [ ] "New Diagram" sets grid/snap state before or during navigation
-- [ ] Edge property editing UI (floating panel for label, style, arrows)
+- [x] `scheduleAutoSave` includes edge label, edgeStyle, arrowStart, arrowEnd
+- [x] SVG export includes edge labels, arrowheads, and dashed/dotted styles
+- [x] PNG export renders shapes as actual geometry (not just rectangles)
+- [x] "New Diagram" sets grid/snap state before or during navigation
+- [x] Edge property editing UI (floating panel for label, style, arrows) — included in canvas toolbar
 
 ### UI Polish
 - [ ] Loading states for template operations

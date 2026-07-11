@@ -66,7 +66,7 @@ app.use("/api/uploads", createUploadsRouter(db));
 app.use("/api/calendar", createCalendarRouter(noteRepo));
 app.use("/api/calendar/outlook", createOutlookRouter());
 app.use("/api/projects", createProjectsRouter(projectRepo));
-app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectRepo));
+app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectRepo, tagRepo));
 
 function seedBuiltInTemplates(repo: TemplateRepository): void {
   const existing = repo.list();

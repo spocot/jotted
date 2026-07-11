@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import type { ProjectCard } from "../types";
 import { IconCalendarDue, IconGripVertical } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
@@ -20,43 +20,6 @@ export default function KanbanCard({
 }: KanbanCardProps) {
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0 || !cardRef.current) return;
-    e.preventDefault();
-    setIsDragging(true);
-    onDragStart?.(card.id, columnId, cardRef.current);
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const ghost = cardRef.current.cloneNode(true) as HTMLElement;
-    ghost.style.position = "fixed";
-    ghost.style.pointerEvents = "none";
-    ghost.style.zIndex = "9999";
-    ghost.style.opacity = "0.8";
-    ghost.style.width = `${cardRef.current.offsetWidth}px`;
-    ghost.style.transform = "rotate(3deg)";
-    ghost.style.left = `${e.clientX}px`;
-    ghost.style.top = `${e.clientY}px`;
-    document.body.appendChild(ghost);
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      ghost.style.left = `${ev.clientX - (e.clientX - startX)}px`;
-      ghost.style.top = `${ev.clientY - (e.clientY - startY)}px`;
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      ghost.remove();
-      setIsDragging(false);
-      onDragEnd?.();
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -73,14 +36,18 @@ export default function KanbanCard({
   return (
     <div
       ref={cardRef}
-      onMouseDown={handleMouseDown}
+      draggable="true"
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", card.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.(card.id, columnId, cardRef.current!);
+      }}
+      onDragEnd={() => onDragEnd?.()}
       onClick={(e) => {
         e.stopPropagation();
         onEdit(card);
       }}
-      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-shadow group ${
-        isDragging ? "opacity-50" : ""
-      }`}
+      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-shadow group"
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
@@ -94,7 +61,6 @@ export default function KanbanCard({
           )}
         </div>
         <button
-          onMouseDown={(e) => e.stopPropagation()}
           className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-grab active:cursor-grabbing"
         >
           <IconGripVertical className="w-3.5 h-3.5 text-gray-400" />

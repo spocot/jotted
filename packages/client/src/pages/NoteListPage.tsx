@@ -157,6 +157,10 @@ export default function NoteListPage() {
           target="note"
           onClose={() => setShowTemplatePicker(false)}
           onApplied={handleTemplateApplied}
+          onCreateBlank={() => {
+            setShowTemplatePicker(false);
+            setShowCreateModal(true);
+          }}
         />
       )}
     </div>

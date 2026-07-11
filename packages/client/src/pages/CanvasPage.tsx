@@ -268,6 +268,10 @@ export default function CanvasPage() {
               sourceItemId: e.sourceItemId,
               targetItemId: e.targetItemId,
               type: e.type,
+              label: e.label,
+              edgeStyle: e.edgeStyle,
+              arrowStart: e.arrowStart,
+              arrowEnd: e.arrowEnd,
             })),
             deletedItemIds: deletes.itemIds.length > 0
               ? deletes.itemIds
@@ -384,10 +388,10 @@ export default function CanvasPage() {
 
   const handleCreateDiagram = async () => {
     try {
-      const canvas = await createCanvas("Untitled Diagram").unwrap();
-      navigate(`/canvas/${canvas.id}`);
       setShowGrid(true);
       setSnapToGrid(true);
+      const canvas = await createCanvas("Untitled Diagram").unwrap();
+      navigate(`/canvas/${canvas.id}`);
       dispatch(addToast("Diagram created", "success"));
     } catch {
       dispatch(addToast("Failed to create diagram", "error"));
@@ -1474,13 +1478,142 @@ export default function CanvasPage() {
           ctx.restore();
         }
       } else {
-        // Shadow
+        // Shape-specific shadow + fill + stroke
         ctx.fillStyle = "rgba(0,0,0,0.1)";
-        ctx.fillRect(x + 2, y + 2, w, h);
+        ctx.strokeStyle = "#64748b";
+        ctx.lineWidth = 2;
 
-        // Background
-        ctx.fillStyle = item.color;
-        ctx.fillRect(x, y, w, h);
+        if (item.type === "rectangle") {
+          ctx.fillRect(x + 2, y + 2, w, h);
+          ctx.fillStyle = item.color;
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeRect(x, y, w, h);
+        } else if (item.type === "rounded_rectangle") {
+          ctx.beginPath();
+          ctx.roundRect(x + 2, y + 2, w, h, 12);
+          ctx.fill();
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 12);
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === "circle") {
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2 + 2, y + h / 2 + 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === "diamond") {
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2 + 2, y + 2);
+          ctx.lineTo(x + w + 2, y + h / 2 + 2);
+          ctx.lineTo(x + w / 2 + 2, y + h + 2);
+          ctx.lineTo(x + 2, y + h / 2 + 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2, y);
+          ctx.lineTo(x + w, y + h / 2);
+          ctx.lineTo(x + w / 2, y + h);
+          ctx.lineTo(x, y + h / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === "hexagon") {
+          ctx.beginPath();
+          ctx.moveTo(x + w * 0.25 + 2, y + 2);
+          ctx.lineTo(x + w * 0.75 + 2, y + 2);
+          ctx.lineTo(x + w + 2, y + h / 2 + 2);
+          ctx.lineTo(x + w * 0.75 + 2, y + h + 2);
+          ctx.lineTo(x + w * 0.25 + 2, y + h + 2);
+          ctx.lineTo(x + 2, y + h / 2 + 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.moveTo(x + w * 0.25, y);
+          ctx.lineTo(x + w * 0.75, y);
+          ctx.lineTo(x + w, y + h / 2);
+          ctx.lineTo(x + w * 0.75, y + h);
+          ctx.lineTo(x + w * 0.25, y + h);
+          ctx.lineTo(x, y + h / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === "cylinder") {
+          const rx = w / 2 - 2;
+          const ry = 10;
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.1)";
+          ctx.beginPath();
+          ctx.rect(x + 2, y + 14, w - 4, h - 24);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2 + 2, y + 12 + 2, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2 + 2, y + h - 12 + 2, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Fill
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.rect(x + 2, y + 12, w - 4, h - 24);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + 12, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h - 12, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Stroke edges
+          ctx.beginPath();
+          ctx.moveTo(x + 2, y + 12);
+          ctx.lineTo(x + 2, y + h - 12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + w - 2, y + 12);
+          ctx.lineTo(x + w - 2, y + h - 12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + 12, rx, ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h - 12, rx, ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (item.type === "cloud") {
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.1)";
+          ctx.beginPath();
+          ctx.moveTo(x + w * 0.25 + 2, y + h - 2);
+          ctx.bezierCurveTo(x + w * 0.05 + 2, y + h - 2, x + w * 0.05 + 2, y + h * 0.4 + 2, x + w * 0.18 + 2, y + h * 0.4 + 2);
+          ctx.bezierCurveTo(x + w * 0.12 + 2, y + h * 0.15 + 2, x + w * 0.35 + 2, y + h * 0.08 + 2, x + w * 0.5 + 2, y + h * 0.2 + 2);
+          ctx.bezierCurveTo(x + w * 0.55 + 2, y + h * 0.05 + 2, x + w * 0.75 + 2, y + h * 0.05 + 2, x + w * 0.8 + 2, y + h * 0.25 + 2);
+          ctx.bezierCurveTo(x + w * 0.95 + 2, y + h * 0.2 + 2, x + w * 0.95 + 2, y + h * 0.5 + 2, x + w * 0.82 + 2, y + h * 0.55 + 2);
+          ctx.bezierCurveTo(x + w * 0.95 + 2, y + h * 0.6 + 2, x + w * 0.9 + 2, y + h - 2, x + w * 0.7 + 2, y + h - 2);
+          ctx.closePath();
+          ctx.fill();
+          // Fill
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.moveTo(x + w * 0.25, y + h);
+          ctx.bezierCurveTo(x + w * 0.05, y + h, x + w * 0.05, y + h * 0.4, x + w * 0.18, y + h * 0.4);
+          ctx.bezierCurveTo(x + w * 0.12, y + h * 0.15, x + w * 0.35, y + h * 0.08, x + w * 0.5, y + h * 0.2);
+          ctx.bezierCurveTo(x + w * 0.55, y + h * 0.05, x + w * 0.75, y + h * 0.05, x + w * 0.8, y + h * 0.25);
+          ctx.bezierCurveTo(x + w * 0.95, y + h * 0.2, x + w * 0.95, y + h * 0.5, x + w * 0.82, y + h * 0.55);
+          ctx.bezierCurveTo(x + w * 0.95, y + h * 0.6, x + w * 0.9, y + h, x + w * 0.7, y + h);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Fallback for unknown types (note_pin, text_box, etc.)
+          ctx.fillRect(x + 2, y + 2, w, h);
+          ctx.fillStyle = item.color;
+          ctx.fillRect(x, y, w, h);
+        }
 
         // Text
         ctx.fillStyle = "#ffffff";
@@ -1531,6 +1664,11 @@ export default function CanvasPage() {
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${exportWidth}" height="${exportHeight}" viewBox="0 0 ${exportWidth} ${exportHeight}">`;
     svg += `<rect width="${exportWidth}" height="${exportHeight}" fill="white"/>`;
 
+    svg += `<defs>`;
+    svg += `<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/></marker>`;
+    svg += `<marker id="arrowhead-start" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto"><polygon points="10 0, 0 3.5, 10 7" fill="#94a3b8"/></marker>`;
+    svg += `</defs>`;
+
     // Edges
     for (const edge of edges) {
       const src = items.find((i) => i.id === edge.sourceItemId);
@@ -1543,10 +1681,17 @@ export default function CanvasPage() {
       const dash =
         edge.edgeStyle === "dashed" ? ' stroke-dasharray="6,3"' :
         edge.edgeStyle === "dotted" ? ' stroke-dasharray="2,2"' : "";
+      const markerStart = edge.arrowStart ? ' marker-start="url(#arrowhead-start)"' : "";
+      const markerEnd = (edge.arrowEnd ?? true) ? ' marker-end="url(#arrowhead)"' : "";
       const d = edge.type === "curved"
         ? `M ${sx} ${sy} Q ${(sx + tx) / 2} ${Math.min(sy, ty) - 40} ${tx} ${ty}`
         : `M ${sx} ${sy} L ${tx} ${ty}`;
-      svg += `<path d="${d}" fill="none" stroke="#94a3b8" stroke-width="2"${dash}/>`;
+      svg += `<path d="${d}" fill="none" stroke="#94a3b8" stroke-width="2"${dash}${markerStart}${markerEnd}/>`;
+      if (edge.label) {
+        const midX = (sx + tx) / 2;
+        const midY = (sy + ty) / 2;
+        svg += `<text x="${midX}" y="${midY - 6}" text-anchor="middle" font-size="11" font-family="system-ui, sans-serif" fill="#64748b">${escapeXml(edge.label)}</text>`;
+      }
     }
 
     // Items

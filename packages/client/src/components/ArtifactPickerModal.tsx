@@ -34,6 +34,7 @@ export default function ArtifactPickerModal({
 }: ArtifactPickerModalProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("note");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; title: string; path?: string }>>([]);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -45,9 +46,10 @@ export default function ArtifactPickerModal({
     if (!searchQuery.trim()) return;
     if (tab === "note") {
       const result = await searchNotes({ q: searchQuery, limit: 10 }).unwrap();
-      return result.items;
+      setSearchResults(result.items);
+      return;
     }
-    return [];
+    setSearchResults([]);
   };
 
   const handleSubmitUrl = () => {
@@ -79,7 +81,10 @@ export default function ArtifactPickerModal({
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                setSearchResults([]);
+              }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                 tab === t.id
                   ? "border-blue-500 text-blue-600 dark:text-blue-400"
@@ -119,7 +124,10 @@ export default function ArtifactPickerModal({
                   type="text"
                   placeholder="Search notes..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (!e.target.value) setSearchResults([]);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSearch();
                   }}
@@ -136,6 +144,31 @@ export default function ArtifactPickerModal({
               <p className="text-xs text-gray-400">
                 Search will return matching notes to link
               </p>
+              {searchResults.length > 0 && (
+                <div className="space-y-1 mt-2">
+                  {searchResults.map((note) => (
+                    <button
+                      key={note.id}
+                      onClick={() => {
+                        onSelect({
+                          title: title.trim() || note.title,
+                          artifactType: "note",
+                          referenceId: note.id,
+                        });
+                        onClose();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {note.title}
+                      </div>
+                      {note.path && (
+                        <div className="text-xs text-gray-400 truncate">{note.path}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

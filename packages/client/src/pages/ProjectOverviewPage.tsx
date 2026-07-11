@@ -55,6 +55,7 @@ export default function ProjectOverviewPage() {
   const [deleteGroup] = useDeleteGroupMutation();
   const [createArtifact] = useCreateArtifactMutation();
   const [deleteArtifact] = useDeleteArtifactMutation();
+  const [createTemplate] = useCreateTemplateMutation();
   const dispatch = useAppDispatch();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -152,15 +153,13 @@ export default function ProjectOverviewPage() {
     await deleteArtifact({ projectId: project.id, artifactId });
   };
 
-  const [createTemplate] = useCreateTemplateMutation();
-
   const handleSaveProjectAsTemplate = async () => {
     if (!project) return;
     const groups = project.groups?.map((g) => ({
       title: g.title,
       columns: g.columns?.map((c) => ({
         name: c.title,
-        color: "",
+        color: c.color ?? "",
       })) ?? [],
       artifacts: g.artifacts?.map((a) => ({
         name: a.title,
@@ -276,11 +275,12 @@ export default function ProjectOverviewPage() {
                 {project.endDate && <span>End: {project.endDate}</span>}
                 <span>Groups: {project.groups.length}</span>
                 <span>
-                  Artifacts: {project.globalArtifacts.length}
+                  Artifacts: {project.globalArtifacts.length} global,{" "}
                   {project.groups.reduce(
                     (sum, g) => sum + g.artifacts.length,
                     0,
-                  )}
+                  )}{" "}
+                  in groups
                 </span>
               </div>
             </>

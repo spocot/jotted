@@ -7,10 +7,11 @@ interface TemplatePickerModalProps {
   target: "note" | "project";
   onClose: () => void;
   onApplied: (result: unknown) => void;
+  onCreateBlank?: () => void;
 }
 
-export default function TemplatePickerModal({ target, onClose, onApplied }: TemplatePickerModalProps) {
-  const [tab, setTab] = useState<"blank" | "template">("template");
+export default function TemplatePickerModal({ target, onClose, onApplied, onCreateBlank }: TemplatePickerModalProps) {
+  const [tab, setTab] = useState<"blank" | "template">("blank");
   const { data: templates = [], isLoading } = useGetTemplatesQuery({ type: target });
   const [applyTemplate] = useApplyTemplateMutation();
 
@@ -64,11 +65,24 @@ export default function TemplatePickerModal({ target, onClose, onApplied }: Temp
         </div>
 
         {tab === "blank" ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">
-            Create a blank {target === "note" ? "note" : "project"}.
-            <br />
-            Close this dialog to proceed.
-          </p>
+          <div className="text-center py-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Create a blank {target === "note" ? "note" : "project"}.
+            </p>
+            <button
+              onClick={() => {
+                if (onCreateBlank) {
+                  onCreateBlank();
+                } else {
+                  onApplied({});
+                }
+                onClose();
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+            >
+              Create Blank
+            </button>
+          </div>
         ) : isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />

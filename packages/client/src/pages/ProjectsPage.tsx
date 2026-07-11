@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useGetProjectsQuery,
@@ -37,6 +37,13 @@ export default function ProjectsPage() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = () => setMenuOpen(null);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
   const handleCreate = async () => {
     if (!title.trim()) return;
     const project = await createProject({ title: title.trim() }).unwrap();
@@ -46,8 +53,12 @@ export default function ProjectsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteProject(id);
-    setMenuOpen(null);
+    try {
+      await deleteProject(id).unwrap();
+      setMenuOpen(null);
+    } catch {
+      // error handled by RTK
+    }
   };
 
   const handleTemplateApplied = (result: unknown) => {
@@ -56,6 +67,15 @@ export default function ProjectsPage() {
       navigate(`/project/${proj.id}`);
     } else {
       navigate("/projects");
+    }
+  };
+
+  const handleCreateBlankProject = async () => {
+    try {
+      const project = await createProject({ title: "Untitled Project" }).unwrap();
+      navigate(`/project/${project.id}`);
+    } catch {
+      // error handled by RTK
     }
   };
 
@@ -176,6 +196,7 @@ export default function ProjectsPage() {
           target="project"
           onClose={() => setShowTemplatePicker(false)}
           onApplied={handleTemplateApplied}
+          onCreateBlank={handleCreateBlankProject}
         />
       )}
     </div>

@@ -233,4 +233,10 @@ function initSchema(database: Database.Database): void {
   if (!edgeTableInfo.find((col) => col.name === "arrow_end")) {
     database.exec("ALTER TABLE canvas_edges ADD COLUMN arrow_end INTEGER NOT NULL DEFAULT 0");
   }
+
+  // Migration v5: add color column to project_columns
+  const colTableInfo = database.pragma("table_info(project_columns)") as Array<{ name: string }>;
+  if (!colTableInfo.find((col) => col.name === "color")) {
+    database.exec("ALTER TABLE project_columns ADD COLUMN color TEXT NOT NULL DEFAULT ''");
+  }
 }

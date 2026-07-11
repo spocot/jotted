@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { IconPlus, IconFileDescription, IconFolder, IconTemplate } from "@tabler/icons-react";
 import { useGetTemplatesQuery, useCreateTemplateMutation, useUpdateTemplateMutation, useDeleteTemplateMutation, useApplyTemplateMutation } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
@@ -9,6 +10,7 @@ import type { Template } from "../types";
 
 export default function TemplatesPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [filterType, setFilterType] = useState<"all" | "note" | "project">("all");
   const { data: allTemplates = [], isLoading } = useGetTemplatesQuery({});
   const [createTemplate] = useCreateTemplateMutation();
@@ -50,8 +52,12 @@ export default function TemplatesPage() {
   const handleApply = async (tpl: Template) => {
     try {
       const target = tpl.type;
-      await applyTemplate({ id: tpl.id, target }).unwrap();
+      const result = await applyTemplate({ id: tpl.id, target }).unwrap();
       dispatch(addToast(`Applied "${tpl.name}" template`, "success"));
+      if (result && typeof result === "object" && "id" in result) {
+        const id = (result as { id: string }).id;
+        navigate(target === "note" ? `/note/${id}` : `/project/${id}`);
+      }
     } catch {
       dispatch(addToast("Failed to apply template", "error"));
     }

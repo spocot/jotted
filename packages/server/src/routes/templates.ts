@@ -2,14 +2,15 @@ import { Router } from "express";
 import type { TemplateRepository, NoteTemplateContent, ProjectTemplateContent, ProjectTemplateGroup } from "../db/template-repository.js";
 import type { NoteRepository } from "../db/note-repository.js";
 import type { ProjectRepository } from "../db/project-repository.js";
+import type { TagRepository } from "../db/tag-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, NotFound } from "../lib/errors.js";
-import { v4 as uuid } from "uuid";
 
 export function createTemplatesRouter(
   templateRepo: TemplateRepository,
   noteRepo: NoteRepository,
   projectRepo: ProjectRepository,
+  tagRepo: TagRepository,
 ): Router {
   const router = Router();
 
@@ -116,23 +117,16 @@ export function createTemplatesRouter(
           .replace(/\{\{date\}\}/g, today)
           .replace(/\{\{today\}\}/g, today)
           .replace(/\{\{title\}\}/g, content.title || "Untitled");
-        const body = (content.body || "")
-          .replace(/\{\{date\}\}/g, today)
-          .replace(/\{\{today\}\}/g, today);
+        const body = content.body || "";
         const folder = content.folder || "/Unsorted";
 
         const note = noteRepo.create({ title, content: body, path: folder });
         if (!note) throw new NotFound("Failed to create note from template");
 
         if (content.tags && content.tags.length > 0) {
-          const db = (noteRepo as any).db as import("better-sqlite3").Database;
           for (const tagName of content.tags) {
-            const tagId = uuid();
-            db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(tagId, tagName);
-            const actualTag = db.prepare("SELECT id FROM tags WHERE name = ?").get(tagName) as { id: string } | undefined;
-            if (actualTag) {
-              db.prepare("INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)").run(note.id, actualTag.id);
-            }
+            const tag = tagRepo.upsert(tagName);
+            tagRepo.addToNote(note.id, tag.id);
           }
           // Re-fetch after tag mutation
           const enriched = noteRepo.getById(note.id);
@@ -159,7 +153,7 @@ export function createTemplatesRouter(
           if (!group) continue;
 
           for (const colDef of groupDef.columns) {
-            projectRepo.createColumn(group.id, { title: colDef.name });
+            projectRepo.createColumn(group.id, { title: colDef.name, color: colDef.color ?? "" });
           }
 
           if (groupDef.artifacts) {
