@@ -535,6 +535,71 @@ jotted/
 - **Diagram template**: "New Diagram" preset (grid on, snap on, shape palette open) — same canvas data model
 - **Schema**: `ALIER TABLE canvas_edges` to add `label`, `style`, `arrow_start`, `arrow_end` columns
 
+### Phase 34: Bug Fixes & UI Improvements
+
+**Templates — Critical Fixes:**
+
+- **TemplatePickerModal defaults to wrong tab** (`TemplatePickerModal.tsx`): Currently defaults to `"template"` tab. Change default to `"blank"` since most users want blank creation first.
+- **Blank tab has no action button** (`TemplatePickerModal.tsx:67-71`): The "Blank" tab shows "Close this dialog to proceed" with no button. Add a "Create Blank" button that directly creates the note/project without requiring the user to close the modal.
+- **`handleApply` in TemplatesPage doesn't navigate** (`TemplatesPage.tsx:50-58`): After applying a template, a toast is shown but the user isn't navigated to the created note/project. The `applyTemplate` mutation returns the created entity — navigate to it using its type (note → `/note/:id`, project → `/project/:id`).
+- **Template variable replacement corrupts TipTap JSON** (`routes/templates.ts:119-121`): Simple `string.replace` for `{{date}}`/`{{today}}` on raw body content can corrupt JSON structure. Fix: only replace variables in the `title` field, or parse TipTap JSON and walk the node tree to replace text nodes.
+- **Template tag creation bypasses TagRepository** (`routes/templates.ts:128-135`): Uses `(noteRepo as any).db` to directly run SQL. Refactor to use `TagRepository` or add a `createTagsForNote(noteId, tagNames)` method to the repository layer.
+- **Project template doesn't preserve column colors** (`ProjectOverviewPage.tsx:162-163`): When saving a project as a template, column colors are always `""`. Read the actual column color from the project data (currently columns don't have a `color` field in the DB — add one if needed, or store a default).
+- **TemplateEditorModal requires raw JSON for project templates** (`TemplateEditorModal.tsx:156-161`): Replace the raw JSON textarea with a structured form: dynamic list of groups, each with editable columns (name + color picker) and artifacts (name + type dropdown).
+
+**Projects — Critical Fixes:**
+
+- **Kanban card drag-and-drop between columns is broken** (`KanbanCard.tsx`, `KanbanColumn.tsx`): `KanbanCard` uses custom mouse-based DnD (manual ghost element via `onMouseDown`), but `KanbanColumn` uses HTML5 `onDragOver`/`onDrop` which reads `e.dataTransfer.getData("text/plain")`. Since the card never calls `dataTransfer.setData()`, the `cardId` is always empty and `onCardDrop` never fires. Fix: Make `KanbanCard` use native HTML5 DnD (`draggable`, `onDragStart` with `dataTransfer.setData`) instead of the custom mouse ghost approach, or make `KanbanColumn` detect drops via mouse events as well.
+- **`ArtifactPickerModal` search doesn't store results** (`ArtifactPickerModal.tsx:44-51`): `handleSearch()` returns results but never sets them in state. Add `const results = await ...; setSearchResults(results.items);` and add `searchResults` state + render the results list with click-to-select.
+- **Artifact count display concatenates numbers** (`ProjectOverviewPage.tsx:279-283`): Shows `Artifacts: {globalArtifacts.length}{groups.reduce(...)}` which concatenates digits. Fix: Add a separator and label, e.g., `Artifacts: {global} global, {group} in groups`.
+- **Project delete doesn't use `.unwrap()`** (`ProjectsPage.tsx:49`): `await deleteProject(id)` doesn't unwrap, so failures are silently swallowed. Add `.unwrap()` and wrap in try/catch with toast.
+- **Project context menu doesn't close on outside click** (`ProjectsPage.tsx:158-168`): The delete menu stays open when clicking elsewhere. Add a `useEffect` with a document click listener when `menuOpen` is set, or use a popover component.
+
+**Canvas & Architecture Diagramming — Critical Fixes:**
+
+- **`scheduleAutoSave` loses edge properties** (`CanvasPage.tsx:266-271`): The batch update payload omits `label`, `edgeStyle`, `arrowStart`, `arrowEnd`. Add these fields to the edge mapping in `scheduleAutoSave`.
+- **SVG export missing edge labels, arrowheads, and styles** (`CanvasPage.tsx:1535-1549`): Add `<text>` for edge labels, `marker-start`/`marker-end` for arrowheads, and `stroke-dasharray` for dashed/dotted styles in `handleExportSvg`.
+- **PNG export doesn't render shapes as their actual geometry** (`CanvasPage.tsx:1477-1484`): Currently all non-image items are drawn as filled rectangles. Add proper canvas drawing for each shape type (arcs for circles, polygon paths for diamonds/hexagons, bezier curves for clouds).
+- **"New Diagram" sets state after navigation** (`CanvasPage.tsx:385-395`): `handleCreateDiagram` navigates first, then sets `showGrid`/`snapToGrid`. Fix: Set grid/snap state before navigation, or pass them as URL params / initialize them in the canvas load effect.
+- **No UI to edit edge properties** (new feature within bug fix): Add a floating panel or inline editor when an edge is selected. Panel includes: text input for label, dropdown for line style (solid/dashed/dotted), toggle for start/end arrowheads, button for straight/curved toggle.
+
+**UI Polish (lower priority):**
+
+- Loading states for template operations (apply, create, delete)
+- Confirmation dialog for template deletion
+- Keyboard navigation in TemplatePickerModal and ArtifactPickerModal (arrow keys, Enter to select)
+- Mobile-responsive layout for ProjectsPage and CanvasPage toolbar
+
+---
+
+### Phase 35: Project Management Enhancements
+
+- **Card Labels/Tags**: Color-coded labels on kanban cards (priority, type, status). New `project_labels` table with `id, project_id, name, color`. New `project_card_labels` junction table. Label picker in CardEditor. Label filter in ProjectGroupPage.
+- **Card Checklists**: Sub-task checklists within cards. New `project_card_checklists` table with `id, card_id, text, position, done`. Checklist UI in CardEditor with add/remove/toggle/reorder. Progress bar on KanbanCard showing completion %.
+- **Card Comments/Activity Log**: Comment thread on cards. New `project_card_comments` table with `id, card_id, content, created_at`. Comment list in CardEditor with add/delete. Activity feed showing card moves, edits, comments.
+- **Project Timeline/Gantt View**: New `/project/:id/timeline` route. Horizontal bar chart using card due dates and project start/end dates. Drag to adjust dates. Milestone markers.
+- **Milestone Markers**: New `project_milestones` table with `id, project_id, title, date, completed`. Milestone list in ProjectOverviewPage. Visual markers on timeline view.
+- **Card Filtering & Search**: Filter bar in ProjectGroupPage with text search, label filter, due date range, linked note filter. Search across all groups in a project.
+- **Bulk Card Operations**: Shift-click or checkbox selection on cards. Batch move, archive, delete, label assignment. Selection count indicator in toolbar.
+- **Card Sorting**: Sort dropdown in KanbanColumn header (by due date, title, created date). Applies within each column.
+- **Project Analytics Dashboard**: New `/project/:id/analytics` route. Charts: card distribution by column (pie), completion rate over time (line), cards by label (bar). Use a lightweight chart library (recharts or similar).
+- **Card Templates**: Predefined card structures (bug report, feature request, meeting note). New `project_card_templates` table. Template picker in CardEditor "New Card" flow.
+
+---
+
+### Phase 36: Architecture Canvas Enhancements
+
+- **Edge Property Editor**: Floating panel when an edge is selected. Inputs for label text, line style dropdown, arrowhead toggles, straight/curved toggle. Panel positions near the edge midpoint.
+- **Shape Connection Port Visualization**: On hover over a diagram shape, show small dots at N/S/E/W ports. Highlight the nearest port when dragging a connection line. Visual feedback for valid/invalid connection targets.
+- **Shape Grouping**: Select multiple shapes → "Group" action. Groups move/resize as a unit. Ungroup action. Visual container border around grouped shapes. Group label.
+- **Stencil Library**: Sidebar panel with pre-built diagram templates: AWS architecture (EC2, S3, RDS icons), ERD (entity/relationship), C4 model (container/component), network topology (router/switch/server). Drag from stencil to canvas.
+- **Mini-map**: Small overview minimap in the bottom-right corner of the canvas. Shows all items as colored dots/rectangles. Viewport rectangle shows current view. Click to navigate.
+- **Shape Text Styling**: Toolbar controls for font size, bold/italic when a shape is selected. Stored as item properties (fontSize, fontWeight, fontStyle).
+- **Export to Mermaid**: Generate Mermaid diagram-as-code syntax from canvas. Map shapes to Mermaid node types, edges to Mermaid relationships. Copy-to-clipboard and download.
+- **Shape Resize Constraints**: Lock aspect ratio toggle per shape. Min/max size constraints per shape type (circles maintain equal width/height). Shift+resize for proportional scaling.
+- **Canvas Versioning**: Named snapshots of canvas state. "Save Version" button with optional description. Version list panel with timestamps and thumbnails. Restore to any version.
+- **Keyboard-driven Shape Placement**: After selecting a shape from palette, use arrow keys to nudge position, Tab to cycle shapes, Enter to confirm placement, Escape to cancel.
+
 ---
 
 ## Cross-Platform Build Notes

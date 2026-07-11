@@ -390,3 +390,60 @@
 - [x] "New Diagram" template preset (grid, snap, shape palette)
 - [ ] Tests
 
+## Phase 34: Bug Fixes & UI Improvements ⬜
+
+### Templates — Critical Fixes
+- [ ] TemplatePickerModal defaults to "blank" tab instead of "template"
+- [ ] Blank tab has a "Create Blank" button instead of "close to proceed"
+- [ ] `handleApply` in TemplatesPage navigates to created note/project
+- [ ] Template variable replacement doesn't corrupt TipTap JSON (replace in title only, or walk node tree)
+- [ ] Template tag creation uses TagRepository instead of raw SQL
+- [ ] Project template preserves column colors when saving
+- [ ] TemplateEditorModal has structured UI for project templates (groups/columns/artifacts form)
+
+### Projects — Critical Fixes
+- [ ] Kanban card drag-and-drop between columns works (fix DnD system mismatch)
+- [ ] ArtifactPickerModal search stores and displays results
+- [ ] Artifact count display shows proper formatting ("2 global, 3 in groups")
+- [ ] Project delete uses `.unwrap()` with error toast
+- [ ] Project context menu closes on outside click
+
+### Canvas & Architecture Diagramming — Critical Fixes
+- [ ] `scheduleAutoSave` includes edge label, edgeStyle, arrowStart, arrowEnd
+- [ ] SVG export includes edge labels, arrowheads, and dashed/dotted styles
+- [ ] PNG export renders shapes as actual geometry (not just rectangles)
+- [ ] "New Diagram" sets grid/snap state before or during navigation
+- [ ] Edge property editing UI (floating panel for label, style, arrows)
+
+### UI Polish
+- [ ] Loading states for template operations
+- [ ] Confirmation dialog for template deletion
+- [ ] Keyboard navigation in TemplatePickerModal and ArtifactPickerModal
+- [ ] Mobile-responsive layout for ProjectsPage and CanvasPage toolbar
+
+## Phase 35: Project Management Enhancements ⬜
+
+- [ ] Card Labels/Tags (project_labels + project_card_labels tables, label picker, filter)
+- [ ] Card Checklists (project_card_checklists table, checklist UI in CardEditor, progress bar)
+- [ ] Card Comments/Activity Log (project_card_comments table, comment list, activity feed)
+- [ ] Project Timeline/Gantt View (/project/:id/timeline route, bar chart, drag dates)
+- [ ] Milestone Markers (project_milestones table, milestone list, timeline markers)
+- [ ] Card Filtering & Search (filter bar in ProjectGroupPage, search across groups)
+- [ ] Bulk Card Operations (multi-select, batch move/archive/delete/label)
+- [ ] Card Sorting (sort dropdown in KanbanColumn header)
+- [ ] Project Analytics Dashboard (/project/:id/analytics route, charts)
+- [ ] Card Templates (project_card_templates table, template picker in CardEditor)
+
+## Phase 36: Architecture Canvas Enhancements ⬜
+
+- [ ] Edge Property Editor (floating panel for label, style, arrows on edge select)
+- [ ] Shape Connection Port Visualization (N/S/E/W port dots on hover)
+- [ ] Shape Grouping (group/ungroup, move/resize as unit)
+- [ ] Stencil Library (pre-built diagram templates: AWS, ERD, C4, network)
+- [ ] Mini-map (overview minimap in corner, viewport rectangle, click to navigate)
+- [ ] Shape Text Styling (font size, bold/italic controls for shape labels)
+- [ ] Export to Mermaid (generate Mermaid syntax from canvas)
+- [ ] Shape Resize Constraints (lock aspect ratio, min/max sizes)
+- [ ] Canvas Versioning (named snapshots, version list, restore)
+- [ ] Keyboard-driven Shape Placement (arrow keys to nudge, Tab to cycle)
+
