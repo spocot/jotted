@@ -10,6 +10,7 @@ import {
   IconLink,
   IconCheck,
   IconPlus,
+  IconFlag,
 } from "@tabler/icons-react";
 import {
   useLazySearchNotesQuery,
@@ -22,6 +23,10 @@ import {
   useGetCommentsQuery,
   useAddCommentMutation,
   useDeleteCommentMutation,
+  useGetMilestonesQuery,
+  useGetCardMilestonesQuery,
+  useLinkCardsToMilestoneMutation,
+  useUnlinkCardFromMilestoneMutation,
 } from "../store/redux/api";
 
 interface CardEditorProps {
@@ -86,6 +91,35 @@ export default function CardEditor({
   const [newComment, setNewComment] = useState("");
   const [addComment] = useAddCommentMutation();
   const [deleteComment] = useDeleteCommentMutation();
+
+  // Milestones
+  const { data: milestones = [] } = useGetMilestonesQuery(
+    { projectId },
+    { skip: !projectId },
+  );
+  const { data: cardMilestoneLinks = [] } = useGetCardMilestonesQuery(
+    projectId,
+    { skip: !projectId },
+  );
+  const [linkCardsToMilestone] = useLinkCardsToMilestoneMutation();
+  const [unlinkCardFromMilestone] = useUnlinkCardFromMilestoneMutation();
+
+  const linkedMilestoneIds = new Set(
+    card
+      ? cardMilestoneLinks
+          .filter((l) => l.cardId === card.id)
+          .map((l) => l.milestoneId)
+      : [],
+  );
+
+  const handleToggleMilestone = async (milestoneId: string) => {
+    if (!card) return;
+    if (linkedMilestoneIds.has(milestoneId)) {
+      await unlinkCardFromMilestone({ projectId, milestoneId, cardId: card.id });
+    } else {
+      await linkCardsToMilestone({ projectId, milestoneId, cardIds: [card.id] });
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -304,6 +338,41 @@ export default function CardEditor({
                 })}
                 {projectLabels.length === 0 && (
                   <span className="text-xs text-gray-400">No labels yet</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Milestones */}
+          {card && projectId && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <IconFlag className="w-3 h-3" />
+                Milestones
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {milestones.map((ms) => {
+                  const isActive = linkedMilestoneIds.has(ms.id);
+                  return (
+                    <button
+                      key={ms.id}
+                      onClick={() => handleToggleMilestone(ms.id)}
+                      className={`px-2 py-0.5 text-xs font-medium rounded border transition-colors ${
+                        isActive
+                          ? ms.completed
+                            ? "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700"
+                            : ms.dueDate && new Date(ms.dueDate) < new Date()
+                              ? "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700"
+                              : "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
+                          : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-gray-400"
+                      }`}
+                    >
+                      {ms.title}
+                    </button>
+                  );
+                })}
+                {milestones.length === 0 && (
+                  <span className="text-xs text-gray-400">No milestones yet</span>
                 )}
               </div>
             </div>
