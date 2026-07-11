@@ -3186,7 +3186,7 @@ export default function CanvasPage() {
                       top: item.y,
                       width: item.width,
                       height: item.height,
-                      backgroundColor: (item.type === "image" || isDiagramItem(item)) ? "transparent" : item.color,
+                      backgroundColor: (item.type === "image" || isDiagramItem(item) || item.type === "group") ? "transparent" : item.color,
                       zIndex: item.zIndex,
                     }}
                   >
@@ -3411,7 +3411,7 @@ export default function CanvasPage() {
                       <>
                         <div
                           className="absolute inset-0 border-2 border-dashed border-gray-400 dark:border-gray-500 rounded-lg pointer-events-none"
-                          style={{ backgroundColor: item.color + "20" }}
+                          style={{ backgroundColor: item.color }}
                         />
                         <div className="absolute top-0 left-3 -translate-y-1/2 pointer-events-none select-none">
                           <span
