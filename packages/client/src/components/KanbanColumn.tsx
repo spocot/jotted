@@ -40,6 +40,18 @@ export default function KanbanColumn({
   }, [column.title]);
 
   useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-column-menu]")) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
+
+  useEffect(() => {
     if (isEditingTitle && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
@@ -117,7 +129,7 @@ export default function KanbanColumn({
           </span>
         </div>
 
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" data-column-menu>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"

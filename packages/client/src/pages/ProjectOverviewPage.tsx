@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react";
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
+import ArtifactEditModal from "../components/ArtifactEditModal";
 import { useConfirm } from "../hooks/useConfirm";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -70,6 +71,7 @@ export default function ProjectOverviewPage() {
   const [editingGroupTitle, setEditingGroupTitle] = useState("");
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [artifactGroupId, setArtifactGroupId] = useState<string | null>(null);
+  const [editingArtifact, setEditingArtifact] = useState<import("../types").ProjectArtifact | null>(null);
 
   if (isLoading || !project) {
     return (
@@ -450,7 +452,7 @@ export default function ProjectOverviewPage() {
                       <ArtifactCard
                         key={art.id}
                         artifact={art}
-                        onEdit={() => {}}
+                        onEdit={(a) => setEditingArtifact(a)}
                         onDelete={(id) =>
                           deleteArtifact({
                             projectId: project.id,
@@ -514,7 +516,7 @@ export default function ProjectOverviewPage() {
               <ArtifactCard
                 key={art.id}
                 artifact={art}
-                onEdit={() => {}}
+                onEdit={(a) => setEditingArtifact(a)}
                 onDelete={handleDeleteArtifact}
               />
             ))}
@@ -528,6 +530,15 @@ export default function ProjectOverviewPage() {
         onClose={() => setShowArtifactPicker(false)}
         onSelect={handleAddArtifact}
       />
+
+      {/* Artifact edit modal */}
+      {editingArtifact && (
+        <ArtifactEditModal
+          artifact={editingArtifact}
+          projectId={project.id}
+          onClose={() => setEditingArtifact(null)}
+        />
+      )}
     </div>
   );
 }

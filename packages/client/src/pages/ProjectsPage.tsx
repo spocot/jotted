@@ -39,7 +39,12 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = () => setMenuOpen(null);
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-project-menu]")) {
+        setMenuOpen(null);
+      }
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
@@ -165,7 +170,7 @@ export default function ProjectsPage() {
             >
               {STATUS_LABELS[project.status] ?? project.status}
             </span>
-            <div className="relative shrink-0">
+            <div className="relative shrink-0" data-project-menu>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

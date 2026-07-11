@@ -22,7 +22,8 @@ import KanbanColumn from "../components/KanbanColumn";
 import CardEditor from "../components/CardEditor";
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
-import type { ProjectCard, ProjectColumn } from "../types";
+import ArtifactEditModal from "../components/ArtifactEditModal";
+import type { ProjectCard, ProjectColumn, ProjectArtifact } from "../types";
 import { useConfirm } from "../hooks/useConfirm";
 
 export default function ProjectGroupPage() {
@@ -48,6 +49,7 @@ export default function ProjectGroupPage() {
   const [editingCard, setEditingCard] = useState<ProjectCard | null>(null);
   const [newCardColumnId, setNewCardColumnId] = useState<string | null>(null);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
+  const [editingArtifact, setEditingArtifact] = useState<ProjectArtifact | null>(null);
 
   // Drag state
   const dragState = useRef<{
@@ -339,7 +341,7 @@ export default function ProjectGroupPage() {
                 <ArtifactCard
                   key={art.id}
                   artifact={art}
-                  onEdit={() => {}}
+                  onEdit={(a) => setEditingArtifact(a)}
                   onDelete={handleDeleteArtifact}
                 />
               ))}
@@ -368,6 +370,15 @@ export default function ProjectGroupPage() {
         onClose={() => setShowArtifactPicker(false)}
         onSelect={handleAddArtifact}
       />
+
+      {/* Artifact edit modal */}
+      {editingArtifact && id && (
+        <ArtifactEditModal
+          artifact={editingArtifact}
+          projectId={id}
+          onClose={() => setEditingArtifact(null)}
+        />
+      )}
     </div>
   );
 }

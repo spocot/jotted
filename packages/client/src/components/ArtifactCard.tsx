@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ProjectArtifact } from "../types";
 import {
   IconFileText,
@@ -44,6 +44,18 @@ const TYPE_LABELS: Record<string, string> = {
 export default function ArtifactCard({ artifact, onEdit, onDelete }: ArtifactCardProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-artifact-menu]")) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
 
   const handleOpen = () => {
     switch (artifact.artifactType) {
@@ -97,7 +109,7 @@ export default function ArtifactCard({ artifact, onEdit, onDelete }: ArtifactCar
           </p>
         )}
       </div>
-      <div className="relative shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="relative shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" data-artifact-menu>
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
