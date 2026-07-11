@@ -6,10 +6,8 @@ import {
   useDeleteProjectMutation,
 } from "../store/redux/api";
 import {
-  IconPlus,
   IconFolder,
   IconDots,
-  IconCopy,
 } from "@tabler/icons-react";
 import TemplatePickerModal from "../components/TemplatePickerModal";
 
@@ -32,8 +30,6 @@ export default function ProjectsPage() {
   const { data: projects } = useGetProjectsQuery();
   const [createProject] = useCreateProjectMutation();
   const [deleteProject] = useDeleteProjectMutation();
-  const [isCreating, setIsCreating] = useState(false);
-  const [title, setTitle] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -48,14 +44,6 @@ export default function ProjectsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-
-  const handleCreate = async () => {
-    if (!title.trim()) return;
-    const project = await createProject({ title: title.trim() }).unwrap();
-    setTitle("");
-    setIsCreating(false);
-    navigate(`/project/${project.id}`);
-  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -76,67 +64,23 @@ export default function ProjectsPage() {
   };
 
   const handleCreateBlankProject = async () => {
-    try {
-      const project = await createProject({ title: "Untitled Project" }).unwrap();
-      navigate(`/project/${project.id}`);
-    } catch {
-      // error handled by RTK
-    }
+    const project = await createProject({ title: "Untitled Project" }).unwrap();
+    return project;
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">Projects</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowTemplatePicker(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 rounded-lg transition-colors"
-          >
-            <IconCopy className="w-4 h-4" />
-            From Template
-          </button>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-          >
-            <IconPlus className="w-4 h-4" />
-            New Project
-          </button>
-        </div>
+        <button
+          onClick={() => setShowTemplatePicker(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+        >
+          New Project
+        </button>
       </div>
 
-      {isCreating && (
-        <div className="flex gap-2 mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-          <input
-            type="text"
-            placeholder="Project title..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate();
-              if (e.key === "Escape") setIsCreating(false);
-            }}
-            className="flex-1 px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-          />
-          <button
-            onClick={handleCreate}
-            disabled={!title.trim()}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded transition-colors"
-          >
-            Create
-          </button>
-          <button
-            onClick={() => setIsCreating(false)}
-            className="px-3 py-1.5 text-sm font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {projects && projects.length === 0 && !isCreating && (
+      {projects && projects.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <IconFolder className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">No projects yet. Create one to start planning.</p>

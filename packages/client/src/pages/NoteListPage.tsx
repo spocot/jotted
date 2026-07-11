@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { IconFolder, IconCopy } from "@tabler/icons-react";
+import { IconFolder } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import { useLazyGetNotesQuery } from "../store/redux/api";
+import { useLazyGetNotesQuery, useCreateNoteMutation } from "../store/redux/api";
 import type { Note, PageResponse } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 import NoteCard from "../components/NoteCard";
-import CreateNoteModal from "../components/CreateNoteModal";
 import TemplatePickerModal from "../components/TemplatePickerModal";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -14,7 +13,6 @@ const PAGE_SIZE = 50;
 
 export default function NoteListPage() {
   const navigate = useNavigate();
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [offset, setOffset] = useState(0);
@@ -22,6 +20,7 @@ export default function NoteListPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [trigger] = useLazyGetNotesQuery();
+  const [createNote] = useCreateNoteMutation();
   const dispatch = useAppDispatch();
 
   const handleTemplateApplied = (result: unknown) => {
@@ -30,6 +29,11 @@ export default function NoteListPage() {
       navigate(`/note/${note.id}`);
     }
     dispatch(addToast("Created note from template", "success"));
+  };
+
+  const handleCreateBlank = async () => {
+    const note = await createNote({ title: "Untitled", path: "/Unsorted" }).unwrap();
+    return note;
   };
 
   useEffect(() => {
@@ -72,21 +76,12 @@ export default function NoteListPage() {
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">All Notes</h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTemplatePicker(true)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors flex items-center gap-1"
-          >
-            <IconCopy className="w-4 h-4" />
-            From Template
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-          >
-            + New Note
-          </button>
-        </div>
+        <button
+          onClick={() => setShowTemplatePicker(true)}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+        >
+          + New Note
+        </button>
       </div>
 
       {initialLoading && notes.length === 0 && <NoteListSkeleton />}
@@ -97,7 +92,7 @@ export default function NoteListPage() {
             No notes yet. Create your first note to get started.
           </p>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setShowTemplatePicker(true)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
           >
             Create your first note
@@ -142,25 +137,12 @@ export default function NoteListPage() {
         </div>
       )}
 
-      <CreateNoteModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreated={(note) => {
-          setShowCreateModal(false);
-          navigate(`/note/${note.id}`);
-        }}
-        existingTitles={[]}
-      />
-
       {showTemplatePicker && (
         <TemplatePickerModal
           target="note"
           onClose={() => setShowTemplatePicker(false)}
           onApplied={handleTemplateApplied}
-          onCreateBlank={() => {
-            setShowTemplatePicker(false);
-            setShowCreateModal(true);
-          }}
+          onCreateBlank={handleCreateBlank}
         />
       )}
     </div>

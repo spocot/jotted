@@ -7,7 +7,7 @@ interface TemplatePickerModalProps {
   target: "note" | "project";
   onClose: () => void;
   onApplied: (result: unknown) => void;
-  onCreateBlank?: () => void;
+  onCreateBlank?: () => Promise<unknown>;
 }
 
 export default function TemplatePickerModal({ target, onClose, onApplied, onCreateBlank }: TemplatePickerModalProps) {
@@ -70,9 +70,10 @@ export default function TemplatePickerModal({ target, onClose, onApplied, onCrea
               Create a blank {target === "note" ? "note" : "project"}.
             </p>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (onCreateBlank) {
-                  onCreateBlank();
+                  const result = await onCreateBlank();
+                  onApplied(result);
                 } else {
                   onApplied({});
                 }
