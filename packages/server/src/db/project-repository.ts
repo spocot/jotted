@@ -40,6 +40,9 @@ export interface ProjectCard {
   position: number;
   createdAt: string;
   updatedAt: string;
+  labels?: ProjectLabel[];
+  checklist?: ProjectChecklistItem[];
+  commentCount?: number;
 }
 
 export interface ProjectArtifact {
@@ -55,10 +58,63 @@ export interface ProjectArtifact {
   createdAt: string;
 }
 
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  dueDate: string | null;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectLabel {
+  id: string;
+  projectId: string;
+  name: string;
+  color: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectChecklistItem {
+  id: string;
+  cardId: string;
+  text: string;
+  position: number;
+  done: boolean;
+  createdAt: string;
+}
+
+export interface ProjectCardTemplate {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  defaultLabels: string[];
+  defaultChecklist: string[];
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectCardComment {
+  id: string;
+  cardId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectWithDetails extends Project {
   groups: Array<
     ProjectGroup & {
-      columns: Array<ProjectColumn & { cards: ProjectCard[] }>;
+      columns: Array<ProjectColumn & {
+        cards: Array<ProjectCard & {
+          labels: ProjectLabel[];
+          checklist: ProjectChecklistItem[];
+          commentCount: number;
+        }>;
+      }>;
       artifacts: ProjectArtifact[];
     }
   >;
@@ -97,6 +153,25 @@ export class ProjectRepository {
   private getArtifactsByProjectStmt: Database.Statement;
   private getArtifactsByGroupStmt: Database.Statement;
   private getArtifactByIdStmt: Database.Statement;
+
+  private insertLabelStmt: Database.Statement;
+  private updateLabelStmt: Database.Statement;
+  private deleteLabelStmt: Database.Statement;
+  private getLabelsByProjectStmt: Database.Statement;
+  private addLabelToCardStmt: Database.Statement;
+  private removeLabelFromCardStmt: Database.Statement;
+  private getLabelsForCardStmt: Database.Statement;
+  private getCardsByLabelStmt: Database.Statement;
+
+  private insertChecklistStmt: Database.Statement;
+  private updateChecklistStmt: Database.Statement;
+  private deleteChecklistStmt: Database.Statement;
+  private getChecklistByCardStmt: Database.Statement;
+
+  private insertCommentStmt: Database.Statement;
+  private deleteCommentStmt: Database.Statement;
+  private getCommentsByCardStmt: Database.Statement;
+  private countCommentsByCardStmt: Database.Statement;
 
   constructor(public db: Database.Database) {
     this.insertProjectStmt = db.prepare(
@@ -180,6 +255,60 @@ export class ProjectRepository {
     this.getArtifactByIdStmt = db.prepare(
       "SELECT id, project_id AS projectId, group_id AS groupId, title, description, artifact_type AS artifactType, reference_id AS referenceId, reference_url AS referenceUrl, position, created_at AS createdAt FROM project_artifacts WHERE id = ?",
     );
+
+    // Labels
+    this.insertLabelStmt = db.prepare(
+      "INSERT INTO project_labels (id, project_id, name, color, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    );
+    this.updateLabelStmt = db.prepare(
+      "UPDATE project_labels SET name = ?, color = ? WHERE id = ? AND project_id = ?",
+    );
+    this.deleteLabelStmt = db.prepare(
+      "DELETE FROM project_labels WHERE id = ? AND project_id = ?",
+    );
+    this.getLabelsByProjectStmt = db.prepare(
+      "SELECT id, project_id AS projectId, name, color, position, created_at AS createdAt FROM project_labels WHERE project_id = ? ORDER BY position ASC",
+    );
+    this.addLabelToCardStmt = db.prepare(
+      "INSERT OR IGNORE INTO project_card_labels (card_id, label_id) VALUES (?, ?)",
+    );
+    this.removeLabelFromCardStmt = db.prepare(
+      "DELETE FROM project_card_labels WHERE card_id = ? AND label_id = ?",
+    );
+    this.getLabelsForCardStmt = db.prepare(
+      "SELECT pl.id, pl.project_id AS projectId, pl.name, pl.color, pl.position, pl.created_at AS createdAt FROM project_labels pl JOIN project_card_labels pcl ON pl.id = pcl.label_id WHERE pcl.card_id = ? ORDER BY pl.position ASC",
+    );
+    this.getCardsByLabelStmt = db.prepare(
+      "SELECT pc.id, pc.column_id AS columnId, pc.title, pc.description, pc.note_id AS noteId, pc.due_date AS dueDate, pc.position, pc.created_at AS createdAt, pc.updated_at AS updatedAt FROM project_cards pc JOIN project_card_labels pcl ON pc.id = pcl.card_id WHERE pcl.label_id = ?",
+    );
+
+    // Checklists
+    this.insertChecklistStmt = db.prepare(
+      "INSERT INTO project_card_checklists (id, card_id, text, position, done, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    );
+    this.updateChecklistStmt = db.prepare(
+      "UPDATE project_card_checklists SET text = ?, done = ? WHERE id = ?",
+    );
+    this.deleteChecklistStmt = db.prepare(
+      "DELETE FROM project_card_checklists WHERE id = ?",
+    );
+    this.getChecklistByCardStmt = db.prepare(
+      "SELECT id, card_id AS cardId, text, position, done, created_at AS createdAt FROM project_card_checklists WHERE card_id = ? ORDER BY position ASC",
+    );
+
+    // Comments
+    this.insertCommentStmt = db.prepare(
+      "INSERT INTO project_card_comments (id, card_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    );
+    this.deleteCommentStmt = db.prepare(
+      "DELETE FROM project_card_comments WHERE id = ?",
+    );
+    this.getCommentsByCardStmt = db.prepare(
+      "SELECT id, card_id AS cardId, body, created_at AS createdAt, updated_at AS updatedAt FROM project_card_comments WHERE card_id = ? ORDER BY created_at ASC",
+    );
+    this.countCommentsByCardStmt = db.prepare(
+      "SELECT card_id AS cardId, COUNT(*) AS count FROM project_card_comments WHERE card_id = ? GROUP BY card_id",
+    );
   }
 
   // ---- Project CRUD ----
@@ -257,13 +386,19 @@ export class ProjectRepository {
         ProjectColumn & { cards: ProjectCard[] }
       >;
       for (const col of columns) {
-        col.cards = this.getCardsByColumnStmt.all(col.id) as ProjectCard[];
+        const cards = this.getCardsByColumnStmt.all(col.id) as ProjectCard[];
+        for (const card of cards) {
+          card.labels = this.getLabelsForCard(card.id);
+          card.checklist = this.getChecklistByCardStmt.all(card.id) as ProjectChecklistItem[];
+          card.commentCount = (this.countCommentsByCardStmt.get(card.id) as { count: number } | undefined)?.count ?? 0;
+        }
+        col.cards = cards;
       }
       group.columns = columns;
       group.artifacts = this.getArtifactsByGroupStmt.all(group.id) as ProjectArtifact[];
     }
     const globalArtifacts = this.getArtifactsByProjectStmt.all(id) as ProjectArtifact[];
-    return { ...project, groups, globalArtifacts };
+    return { ...project, groups, globalArtifacts } as ProjectWithDetails;
   }
 
   // ---- Group CRUD ----
@@ -592,5 +727,333 @@ export class ProjectRepository {
     if (!existing || existing.projectId !== projectId) return false;
     this.deleteArtifactStmt.run(artifactId, projectId);
     return true;
+  }
+
+  // ---- Label CRUD ----
+
+  getLabelsForProject(projectId: string): ProjectLabel[] {
+    return this.getLabelsByProjectStmt.all(projectId) as ProjectLabel[];
+  }
+
+  createLabel(
+    projectId: string,
+    params: { name: string; color?: string },
+  ): ProjectLabel {
+    const id = uuid();
+    const now = new Date().toISOString();
+    const labels = this.getLabelsForProject(projectId);
+    const position = labels.length;
+    this.insertLabelStmt.run(
+      id,
+      projectId,
+      params.name,
+      params.color ?? "",
+      position,
+      now,
+    );
+    return (this.getLabelsByProjectStmt.all(projectId) as ProjectLabel[]).find((l) => l.id === id) as ProjectLabel;
+  }
+
+  updateLabel(
+    projectId: string,
+    labelId: string,
+    params: { name?: string; color?: string },
+  ): ProjectLabel | null {
+    const existing = (this.getLabelsByProjectStmt.all(projectId) as ProjectLabel[]).find(
+      (l) => l.id === labelId,
+    );
+    if (!existing) return null;
+    this.updateLabelStmt.run(
+      params.name ?? existing.name,
+      params.color ?? existing.color,
+      labelId,
+      projectId,
+    );
+    return (this.getLabelsByProjectStmt.all(projectId) as ProjectLabel[]).find((l) => l.id === labelId) as ProjectLabel | null;
+  }
+
+  deleteLabel(projectId: string, labelId: string): boolean {
+    const existing = (this.getLabelsByProjectStmt.all(projectId) as ProjectLabel[]).find(
+      (l) => l.id === labelId,
+    );
+    if (!existing) return false;
+    this.deleteLabelStmt.run(labelId, projectId);
+    return true;
+  }
+
+  addLabelToCard(cardId: string, labelId: string): void {
+    this.addLabelToCardStmt.run(cardId, labelId);
+  }
+
+  removeLabelFromCard(cardId: string, labelId: string): void {
+    this.removeLabelFromCardStmt.run(cardId, labelId);
+  }
+
+  getLabelsForCard(cardId: string): ProjectLabel[] {
+    return this.getLabelsForCardStmt.all(cardId) as ProjectLabel[];
+  }
+
+  // ---- Checklist CRUD ----
+
+  getChecklistItems(cardId: string): ProjectChecklistItem[] {
+    return this.getChecklistByCardStmt.all(cardId) as ProjectChecklistItem[];
+  }
+
+  addChecklistItem(
+    cardId: string,
+    params: { text: string },
+  ): ProjectChecklistItem {
+    const id = uuid();
+    const now = new Date().toISOString();
+    const items = this.getChecklistItems(cardId);
+    const position = items.length;
+    this.insertChecklistStmt.run(id, cardId, params.text, position, 0, now);
+    return (this.getChecklistByCardStmt.all(cardId) as ProjectChecklistItem[]).find((i) => i.id === id) as ProjectChecklistItem;
+  }
+
+  updateChecklistItem(
+    itemId: string,
+    params: { text?: string; done?: boolean },
+  ): ProjectChecklistItem | null {
+    const existing = this.db
+      .prepare("SELECT id, card_id AS cardId, text, position, done, created_at AS createdAt FROM project_card_checklists WHERE id = ?")
+      .get(itemId) as ProjectChecklistItem | undefined;
+    if (!existing) return null;
+    this.updateChecklistStmt.run(
+      params.text ?? existing.text,
+      params.done !== undefined ? (params.done ? 1 : 0) : existing.done ? 1 : 0,
+      itemId,
+    );
+    return this.db
+      .prepare("SELECT id, card_id AS cardId, text, position, done, created_at AS createdAt FROM project_card_checklists WHERE id = ?")
+      .get(itemId) as ProjectChecklistItem | null;
+  }
+
+  deleteChecklistItem(itemId: string): boolean {
+    const existing = this.db
+      .prepare("SELECT id FROM project_card_checklists WHERE id = ?")
+      .get(itemId);
+    if (!existing) return false;
+    this.deleteChecklistStmt.run(itemId);
+    return true;
+  }
+
+  // ---- Comment CRUD ----
+
+  getCommentsForCard(cardId: string): ProjectCardComment[] {
+    return this.getCommentsByCardStmt.all(cardId) as ProjectCardComment[];
+  }
+
+  addComment(
+    cardId: string,
+    params: { body: string },
+  ): ProjectCardComment {
+    const id = uuid();
+    const now = new Date().toISOString();
+    this.insertCommentStmt.run(id, cardId, params.body, now, now);
+    return this.db
+      .prepare("SELECT id, card_id AS cardId, body, created_at AS createdAt, updated_at AS updatedAt FROM project_card_comments WHERE id = ?")
+      .get(id) as ProjectCardComment;
+  }
+
+  deleteComment(commentId: string): boolean {
+    const existing = this.db
+      .prepare("SELECT id FROM project_card_comments WHERE id = ?")
+      .get(commentId);
+    if (!existing) return false;
+    this.deleteCommentStmt.run(commentId);
+    return true;
+  }
+
+  // ---- Card Templates ----
+
+  getCardTemplates(projectId: string): ProjectCardTemplate[] {
+    const rows = this.db
+      .prepare(
+        `SELECT id, project_id AS projectId, title, description, default_labels, default_checklist, position, created_at AS createdAt
+         FROM project_card_templates WHERE project_id = ? ORDER BY position ASC`,
+      )
+      .all(projectId) as Array<Omit<ProjectCardTemplate, "defaultLabels" | "defaultChecklist"> & { defaultLabels: string; defaultChecklist: string }>;
+    return rows.map((row) => ({
+      ...row,
+      defaultLabels: JSON.parse(row.defaultLabels),
+      defaultChecklist: JSON.parse(row.defaultChecklist),
+    }));
+  }
+
+  createCardTemplate(
+    projectId: string,
+    params: { title: string; description?: string; defaultLabels?: string[]; defaultChecklist?: string[] },
+  ): ProjectCardTemplate {
+    const id = uuid();
+    const count = (
+      this.db
+        .prepare("SELECT COUNT(*) AS c FROM project_card_templates WHERE project_id = ?")
+        .get(projectId) as { c: number }
+    ).c;
+    this.db
+      .prepare(
+        "INSERT INTO project_card_templates (id, project_id, title, description, default_labels, default_checklist, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        projectId,
+        params.title,
+        params.description ?? "",
+        JSON.stringify(params.defaultLabels ?? []),
+        JSON.stringify(params.defaultChecklist ?? []),
+        count,
+      );
+    return this.getCardTemplate(id)!;
+  }
+
+  getCardTemplate(id: string): ProjectCardTemplate | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, project_id AS projectId, title, description, default_labels, default_checklist, position, created_at AS createdAt
+         FROM project_card_templates WHERE id = ?`,
+      )
+      .get(id) as (Omit<ProjectCardTemplate, "defaultLabels" | "defaultChecklist"> & { defaultLabels: string; defaultChecklist: string }) | undefined;
+    if (!row) return null;
+    return {
+      ...row,
+      defaultLabels: JSON.parse(row.defaultLabels),
+      defaultChecklist: JSON.parse(row.defaultChecklist),
+    };
+  }
+
+  updateCardTemplate(
+    projectId: string,
+    templateId: string,
+    params: { title?: string; description?: string; defaultLabels?: string[]; defaultChecklist?: string[] },
+  ): ProjectCardTemplate | null {
+    const existing = this.db
+      .prepare("SELECT id FROM project_card_templates WHERE id = ? AND project_id = ?")
+      .get(templateId, projectId);
+    if (!existing) return null;
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (params.title !== undefined) {
+      fields.push("title = ?");
+      values.push(params.title);
+    }
+    if (params.description !== undefined) {
+      fields.push("description = ?");
+      values.push(params.description);
+    }
+    if (params.defaultLabels !== undefined) {
+      fields.push("default_labels = ?");
+      values.push(JSON.stringify(params.defaultLabels));
+    }
+    if (params.defaultChecklist !== undefined) {
+      fields.push("default_checklist = ?");
+      values.push(JSON.stringify(params.defaultChecklist));
+    }
+    if (fields.length === 0) return this.getCardTemplate(templateId);
+    values.push(templateId);
+    this.db.prepare(`UPDATE project_card_templates SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    return this.getCardTemplate(templateId);
+  }
+
+  deleteCardTemplate(projectId: string, templateId: string): boolean {
+    const result = this.db
+      .prepare("DELETE FROM project_card_templates WHERE id = ? AND project_id = ?")
+      .run(templateId, projectId);
+    return result.changes > 0;
+  }
+
+  getCommentCountsForCards(cardIds: string[]): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const cardId of cardIds) {
+      counts[cardId] = 0;
+    }
+    if (cardIds.length === 0) return counts;
+    const placeholders = cardIds.map(() => "?").join(", ");
+    const rows = this.db
+      .prepare(`SELECT card_id AS cardId, COUNT(*) AS count FROM project_card_comments WHERE card_id IN (${placeholders}) GROUP BY card_id`)
+      .all(...cardIds) as Array<{ cardId: string; count: number }>;
+    for (const row of rows) {
+      counts[row.cardId] = row.count;
+    }
+    return counts;
+  }
+
+  // ---- Milestones ----
+
+  getMilestones(projectId: string): ProjectMilestone[] {
+    return this.db
+      .prepare(
+        `SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt
+         FROM project_milestones WHERE project_id = ? ORDER BY position ASC`,
+      )
+      .all(projectId) as ProjectMilestone[];
+  }
+
+  createMilestone(
+    projectId: string,
+    params: { title: string; description?: string; dueDate?: string },
+  ): ProjectMilestone {
+    const id = uuid();
+    const count = (
+      this.db
+        .prepare("SELECT COUNT(*) AS c FROM project_milestones WHERE project_id = ?")
+        .get(projectId) as { c: number }
+    ).c;
+    this.db
+      .prepare(
+        "INSERT INTO project_milestones (id, project_id, title, description, due_date, position) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(id, projectId, params.title, params.description ?? "", params.dueDate ?? null, count);
+    return this.db
+      .prepare(
+        "SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?",
+      )
+      .get(id) as ProjectMilestone;
+  }
+
+  updateMilestone(
+    projectId: string,
+    milestoneId: string,
+    params: { title?: string; description?: string; dueDate?: string | null; position?: number },
+  ): ProjectMilestone | null {
+    const existing = this.db
+      .prepare("SELECT id FROM project_milestones WHERE id = ? AND project_id = ?")
+      .get(milestoneId, projectId);
+    if (!existing) return null;
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (params.title !== undefined) {
+      fields.push("title = ?");
+      values.push(params.title);
+    }
+    if (params.description !== undefined) {
+      fields.push("description = ?");
+      values.push(params.description);
+    }
+    if (params.dueDate !== undefined) {
+      fields.push("due_date = ?");
+      values.push(params.dueDate);
+    }
+    if (params.position !== undefined) {
+      fields.push("position = ?");
+      values.push(params.position);
+    }
+    if (fields.length === 0) {
+      return this.db
+        .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
+        .get(milestoneId) as ProjectMilestone;
+    }
+    values.push(milestoneId);
+    this.db.prepare(`UPDATE project_milestones SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    return this.db
+      .prepare("SELECT id, project_id AS projectId, title, description, due_date AS dueDate, position, created_at AS createdAt FROM project_milestones WHERE id = ?")
+      .get(milestoneId) as ProjectMilestone;
+  }
+
+  deleteMilestone(projectId: string, milestoneId: string): boolean {
+    const result = this.db
+      .prepare("DELETE FROM project_milestones WHERE id = ? AND project_id = ?")
+      .run(milestoneId, projectId);
+    return result.changes > 0;
   }
 }

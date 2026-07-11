@@ -360,5 +360,258 @@ export function createProjectsRouter(projectRepo: ProjectRepository): Router {
     }),
   );
 
+  // ---- Labels ----
+
+  router.get(
+    "/:id/labels",
+    asyncHandler(async (req, res) => {
+      const labels = projectRepo.getLabelsForProject(req.params.id as string);
+      res.json(labels);
+    }),
+  );
+
+  router.post(
+    "/:id/labels",
+    asyncHandler(async (req, res) => {
+      const { name, color } = req.body;
+      if (!name) throw new BadRequest("name is required");
+      const label = projectRepo.createLabel(req.params.id as string, {
+        name,
+        color,
+      });
+      res.status(201).json(label);
+    }),
+  );
+
+  router.put(
+    "/:id/labels/:labelId",
+    asyncHandler(async (req, res) => {
+      const { name, color } = req.body;
+      const label = projectRepo.updateLabel(
+        req.params.id as string,
+        req.params.labelId as string,
+        { name, color },
+      );
+      if (!label) throw new NotFound("Label not found");
+      res.json(label);
+    }),
+  );
+
+  router.delete(
+    "/:id/labels/:labelId",
+    asyncHandler(async (req, res) => {
+      const deleted = projectRepo.deleteLabel(
+        req.params.id as string,
+        req.params.labelId as string,
+      );
+      if (!deleted) throw new NotFound("Label not found");
+      res.status(204).end();
+    }),
+  );
+
+  router.post(
+    "/:id/cards/:cardId/labels/:labelId",
+    asyncHandler(async (req, res) => {
+      projectRepo.addLabelToCard(
+        req.params.cardId as string,
+        req.params.labelId as string,
+      );
+      res.status(204).end();
+    }),
+  );
+
+  router.delete(
+    "/:id/cards/:cardId/labels/:labelId",
+    asyncHandler(async (req, res) => {
+      projectRepo.removeLabelFromCard(
+        req.params.cardId as string,
+        req.params.labelId as string,
+      );
+      res.status(204).end();
+    }),
+  );
+
+  // ---- Checklists ----
+
+  router.get(
+    "/:id/cards/:cardId/checklist",
+    asyncHandler(async (req, res) => {
+      const items = projectRepo.getChecklistItems(req.params.cardId as string);
+      res.json(items);
+    }),
+  );
+
+  router.post(
+    "/:id/cards/:cardId/checklist",
+    asyncHandler(async (req, res) => {
+      const { text } = req.body;
+      if (!text) throw new BadRequest("text is required");
+      const item = projectRepo.addChecklistItem(req.params.cardId as string, {
+        text,
+      });
+      res.status(201).json(item);
+    }),
+  );
+
+  router.put(
+    "/:id/cards/:cardId/checklist/:itemId",
+    asyncHandler(async (req, res) => {
+      const { text, done } = req.body;
+      const item = projectRepo.updateChecklistItem(
+        req.params.itemId as string,
+        { text, done },
+      );
+      if (!item) throw new NotFound("Checklist item not found");
+      res.json(item);
+    }),
+  );
+
+  router.delete(
+    "/:id/cards/:cardId/checklist/:itemId",
+    asyncHandler(async (req, res) => {
+      const deleted = projectRepo.deleteChecklistItem(
+        req.params.itemId as string,
+      );
+      if (!deleted) throw new NotFound("Checklist item not found");
+      res.status(204).end();
+    }),
+  );
+
+  // ---- Comments ----
+
+  router.get(
+    "/:id/cards/:cardId/comments",
+    asyncHandler(async (req, res) => {
+      const comments = projectRepo.getCommentsForCard(
+        req.params.cardId as string,
+      );
+      res.json(comments);
+    }),
+  );
+
+  router.post(
+    "/:id/cards/:cardId/comments",
+    asyncHandler(async (req, res) => {
+      const { body } = req.body;
+      if (!body) throw new BadRequest("body is required");
+      const comment = projectRepo.addComment(req.params.cardId as string, {
+        body,
+      });
+      res.status(201).json(comment);
+    }),
+  );
+
+  router.delete(
+    "/:id/cards/:cardId/comments/:commentId",
+    asyncHandler(async (req, res) => {
+      const deleted = projectRepo.deleteComment(
+        req.params.commentId as string,
+      );
+      if (!deleted) throw new NotFound("Comment not found");
+      res.status(204).end();
+    }),
+  );
+
+  // ---- Milestones ----
+
+  router.get(
+    "/:id/milestones",
+    asyncHandler(async (req, res) => {
+      const milestones = projectRepo.getMilestones(req.params.id as string);
+      res.json(milestones);
+    }),
+  );
+
+  router.post(
+    "/:id/milestones",
+    asyncHandler(async (req, res) => {
+      const { title, description, dueDate } = req.body;
+      if (!title) throw new BadRequest("title is required");
+      const milestone = projectRepo.createMilestone(req.params.id as string, {
+        title,
+        description,
+        dueDate,
+      });
+      res.status(201).json(milestone);
+    }),
+  );
+
+  router.put(
+    "/:id/milestones/:milestoneId",
+    asyncHandler(async (req, res) => {
+      const { title, description, dueDate, position } = req.body;
+      const milestone = projectRepo.updateMilestone(
+        req.params.id as string,
+        req.params.milestoneId as string,
+        { title, description, dueDate, position },
+      );
+      if (!milestone) throw new NotFound("Milestone not found");
+      res.json(milestone);
+    }),
+  );
+
+  router.delete(
+    "/:id/milestones/:milestoneId",
+    asyncHandler(async (req, res) => {
+      const deleted = projectRepo.deleteMilestone(
+        req.params.id as string,
+        req.params.milestoneId as string,
+      );
+      if (!deleted) throw new NotFound("Milestone not found");
+      res.status(204).end();
+    }),
+  );
+
+  // ---- Card Templates ----
+
+  router.get(
+    "/:id/card-templates",
+    asyncHandler(async (req, res) => {
+      const templates = projectRepo.getCardTemplates(req.params.id as string);
+      res.json(templates);
+    }),
+  );
+
+  router.post(
+    "/:id/card-templates",
+    asyncHandler(async (req, res) => {
+      const { title, description, defaultLabels, defaultChecklist } = req.body;
+      if (!title) throw new BadRequest("title is required");
+      const template = projectRepo.createCardTemplate(req.params.id as string, {
+        title,
+        description,
+        defaultLabels,
+        defaultChecklist,
+      });
+      res.status(201).json(template);
+    }),
+  );
+
+  router.put(
+    "/:id/card-templates/:templateId",
+    asyncHandler(async (req, res) => {
+      const { title, description, defaultLabels, defaultChecklist } = req.body;
+      const template = projectRepo.updateCardTemplate(
+        req.params.id as string,
+        req.params.templateId as string,
+        { title, description, defaultLabels, defaultChecklist },
+      );
+      if (!template) throw new NotFound("Template not found");
+      res.json(template);
+    }),
+  );
+
+  router.delete(
+    "/:id/card-templates/:templateId",
+    asyncHandler(async (req, res) => {
+      const deleted = projectRepo.deleteCardTemplate(
+        req.params.id as string,
+        req.params.templateId as string,
+      );
+      if (!deleted) throw new NotFound("Template not found");
+      res.status(204).end();
+    }),
+  );
+
   return router;
 }

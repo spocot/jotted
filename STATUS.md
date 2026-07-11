@@ -421,18 +421,18 @@
 - [ ] Keyboard navigation in TemplatePickerModal and ArtifactPickerModal
 - [ ] Mobile-responsive layout for ProjectsPage and CanvasPage toolbar
 
-## Phase 35: Project Management Enhancements ⬜
+## Phase 35: Project Management Enhancements ✅
 
-- [ ] Card Labels/Tags (project_labels + project_card_labels tables, label picker, filter)
-- [ ] Card Checklists (project_card_checklists table, checklist UI in CardEditor, progress bar)
-- [ ] Card Comments/Activity Log (project_card_comments table, comment list, activity feed)
-- [ ] Project Timeline/Gantt View (/project/:id/timeline route, bar chart, drag dates)
-- [ ] Milestone Markers (project_milestones table, milestone list, timeline markers)
-- [ ] Card Filtering & Search (filter bar in ProjectGroupPage, search across groups)
-- [ ] Bulk Card Operations (multi-select, batch move/archive/delete/label)
-- [ ] Card Sorting (sort dropdown in KanbanColumn header)
-- [ ] Project Analytics Dashboard (/project/:id/analytics route, charts)
-- [ ] Card Templates (project_card_templates table, template picker in CardEditor)
+- [x] Card Labels/Tags (project_labels + project_card_labels tables, label picker, filter)
+- [x] Card Checklists (project_card_checklists table, checklist UI in CardEditor, progress bar)
+- [x] Card Comments/Activity Log (project_card_comments table, comment list, activity feed)
+- [x] Project Timeline/Gantt View (/project/:id/timeline route, bar chart, drag dates)
+- [x] Milestone Markers (project_milestones table, milestone list, timeline markers)
+- [x] Card Filtering & Search (filter bar in ProjectGroupPage, search across groups)
+- [x] Bulk Card Operations (multi-select, batch move/archive/delete/label)
+- [x] Card Sorting (sort dropdown in KanbanColumn header)
+- [x] Project Analytics Dashboard (/project/:id/analytics route, charts)
+- [x] Card Templates (project_card_templates table, template picker in CardEditor)
 
 ## Phase 36: Architecture Canvas Enhancements ⬜
 

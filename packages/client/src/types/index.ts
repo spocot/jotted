@@ -229,6 +229,56 @@ export interface ProjectCard {
   position: number;
   createdAt: string;
   updatedAt: string;
+  labels?: ProjectLabel[];
+  checklist?: ProjectChecklistItem[];
+  commentCount?: number;
+}
+
+export interface ProjectLabel {
+  id: string;
+  projectId: string;
+  name: string;
+  color: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectChecklistItem {
+  id: string;
+  cardId: string;
+  text: string;
+  position: number;
+  done: boolean;
+  createdAt: string;
+}
+
+export interface ProjectCardComment {
+  id: string;
+  cardId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  dueDate: string | null;
+  position: number;
+  createdAt: string;
+}
+
+export interface ProjectCardTemplate {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  defaultLabels: string[];
+  defaultChecklist: string[];
+  position: number;
+  createdAt: string;
 }
 
 export interface ProjectArtifact {
@@ -247,7 +297,13 @@ export interface ProjectArtifact {
 export interface ProjectWithDetails extends Project {
   groups: Array<
     ProjectGroup & {
-      columns: Array<ProjectColumn & { cards: ProjectCard[] }>;
+      columns: Array<ProjectColumn & {
+        cards: Array<ProjectCard & {
+          labels: ProjectLabel[];
+          checklist: ProjectChecklistItem[];
+          commentCount: number;
+        }>;
+      }>;
       artifacts: ProjectArtifact[];
     }
   >;

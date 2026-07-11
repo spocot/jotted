@@ -13,6 +13,8 @@ import CanvasPage from "./pages/CanvasPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProjectOverviewPage from "./pages/ProjectOverviewPage";
 import ProjectGroupPage from "./pages/ProjectGroupPage";
+import ProjectAnalyticsPage from "./pages/ProjectAnalyticsPage";
+import ProjectTimelinePage from "./pages/ProjectTimelinePage";
 import TemplatesPage from "./pages/TemplatesPage";
 import {
   useLazyGetNoteByTitleQuery,
@@ -86,6 +88,8 @@ export default function App() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/project/:id" element={<ProjectOverviewPage />} />
         <Route path="/project/:id/group/:groupId" element={<ProjectGroupPage />} />
+        <Route path="/project/:id/analytics" element={<ProjectAnalyticsPage />} />
+        <Route path="/project/:id/timeline" element={<ProjectTimelinePage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         </Routes>
       </Layout>

@@ -27,6 +27,11 @@ import type {
   ProjectColumn,
   ProjectCard,
   ProjectArtifact,
+  ProjectLabel,
+  ProjectChecklistItem,
+  ProjectCardComment,
+  ProjectMilestone,
+  ProjectCardTemplate,
   Template,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
@@ -925,6 +930,192 @@ export const apiSlice = createApi({
       ],
     }),
 
+    // ---- Labels ----
+    getLabels: builder.query<
+      ProjectLabel[],
+      { projectId: string }
+    >({
+      query: ({ projectId }) => `/projects/${projectId}/labels`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    createLabel: builder.mutation<
+      ProjectLabel,
+      { projectId: string; name: string; color?: string }
+    >({
+      query: ({ projectId, ...body }) => ({
+        url: `/projects/${projectId}/labels`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateLabel: builder.mutation<
+      ProjectLabel,
+      { projectId: string; labelId: string; name?: string; color?: string }
+    >({
+      query: ({ projectId, labelId, ...body }) => ({
+        url: `/projects/${projectId}/labels/${labelId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteLabel: builder.mutation<
+      void,
+      { projectId: string; labelId: string }
+    >({
+      query: ({ projectId, labelId }) => ({
+        url: `/projects/${projectId}/labels/${labelId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    addLabelToCard: builder.mutation<
+      void,
+      { projectId: string; cardId: string; labelId: string }
+    >({
+      query: ({ projectId, cardId, labelId }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/labels/${labelId}`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    removeLabelFromCard: builder.mutation<
+      void,
+      { projectId: string; cardId: string; labelId: string }
+    >({
+      query: ({ projectId, cardId, labelId }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/labels/${labelId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Checklists ----
+    getChecklist: builder.query<
+      ProjectChecklistItem[],
+      { projectId: string; cardId: string }
+    >({
+      query: ({ projectId, cardId }) =>
+        `/projects/${projectId}/cards/${cardId}/checklist`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    addChecklistItem: builder.mutation<
+      ProjectChecklistItem,
+      { projectId: string; cardId: string; text: string }
+    >({
+      query: ({ projectId, cardId, ...body }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/checklist`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateChecklistItem: builder.mutation<
+      ProjectChecklistItem,
+      {
+        projectId: string;
+        cardId: string;
+        itemId: string;
+        text?: string;
+        done?: boolean;
+      }
+    >({
+      query: ({ projectId, cardId, itemId, ...body }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/checklist/${itemId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteChecklistItem: builder.mutation<
+      void,
+      { projectId: string; cardId: string; itemId: string }
+    >({
+      query: ({ projectId, cardId, itemId }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/checklist/${itemId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Comments ----
+    getComments: builder.query<
+      ProjectCardComment[],
+      { projectId: string; cardId: string }
+    >({
+      query: ({ projectId, cardId }) =>
+        `/projects/${projectId}/cards/${cardId}/comments`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    addComment: builder.mutation<
+      ProjectCardComment,
+      { projectId: string; cardId: string; body: string }
+    >({
+      query: ({ projectId, cardId, ...body }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/comments`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteComment: builder.mutation<
+      void,
+      { projectId: string; cardId: string; commentId: string }
+    >({
+      query: ({ projectId, cardId, commentId }) => ({
+        url: `/projects/${projectId}/cards/${cardId}/comments/${commentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
     // ---- Templates ----
     getTemplates: builder.query<Template[], { type?: "note" | "project" }>({
       query: ({ type }) => {
@@ -972,6 +1163,110 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { target }) =>
         target === "note" ? ["NoteList"] : ["Project"],
+    }),
+
+    // ---- Milestones ----
+    getMilestones: builder.query<ProjectMilestone[], { projectId: string }>({
+      query: ({ projectId }) => `/projects/${projectId}/milestones`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    createMilestone: builder.mutation<
+      ProjectMilestone,
+      { projectId: string; title: string; description?: string; dueDate?: string }
+    >({
+      query: ({ projectId, ...body }) => ({
+        url: `/projects/${projectId}/milestones`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateMilestone: builder.mutation<
+      ProjectMilestone,
+      { projectId: string; milestoneId: string; title?: string; description?: string; dueDate?: string | null; position?: number }
+    >({
+      query: ({ projectId, milestoneId, ...body }) => ({
+        url: `/projects/${projectId}/milestones/${milestoneId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteMilestone: builder.mutation<
+      void,
+      { projectId: string; milestoneId: string }
+    >({
+      query: ({ projectId, milestoneId }) => ({
+        url: `/projects/${projectId}/milestones/${milestoneId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    // ---- Card Templates ----
+    getCardTemplates: builder.query<ProjectCardTemplate[], { projectId: string }>({
+      query: ({ projectId }) => `/projects/${projectId}/card-templates`,
+      providesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+
+    createCardTemplate: builder.mutation<
+      ProjectCardTemplate,
+      { projectId: string; title: string; description?: string; defaultLabels?: string[]; defaultChecklist?: string[] }
+    >({
+      query: ({ projectId, ...body }) => ({
+        url: `/projects/${projectId}/card-templates`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    updateCardTemplate: builder.mutation<
+      ProjectCardTemplate,
+      { projectId: string; templateId: string; title?: string; description?: string; defaultLabels?: string[]; defaultChecklist?: string[] }
+    >({
+      query: ({ projectId, templateId, ...body }) => ({
+        url: `/projects/${projectId}/card-templates/${templateId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
+    }),
+
+    deleteCardTemplate: builder.mutation<
+      void,
+      { projectId: string; templateId: string }
+    >({
+      query: ({ projectId, templateId }) => ({
+        url: `/projects/${projectId}/card-templates/${templateId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [
+        { type: "Project", id: projectId },
+        "Project",
+      ],
     }),
   }),
 });
@@ -1052,6 +1347,27 @@ export const {
   useCreateArtifactMutation,
   useUpdateArtifactMutation,
   useDeleteArtifactMutation,
+  useGetLabelsQuery,
+  useCreateLabelMutation,
+  useUpdateLabelMutation,
+  useDeleteLabelMutation,
+  useAddLabelToCardMutation,
+  useRemoveLabelFromCardMutation,
+  useGetChecklistQuery,
+  useAddChecklistItemMutation,
+  useUpdateChecklistItemMutation,
+  useDeleteChecklistItemMutation,
+  useGetCommentsQuery,
+  useAddCommentMutation,
+  useDeleteCommentMutation,
+  useGetMilestonesQuery,
+  useCreateMilestoneMutation,
+  useUpdateMilestoneMutation,
+  useDeleteMilestoneMutation,
+  useGetCardTemplatesQuery,
+  useCreateCardTemplateMutation,
+  useUpdateCardTemplateMutation,
+  useDeleteCardTemplateMutation,
   useGetTemplatesQuery,
   useGetTemplateQuery,
   useCreateTemplateMutation,

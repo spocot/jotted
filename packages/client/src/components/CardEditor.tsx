@@ -1,14 +1,33 @@
 import { useState, useEffect } from "react";
-import type { ProjectCard } from "../types";
+import type {
+  ProjectCard,
+  ProjectChecklistItem,
+  ProjectCardTemplate,
+} from "../types";
 import {
   IconX,
   IconCalendarDue,
   IconLink,
+  IconCheck,
+  IconPlus,
 } from "@tabler/icons-react";
-import { useLazySearchNotesQuery } from "../store/redux/api";
+import {
+  useLazySearchNotesQuery,
+  useGetLabelsQuery,
+  useAddLabelToCardMutation,
+  useRemoveLabelFromCardMutation,
+  useAddChecklistItemMutation,
+  useUpdateChecklistItemMutation,
+  useDeleteChecklistItemMutation,
+  useGetCommentsQuery,
+  useAddCommentMutation,
+  useDeleteCommentMutation,
+} from "../store/redux/api";
 
 interface CardEditorProps {
   card?: ProjectCard;
+  projectId: string;
+  cardTemplates?: ProjectCardTemplate[];
   onSave: (data: {
     title: string;
     description: string;
@@ -21,6 +40,8 @@ interface CardEditorProps {
 
 export default function CardEditor({
   card,
+  projectId,
+  cardTemplates,
   onSave,
   onDelete,
   onClose,
@@ -42,6 +63,29 @@ export default function CardEditor({
       setNoteId(card.noteId);
     }
   }, [card?.noteId]);
+
+  // Labels
+  const { data: projectLabels = [] } = useGetLabelsQuery(
+    { projectId },
+    { skip: !projectId }
+  );
+  const [addLabelToCard] = useAddLabelToCardMutation();
+  const [removeLabelFromCard] = useRemoveLabelFromCardMutation();
+
+  // Checklists
+  const [newChecklistText, setNewChecklistText] = useState("");
+  const [addChecklistItem] = useAddChecklistItemMutation();
+  const [updateChecklistItem] = useUpdateChecklistItemMutation();
+  const [deleteChecklistItem] = useDeleteChecklistItemMutation();
+
+  // Comments
+  const { data: comments = [] } = useGetCommentsQuery(
+    { projectId, cardId: card?.id ?? "" },
+    { skip: !projectId || !card?.id }
+  );
+  const [newComment, setNewComment] = useState("");
+  const [addComment] = useAddCommentMutation();
+  const [deleteComment] = useDeleteCommentMutation();
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -72,6 +116,46 @@ export default function CardEditor({
     onClose();
   };
 
+  const handleToggleLabel = async (labelId: string) => {
+    if (!card) return;
+    const hasLabel = card.labels?.some((l) => l.id === labelId);
+    if (hasLabel) {
+      await removeLabelFromCard({ projectId, cardId: card.id, labelId });
+    } else {
+      await addLabelToCard({ projectId, cardId: card.id, labelId });
+    }
+  };
+
+  const handleAddChecklistItem = async () => {
+    if (!card || !newChecklistText.trim()) return;
+    await addChecklistItem({ projectId, cardId: card.id, text: newChecklistText.trim() });
+    setNewChecklistText("");
+  };
+
+  const handleToggleChecklistItem = async (item: ProjectChecklistItem) => {
+    await updateChecklistItem({
+      projectId,
+      cardId: item.cardId,
+      itemId: item.id,
+      done: !item.done,
+    });
+  };
+
+  const handleDeleteChecklistItem = async (item: ProjectChecklistItem) => {
+    await deleteChecklistItem({ projectId, cardId: item.cardId, itemId: item.id });
+  };
+
+  const handleAddComment = async () => {
+    if (!card || !newComment.trim()) return;
+    await addComment({ projectId, cardId: card.id, body: newComment.trim() });
+    setNewComment("");
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!card) return;
+    await deleteComment({ projectId, cardId: card.id, commentId });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md">
@@ -96,6 +180,25 @@ export default function CardEditor({
             className="w-full px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
           />
+
+          {/* Template picker (only for new cards) */}
+          {!card && cardTemplates && cardTemplates.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-xs text-gray-400 self-center mr-1">Templates:</span>
+              {cardTemplates.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  onClick={() => {
+                    setTitle(tpl.title);
+                    setDescription(tpl.description);
+                  }}
+                  className="px-2 py-0.5 text-xs rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                >
+                  {tpl.title}
+                </button>
+              ))}
+            </div>
+          )}
 
           <textarea
             placeholder="Description (optional)"
@@ -176,6 +279,146 @@ export default function CardEditor({
               </div>
             )}
           </div>
+
+          {/* Labels */}
+          {projectId && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Labels</label>
+              <div className="flex flex-wrap gap-1.5">
+                {projectLabels.map((label) => {
+                  const isActive = card?.labels?.some((l) => l.id === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => handleToggleLabel(label.id)}
+                      className={`px-2 py-0.5 text-xs font-medium rounded-full border transition-colors ${
+                        isActive
+                          ? "text-white border-transparent"
+                          : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-gray-400"
+                      }`}
+                      style={isActive ? { backgroundColor: label.color } : undefined}
+                    >
+                      {label.name}
+                    </button>
+                  );
+                })}
+                {projectLabels.length === 0 && (
+                  <span className="text-xs text-gray-400">No labels yet</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Checklist */}
+          {card && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Checklist
+                {card.checklist && card.checklist.length > 0 && (
+                  <span className="ml-1 text-gray-400">
+                    {card.checklist.filter((i) => i.done).length}/{card.checklist.length}
+                  </span>
+                )}
+              </label>
+              {card.checklist && card.checklist.length > 0 && (
+                <div className="space-y-1">
+                  {card.checklist.map((item) => (
+                    <div key={item.id} className="flex items-center gap-2 group">
+                      <button
+                        onClick={() => handleToggleChecklistItem(item)}
+                        className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                          item.done
+                            ? "bg-green-500 border-green-500 text-white"
+                            : "border-gray-300 dark:border-gray-600 hover:border-gray-400"
+                        }`}
+                      >
+                        {item.done && <IconCheck className="w-3 h-3" />}
+                      </button>
+                      <span className={`flex-1 text-sm ${item.done ? "line-through text-gray-400" : "text-gray-900 dark:text-gray-100"}`}>
+                        {item.text}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteChecklistItem(item)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-all"
+                      >
+                        <IconX className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newChecklistText}
+                  onChange={(e) => setNewChecklistText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddChecklistItem();
+                  }}
+                  placeholder="Add item..."
+                  className="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-blue-400"
+                />
+                <button
+                  onClick={handleAddChecklistItem}
+                  disabled={!newChecklistText.trim()}
+                  className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 transition-colors"
+                >
+                  <IconPlus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Comments */}
+          {card && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Comments ({comments.length})
+              </label>
+              {comments.length > 0 && (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="p-2 rounded bg-gray-50 dark:bg-gray-800/50 text-sm group">
+                      <p className="text-gray-900 dark:text-gray-100">{comment.body}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-400">
+                          {new Date(comment.createdAt).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-red-500 transition-all"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                  placeholder="Add a comment..."
+                  className="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-blue-400"
+                />
+                <button
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim()}
+                  className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 transition-colors"
+                >
+                  Post
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700">

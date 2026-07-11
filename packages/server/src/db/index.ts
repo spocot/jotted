@@ -158,6 +158,59 @@ function initSchema(database: Database.Database): void {
       position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS project_labels (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#3b82f6',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_card_labels (
+      card_id TEXT NOT NULL REFERENCES project_cards(id) ON DELETE CASCADE,
+      label_id TEXT NOT NULL REFERENCES project_labels(id) ON DELETE CASCADE,
+      PRIMARY KEY (card_id, label_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS project_card_checklists (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES project_cards(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      done INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_card_comments (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES project_cards(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      due_date TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_card_templates (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      default_labels TEXT NOT NULL DEFAULT '[]',
+      default_checklist TEXT NOT NULL DEFAULT '[]',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate existing notes at root path to /Unsorted
@@ -200,6 +253,13 @@ function initSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_project_cards_column_id ON project_cards(column_id, position);
     CREATE INDEX IF NOT EXISTS idx_project_artifacts_project_id ON project_artifacts(project_id, position);
     CREATE INDEX IF NOT EXISTS idx_project_artifacts_group_id ON project_artifacts(group_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_labels_project_id ON project_labels(project_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_card_labels_card_id ON project_card_labels(card_id);
+    CREATE INDEX IF NOT EXISTS idx_project_card_labels_label_id ON project_card_labels(label_id);
+    CREATE INDEX IF NOT EXISTS idx_project_card_checklists_card_id ON project_card_checklists(card_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_card_comments_card_id ON project_card_comments(card_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_project_card_templates_project_id ON project_card_templates(project_id, position);
+    CREATE INDEX IF NOT EXISTS idx_project_milestones_project_id ON project_milestones(project_id, position);
   `);
 
   // Migration v4: create templates table
