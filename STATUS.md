@@ -447,3 +447,42 @@
 - [x] Canvas Versioning (named snapshots, version list, restore)
 - [x] Keyboard-driven Shape Placement (arrow keys to nudge, Tab to cycle)
 
+## Phase 37: Raw Inquiry (Database Explorer) ⬜
+
+### Backend
+- [ ] `routes/inquiry.ts` — new router mounted at `/api/inquiry`
+- [ ] `GET /api/inquiry/tables` — list all user-facing tables
+- [ ] `GET /api/inquiry/tables/:table/schema` — column metadata via `PRAGMA table_info`
+- [ ] `GET /api/inquiry/tables/:table/rows` — paginated rows with validated sort/order
+- [ ] `GET /api/inquiry/tables/:table/rows/:rowKey` — single row by primary key
+- [ ] Table name whitelisting against `sqlite_master`, parameterized queries only
+
+### Frontend Types
+- [ ] Add `InquiryColumnInfo` and `InquiryRow` to `types/index.ts`
+
+### RTK Query
+- [ ] Add four query endpoints to `api.ts` (`getInquiryTables`, `getInquiryTableSchema`, `getInquiryTableRows`, `getInquiryTableRow`) with `"Inquiry"` tag type
+
+### Components
+- [ ] `TableList.tsx` — sidebar panel with clickable table names and filter input
+- [ ] `TableSchema.tsx` — collapsible column definitions panel (name, type, PK/NOT-NULL badges)
+- [ ] `RowTable.tsx` — sortable HTML table with pagination controls
+- [ ] `RowJsonPanel.tsx` — slide-out JSON viewer for a single row with copy button
+- [ ] `InquiryPage.tsx` — main page at `/inquiry` with sidebar + schema + table + detail layout
+
+### Routing & Navigation
+- [ ] Add `<Route path="/inquiry" element={<InquiryPage />} />` in `App.tsx`
+- [ ] Add `Inquiry` nav link in `Layout.tsx` header
+
+### Verification
+- [ ] Run `npx -w packages/server tsc --noEmit` and `npx -w packages/client tsc --noEmit`
+- [ ] Smoke-test with `npm run dev`
+
+### Future Enhancements (to be completed in a later phase)
+- [ ] Custom SQL query input with server-side safety constraints
+- [ ] CSV/JSON export of table data
+- [ ] Cell-level editing (POST/PUT mutations)
+- [ ] Row count pre-fetch badges per table in sidebar
+- [ ] Column-level search/filter within a table
+- [ ] Virtual FTS table visibility toggle
+

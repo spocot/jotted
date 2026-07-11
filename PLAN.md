@@ -602,6 +602,52 @@ jotted/
 
 ---
 
+### Phase 37: Raw Inquiry (Database Explorer)
+
+A developer/power-user page for browsing all database tables, viewing row data in a tabular list, and inspecting individual rows as JSON.
+
+**New route file** (`packages/server/src/routes/inquiry.ts`), mounted at `/api/inquiry`:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/inquiry/tables` | List all user-facing tables (filters out `sqlite_*`, `*_fts*`, and internal virtual table shadow tables) |
+| `GET` | `/api/inquiry/tables/:table/schema` | Column metadata via `PRAGMA table_info` — name, type, notnull, pk, default |
+| `GET` | `/api/inquiry/tables/:table/rows` | Paginated rows with optional `?sort=col&order=ASC|DESC&limit=&offset=`. Sort column validated against schema; defaults to `rowid`. Max limit 500. |
+| `GET` | `/api/inquiry/tables/:table/rows/:rowKey` | Single row by primary key |
+
+**Security / constraints:**
+- Table names whitelisted against `sqlite_master` — no blind string interpolation
+- Parameterized prepared statements only — no raw SQL execution exposed
+- Read-only — inspection tool, not a data editor
+- 400/404 on invalid table names or columns
+
+**Dependencies:** No new repository class — route handler uses direct `db.prepare()` calls for generic table introspection.
+
+**Frontend — Types** (`types/index.ts`): Add `InquiryColumnInfo` and `InquiryRow`.
+
+**Frontend — RTK Query** (`api.ts`): Four query endpoints (`getInquiryTables`, `getInquiryTableSchema`, `getInquiryTableRows`, `getInquiryTableRow`) under a new `"Inquiry"` tag type.
+
+**Frontend — Components:**
+- `TableList` — sidebar panel listing all tables with name filter. Click to select.
+- `TableSchema` — collapsible panel above data showing column names, types, PK/NOT-NULL badges.
+- `RowTable` — HTML `<table>` with sortable headers. Pagination controls (prev/next, "Row X–Y of Z").
+- `RowJsonPanel` — slide-out panel rendering a single row as formatted JSON via `<pre>`. Copy-to-clipboard button.
+- `InquiryPage` — main page at `/inquiry` with left sidebar (resizable, table list) + main area (schema + data table + row detail).
+
+**Routing:** Add `<Route path="/inquiry" element={<InquiryPage />} />` to `App.tsx`.
+
+**Navigation:** Add `<Link to="/inquiry">Inquiry</Link>` in `Layout.tsx` header nav.
+
+**Future Enhancements (to be flushed out later):**
+- Custom SQL query input with server-side safety constraints (read-only, limited result sets)
+- CSV/JSON export of table data
+- Cell-level editing with POST/PUT mutations
+- Row count pre-fetch badges per table in the sidebar
+- Column-level search/filter within a table
+- Virtual FTS table visibility toggle
+
+---
+
 ## Cross-Platform Build Notes
 
 - `better-sqlite3`: uses `prebuild-install` for prebuilt binaries; falls back to `node-gyp`. Document Windows build tools requirement.
