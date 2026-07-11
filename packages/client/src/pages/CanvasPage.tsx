@@ -3171,7 +3171,7 @@ export default function CanvasPage() {
                     onMouseEnter={() => handleItemMouseEnter(item.id)}
                     onMouseLeave={() => handleItemMouseLeave(item.id)}
                     className={`absolute ${
-                      isDiagramItem(item) ? "" : "rounded-lg shadow-lg overflow-hidden"
+                      isDiagramItem(item) || item.type === "group" ? "" : "rounded-lg shadow-lg overflow-hidden"
                     } cursor-move transition-shadow hover:shadow-xl select-none ${
                       selectedItemIds.has(item.id)
                         ? "ring-2 ring-blue-400 dark:ring-blue-500"
