@@ -34,6 +34,8 @@ import type {
   ProjectCardTemplate,
   Template,
   CanvasVersion,
+  InquiryColumnInfo,
+  InquiryRow,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -80,6 +82,7 @@ export const apiSlice = createApi({
     "Project",
     "Graph",
     "Template",
+    "Inquiry",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -1356,6 +1359,47 @@ export const apiSlice = createApi({
         "Project",
       ],
     }),
+
+    getInquiryTables: builder.query<string[], void>({
+      query: () => "/inquiry/tables",
+      providesTags: ["Inquiry"],
+    }),
+
+    getInquiryTableSchema: builder.query<InquiryColumnInfo[], string>({
+      query: (table) => `/inquiry/tables/${table}/schema`,
+      providesTags: (_result, _error, table) => [
+        { type: "Inquiry", id: `schema:${table}` },
+      ],
+    }),
+
+    getInquiryTableRows: builder.query<
+      PageResponse<InquiryRow>,
+      { table: string; sort?: string; order?: string; limit?: number; offset?: number }
+    >({
+      query: ({ table, sort, order, limit, offset }) => {
+        const params = new URLSearchParams();
+        if (sort) params.set("sort", sort);
+        if (order) params.set("order", order);
+        if (limit !== undefined) params.set("limit", String(limit));
+        if (offset !== undefined) params.set("offset", String(offset));
+        const qs = params.toString();
+        return `/inquiry/tables/${table}/rows${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: (_result, _error, { table }) => [
+        { type: "Inquiry", id: `rows:${table}` },
+      ],
+    }),
+
+    getInquiryTableRow: builder.query<
+      InquiryRow,
+      { table: string; rowKey: string }
+    >({
+      query: ({ table, rowKey }) =>
+        `/inquiry/tables/${table}/rows/${encodeURIComponent(rowKey)}`,
+      providesTags: (_result, _error, { table, rowKey }) => [
+        { type: "Inquiry", id: `row:${table}:${rowKey}` },
+      ],
+    }),
   }),
 });
 
@@ -1470,4 +1514,10 @@ export const {
   useUpdateTemplateMutation,
   useDeleteTemplateMutation,
   useApplyTemplateMutation,
+  useGetInquiryTablesQuery,
+  useGetInquiryTableSchemaQuery,
+  useGetInquiryTableRowsQuery,
+  useLazyGetInquiryTableRowsQuery,
+  useGetInquiryTableRowQuery,
+  useLazyGetInquiryTableRowQuery,
 } = apiSlice;

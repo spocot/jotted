@@ -22,6 +22,7 @@ import { createCalendarRouter } from "./routes/calendar.js";
 import { createOutlookRouter } from "./routes/outlook.js";
 import { createProjectsRouter } from "./routes/projects.js";
 import { createTemplatesRouter } from "./routes/templates.js";
+import { createInquiryRouter } from "./routes/inquiry.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +68,7 @@ app.use("/api/calendar", createCalendarRouter(noteRepo));
 app.use("/api/calendar/outlook", createOutlookRouter());
 app.use("/api/projects", createProjectsRouter(projectRepo));
 app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectRepo, tagRepo));
+app.use("/api/inquiry", createInquiryRouter());
 
 function seedBuiltInTemplates(repo: TemplateRepository): void {
   const existing = repo.list();

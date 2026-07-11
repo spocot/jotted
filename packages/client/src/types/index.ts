@@ -369,3 +369,14 @@ export interface ProjectTemplateGroup {
 export interface ProjectTemplateContent {
   groups: ProjectTemplateGroup[];
 }
+
+export interface InquiryColumnInfo {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dfltValue: string | null;
+  pk: number;
+}
+
+export type InquiryRow = Record<string, unknown>;
