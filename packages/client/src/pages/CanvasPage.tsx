@@ -3409,10 +3409,17 @@ export default function CanvasPage() {
                       </>
                     ) : item.type === "group" ? (
                       <>
-                        <div className="absolute inset-0 border-2 border-dashed border-gray-400 dark:border-gray-500 bg-gray-200/10 dark:bg-gray-700/10 rounded-lg pointer-events-none">
-                          <div className="absolute -top-5 left-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-gray-800/80 px-1.5 py-0.5 rounded">
+                        <div
+                          className="absolute inset-0 border-2 border-dashed border-gray-400 dark:border-gray-500 rounded-lg pointer-events-none"
+                          style={{ backgroundColor: item.color + "20" }}
+                        />
+                        <div className="absolute top-0 left-3 -translate-y-1/2 pointer-events-none select-none">
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1 py-px"
+                            style={{ backgroundColor: item.color }}
+                          >
                             {item.text}
-                          </div>
+                          </span>
                         </div>
                         {/* Resize handle */}
                         <div
