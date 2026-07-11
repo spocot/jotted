@@ -3415,9 +3415,10 @@ export default function CanvasPage() {
                         />
                         <div className="absolute top-0 left-3 -translate-y-1/2 pointer-events-none select-none">
                           <span
-                            className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1 py-px"
+                            className="absolute inset-x-0 top-1/2 h-[3px]"
                             style={{ backgroundColor: item.color }}
-                          >
+                          />
+                          <span className="relative top-[2px] text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">
                             {item.text}
                           </span>
                         </div>
