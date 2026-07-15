@@ -95,12 +95,66 @@ The server stores the SQLite database and uploaded files in the mounted `/data` 
 | `DB_PATH` | `/data/jotted.db` | SQLite database path |
 | `UPLOADS_DIR` | `/data/uploads` | File upload directory |
 
-### Deploying the Client (GitHub Pages)
+### Deploying the Client
+
+#### GitHub Pages
 
 1. Fork the repository
 2. Go to **Settings → Pages** and set source to **GitHub Actions**
 3. The included workflow (`.github/workflows/deploy-client.yml`) builds and deploys on every push to `main`
 4. Your client will be available at `https://<username>.github.io/jotted`
+
+#### Self-Hosted Web Server
+
+Build the client with a `--base` flag matching the subdirectory where it will be served:
+
+```bash
+# Build for root (e.g. https://example.com/)
+npm run build -w packages/client
+
+# Build for a subdirectory (e.g. https://example.com/jotted/)
+npm run build -w packages/client -- --base /jotted/
+```
+
+The output is in `packages/client/dist/`. Serve this directory with any static file server. You must configure SPA fallback so that all client-side routes (e.g. `/note/123`) are served by `index.html`.
+
+**nginx:**
+```
+server {
+    listen 80;
+    server_name example.com;
+
+    location /jotted/ {
+        alias /path/to/jotted/packages/client/dist/;
+        try_files $uri $uri/ /jotted/index.html;
+    }
+}
+```
+
+**Apache `.htaccess`:**
+```
+RewriteEngine On
+RewriteBase /jotted/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /jotted/index.html [L]
+```
+
+**Caddy:**
+```
+example.com {
+    handle_path /jotted/* {
+        root * /path/to/jotted/packages/client/dist/
+        try_files {path} /index.html
+        file_server
+    }
+}
+```
+
+**One-liner for local testing:**
+```bash
+npx serve packages/client/dist -l 4173
+```
 
 ### Connecting Client to Server
 
