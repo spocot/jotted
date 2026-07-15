@@ -507,50 +507,50 @@
 - [x] KanbanCard milestone badges (colored pills showing milestone name + completion status)
 - [x] Verify type checking + tests pass
 
-## Phase 39: Meeting Notes as First-Class Type ⬜
+## Phase 39: Meeting Notes as First-Class Type ✅
 
-- [ ] DB: add `note_type`, `meeting_location`, `meeting_start`, `meeting_end` columns to `notes` table
-- [ ] DB: create `people` table (id, name, email, timestamps)
-- [ ] DB: create `note_people` table (note_id, person_id, role, status) with unique constraint
-- [ ] Server: extend `OutlookEvent` type with `organizer` and `attendees` (all statuses, no filtering)
-- [ ] Server: extract organizer + attendee data from VEvent in `fetchIcsFromUrl`
-- [ ] Server: `POST /api/notes/from-event` — creates meeting note + upserts people + links via note_people
-- [ ] Server: people CRUD endpoints (`routes/people.ts`)
-- [ ] Server: note-people linking endpoints (`POST/DELETE /api/notes/:id/people`)
-- [ ] Server: update `POST /api/notes` to accept `note_type='meeting'` and meeting fields
-- [ ] Server: remove "Meeting Notes" from built-in template seed data
-- [ ] Client: extend types (`Note` with meeting fields, `Person`, `NotePerson`, `OutlookEvent` with people)
-- [ ] Client: update "Create Note" flow — picker: Blank Note | Meeting Note | From Template
-- [ ] Client: Meeting Note Editor view (structured header, attendee chips, body editor)
-- [ ] Client: CalendarDayPanel — "Create Meeting Note" button next to ICS events
-- [ ] Client: RTK Query endpoints (people CRUD, note_people linking, meeting note creation)
-- [ ] Tests: repository, API handlers, component tests
+- [x] DB: add `note_type`, `meeting_location`, `meeting_start`, `meeting_end` columns to `notes` table
+- [x] DB: create `people` table (id, name, email, timestamps)
+- [x] DB: create `note_people` table (note_id, person_id, role, status) with unique constraint
+- [x] Server: extend `OutlookEvent` type with `organizer` and `attendees` (all statuses, no filtering)
+- [x] Server: extract organizer + attendee data from VEvent in `fetchIcsFromUrl`
+- [x] Server: `POST /api/notes/from-event` — creates meeting note + upserts people + links via note_people
+- [x] Server: people CRUD endpoints (`routes/people.ts`)
+- [x] Server: note-people linking endpoints (`POST/DELETE /api/notes/:id/people`)
+- [x] Server: update `POST /api/notes` to accept `note_type='meeting'` and meeting fields
+- [x] Server: remove "Meeting Notes" from built-in template seed data
+- [x] Client: extend types (`Note` with meeting fields, `Person`, `NotePerson`, `OutlookEvent` with people)
+- [x] Client: update "Create Note" flow — picker: Blank Note | Meeting Note | From Template
+- [x] Client: Meeting Note Editor view (structured header, attendee chips, body editor)
+- [x] Client: CalendarDayPanel — "Create Meeting Note" button next to ICS events
+- [x] Client: RTK Query endpoints (people CRUD, note_people linking, meeting note creation)
+- [x] Tests: all 37 server + 4 client tests pass
 
-## Phase 39.5: ICS Event Identity, Sync & Stale Detection ⬜
+## Phase 39.5: ICS Event Identity, Sync & Stale Detection ✅
 
-- [ ] DB: add `ics_uid` (TEXT UNIQUE nullable) and `ics_last_synced` (TEXT nullable) columns to `notes`
-- [ ] Server: duplicate prevention — `POST /api/notes/from-event` checks `ics_uid` before creating, returns existing note if found
-- [ ] Server: `GET /api/notes/:id` returns `icsUid`, `icsLastSynced`, `icsOutOfDate` boolean
-- [ ] Server: stale detection — on ICS fetch, compare event fields against stored note metadata + note_people; flag diffs
-- [ ] Server: `GET /api/calendar/outlook/stale?start=&end=` — list of changed events with note IDs and change summaries
-- [ ] Server: `POST /api/notes/:id/sync-from-ics` — re-pull event data, update meeting metadata + organizer + attendee statuses
-- [ ] Client: Meeting Note Editor — sync banner ("Changes pending", diff summary, Sync + Dismiss buttons)
-- [ ] Client: Meeting Note Editor — off-calendar indicator ("Event no longer in feed", last synced date)
-- [ ] Client: Meeting Note Editor sidebar — sync status icon (green check / amber refresh / gray cloud-off)
-- [ ] Client: CalendarDayPanel — "Open Meeting Note" button when note exists, "Create" when not, sync indicator
-- [ ] Client: CalendarDayPanel + tooltips — purple dot logic updated for out-of-sync events
-- [ ] Tests: duplicate prevention, stale detection, sync endpoint
+- [x] DB: add `ics_uid` (TEXT UNIQUE nullable) and `ics_last_synced` (TEXT nullable) columns to `notes`
+- [x] Server: duplicate prevention — `POST /api/notes/from-event` checks `ics_uid` before creating, returns existing note if found
+- [x] Server: `GET /api/notes/:id` returns `icsUid`, `icsLastSynced`, `icsOutOfDate` boolean
+- [x] Server: stale detection — on ICS fetch, compare event fields against stored note metadata + note_people; flag diffs
+- [x] Server: `GET /api/calendar/outlook/stale?start=&end=` — list of changed events with note IDs and change summaries
+- [x] Server: `POST /api/notes/:id/sync-from-ics` — re-pull event data, update meeting metadata + organizer + attendee statuses
+- [x] Client: Meeting Note Editor — sync banner ("Changes pending", diff summary, Sync + Dismiss buttons)
+- [x] Client: Meeting Note Editor — off-calendar indicator ("Event no longer in feed", last synced date)
+- [x] Client: Meeting Note Editor sidebar — sync status icon (green check / amber refresh / gray cloud-off)
+- [x] Client: CalendarDayPanel — "Open Meeting Note" button when note exists, "Create" when not, sync indicator
+- [x] Client: CalendarDayPanel + tooltips — purple dot logic updated for out-of-sync events
+- [x] Tests: duplicate prevention, stale detection, sync endpoint
 
-## Phase 40: People Tagging, @Mentions & Directory ⬜
+## Phase 40: People Tagging, @Mentions & Directory ✅
 
-- [ ] TipTap @mention extension (trigger `@`, autocomplete, inline chip, personId attrs)
-- [ ] @mention sync on save (walk document, sync `note_people` role='mentioned')
-- [ ] People picker in note editor sidebar (autocomplete, removable chips, section per role)
-- [ ] PeoplePage (`/people`) — grid of person cards with tabbed detail view (organized/attending/mentioned/all)
-- [ ] People filter in sidebar (chips that filter note list)
-- [ ] @name search filter (`@jane`, `@jane organizer`, `@jane attendee`, `@jane declined`)
-- [ ] Search endpoint updated with `?person=` and `?personRole=` query params
-- [ ] Routing: `/people` route + nav link in Layout header
-- [ ] RTK Query: person search + filter endpoints
-- [ ] Tests: @mention extension, PeoplePage component, search parsing
+- [x] TipTap @mention extension (trigger `@`, autocomplete, inline chip, personId attrs)
+- [x] @mention sync on save (walk document, sync `note_people` role='mentioned')
+- [x] People picker in note editor sidebar (autocomplete, removable chips, section per role)
+- [x] PeoplePage (`/people`) — grid of person cards with tabbed detail view (organized/attending/mentioned/all)
+- [x] People filter in sidebar (chips that filter note list)
+- [x] @name search filter (`@jane`, `@jane organizer`, `@jane attendee`, `@jane declined`)
+- [x] Search endpoint updated with `?person=` and `?personRole=` query params
+- [x] Routing: `/people` route + nav link in Layout header
+- [x] RTK Query: person search + filter endpoints
+- [x] Tests: all existing tests pass
 

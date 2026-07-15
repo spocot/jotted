@@ -91,6 +91,9 @@ export default function Layout({ children }: LayoutProps) {
           <Link to="/inquiry" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
             Inquiry
           </Link>
+          <Link to="/people" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
+            People
+          </Link>
           <button
             onClick={() => {
               const today = new Date().toISOString().slice(0, 10);

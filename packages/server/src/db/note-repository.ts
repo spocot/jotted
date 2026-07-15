@@ -8,6 +8,12 @@ export interface Note {
   title: string;
   content: string;
   path: string;
+  noteType: string;
+  meetingLocation: string | null;
+  meetingStart: string | null;
+  meetingEnd: string | null;
+  icsUid: string | null;
+  icsLastSynced: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,12 +22,23 @@ export interface NoteCreatePayload {
   title?: string;
   content?: string;
   path?: string;
+  noteType?: string;
+  meetingLocation?: string;
+  meetingStart?: string;
+  meetingEnd?: string;
+  icsUid?: string;
+  icsLastSynced?: string;
 }
 
 export interface NoteUpdatePayload {
   title?: string;
   content?: string;
   path?: string;
+  meetingLocation?: string;
+  meetingStart?: string;
+  meetingEnd?: string;
+  icsUid?: string;
+  icsLastSynced?: string;
 }
 
 export interface NoteListParams {
@@ -31,17 +48,20 @@ export interface NoteListParams {
   tag?: string;
   sort?: string | null;
   order?: "ASC" | "DESC";
+  noteType?: string;
 }
 
 export class NoteRepository {
   private insertNote: Database.Statement;
   private insertFts: Database.Statement;
   private updateNote: Database.Statement;
+  private updateNoteMeeting: Database.Statement;
   private updateFts: Database.Statement;
   private deleteNote: Database.Statement;
   private deleteFts: Database.Statement;
   private getNoteById: Database.Statement;
   private getNoteByTitle: Database.Statement;
+  private getNoteByIcsUid: Database.Statement;
   private findContentContainingStmt: Database.Statement;
   private getByDateRangeStmt: Database.Statement;
   private getCreatedByDateRangeStmt: Database.Statement;
@@ -49,10 +69,23 @@ export class NoteRepository {
   private titleExistsExcludeStmt: Database.Statement;
   private dailyNotesStmt: Database.Statement;
   private dailyNotesCountStmt: Database.Statement;
+  private notesWithIcsUidStmt: Database.Statement;
+  private updateIcsLastSyncedStmt: Database.Statement;
+
+  private static readonly SELECT_COLS = `
+    n.id, n.title, n.content, n.path,
+    n.note_type AS noteType,
+    n.meeting_location AS meetingLocation,
+    n.meeting_start AS meetingStart,
+    n.meeting_end AS meetingEnd,
+    n.ics_uid AS icsUid,
+    n.ics_last_synced AS icsLastSynced,
+    n.created_at AS createdAt, n.updated_at AS updatedAt
+  `;
 
   constructor(public db: Database.Database) {
     this.insertNote = db.prepare(
-      "INSERT INTO notes (id, title, content, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO notes (id, title, content, path, note_type, meeting_location, meeting_start, meeting_end, ics_uid, ics_last_synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     this.insertFts = db.prepare(
       "INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)",
@@ -60,38 +93,50 @@ export class NoteRepository {
     this.updateNote = db.prepare(
       "UPDATE notes SET title = ?, content = ?, path = ?, updated_at = ? WHERE id = ?",
     );
+    this.updateNoteMeeting = db.prepare(
+      "UPDATE notes SET meeting_location = ?, meeting_start = ?, meeting_end = ?, ics_last_synced = ?, updated_at = ? WHERE id = ?",
+    );
     this.updateFts = db.prepare(
       "UPDATE notes_fts SET title = ?, content = ? WHERE note_id = ?",
     );
     this.deleteNote = db.prepare("DELETE FROM notes WHERE id = ?");
     this.deleteFts = db.prepare("DELETE FROM notes_fts WHERE note_id = ?");
     this.getNoteById = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE id = ?",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.id = ?`,
     );
     this.getNoteByTitle = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE title = ? LIMIT 1",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.title = ? LIMIT 1`,
+    );
+    this.getNoteByIcsUid = db.prepare(
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.ics_uid = ? LIMIT 1`,
     );
     this.findContentContainingStmt = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE content LIKE ? ORDER BY updated_at DESC",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.content LIKE ? ORDER BY n.updated_at DESC`,
     );
     this.getByDateRangeStmt = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE date(created_at) >= ? AND date(created_at) <= ? ORDER BY created_at ASC",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE date(n.created_at) >= ? AND date(n.created_at) <= ? ORDER BY n.created_at ASC`,
     );
     this.getCreatedByDateRangeStmt = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE date(updated_at) >= ? AND date(updated_at) <= ? ORDER BY updated_at ASC",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE date(n.updated_at) >= ? AND date(n.updated_at) <= ? ORDER BY n.updated_at ASC`,
     );
     this.titleExistsStmt = db.prepare("SELECT 1 FROM notes WHERE title = ?");
     this.titleExistsExcludeStmt = db.prepare("SELECT 1 FROM notes WHERE title = ? AND id != ?");
     this.dailyNotesStmt = db.prepare(
-      "SELECT id, title, content, path, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' ORDER BY title DESC LIMIT ? OFFSET ?",
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' ORDER BY n.title DESC LIMIT ? OFFSET ?`,
     );
     this.dailyNotesCountStmt = db.prepare(
       "SELECT COUNT(*) AS count FROM notes WHERE title GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'",
     );
+    this.notesWithIcsUidStmt = db.prepare(
+      `SELECT ${NoteRepository.SELECT_COLS} FROM notes n WHERE n.ics_uid IS NOT NULL`,
+    );
+    this.updateIcsLastSyncedStmt = db.prepare(
+      "UPDATE notes SET ics_last_synced = ?, updated_at = ? WHERE id = ?",
+    );
   }
 
   list(params: NoteListParams): PageResponse<Note> {
-    const { folder, tag, sort, order, limit, offset } = params;
+    const { folder, tag, sort, order, limit, offset, noteType } = params;
 
     const joins: string[] = [];
     const conditions: string[] = [];
@@ -107,6 +152,11 @@ export class NoteRepository {
       joins.push("JOIN tags t ON nt.tag_id = t.id");
       conditions.push("t.name = ?");
       queryParams.push(tag);
+    }
+
+    if (noteType) {
+      conditions.push("n.note_type = ?");
+      queryParams.push(noteType);
     }
 
     const fromClause = `FROM notes n ${joins.join(" ")}`;
@@ -125,7 +175,7 @@ export class NoteRepository {
     const total = Number(Object.values(countResult)[0]);
 
     const dataSql = `
-      SELECT n.id, n.title, n.content, n.path, n.created_at AS createdAt, n.updated_at AS updatedAt
+      SELECT ${NoteRepository.SELECT_COLS}
       ${fromClause} ${whereClause}
       ORDER BY ${sortColumn} ${sortDir}
       LIMIT ? OFFSET ?
@@ -210,14 +260,50 @@ export class NoteRepository {
     const now = new Date().toISOString();
     const title = payload.title ?? "";
     const content = payload.content ?? "";
+    const noteType = payload.noteType ?? "note";
+    const meetingLocation = payload.meetingLocation ?? null;
+    const meetingStart = payload.meetingStart ?? null;
+    const meetingEnd = payload.meetingEnd ?? null;
+    const icsUid = payload.icsUid ?? null;
+    const icsLastSynced = payload.icsLastSynced ?? null;
 
     const transaction = this.db.transaction(() => {
-      this.insertNote.run(id, title, content, payload.path ?? "/Unsorted", now, now);
+      this.insertNote.run(
+        id, title, content, payload.path ?? "/Unsorted",
+        noteType, meetingLocation, meetingStart, meetingEnd,
+        icsUid, icsLastSynced, now, now,
+      );
       this.insertFts.run(id, title, content);
     });
     transaction();
 
     return this.getById(id)!;
+  }
+
+  getByIcsUid(icsUid: string): Note | null {
+    return (this.getNoteByIcsUid.get(icsUid) as Note | null) ?? null;
+  }
+
+  getNotesWithIcsUid(): Note[] {
+    return this.notesWithIcsUidStmt.all() as Note[];
+  }
+
+  updateMeetingFields(
+    id: string,
+    fields: { meetingLocation?: string; meetingStart?: string; meetingEnd?: string; icsLastSynced?: string },
+  ): Note | null {
+    const existing = this.getById(id);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    this.updateNoteMeeting.run(
+      fields.meetingLocation ?? existing.meetingLocation,
+      fields.meetingStart ?? existing.meetingStart,
+      fields.meetingEnd ?? existing.meetingEnd,
+      fields.icsLastSynced ?? existing.icsLastSynced,
+      now,
+      id,
+    );
+    return this.getById(id);
   }
 
   update(id: string, payload: NoteUpdatePayload): Note | null {

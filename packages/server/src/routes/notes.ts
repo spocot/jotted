@@ -1,8 +1,9 @@
 import { Router } from "express";
-import type { NoteRepository } from "../db/note-repository.js";
+import type { NoteRepository, NoteCreatePayload } from "../db/note-repository.js";
 import type { TagRepository } from "../db/tag-repository.js";
 import type { LinkRepository } from "../db/link-repository.js";
 import type { VersionRepository } from "../db/version-repository.js";
+import type { PeopleRepository } from "../db/people-repository.js";
 import { parseContent } from "../parser/index.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest, Conflict, NotFound } from "../lib/errors.js";
@@ -20,6 +21,7 @@ export function createNotesRouter(
   tagRepo: TagRepository,
   linkRepo: LinkRepository,
   versionRepo?: VersionRepository,
+  peopleRepo?: PeopleRepository,
 ): Router {
   const router = Router();
 
@@ -33,7 +35,7 @@ export function createNotesRouter(
   router.get(
     "/",
     asyncHandler(async (req, res) => {
-      const { folder, tag, sort, order, limit, offset } = req.query;
+      const { folder, tag, sort, order, limit, offset, note_type } = req.query;
       const result = noteRepo.list({
         limit: clampLimit(limit, DEFAULT_LIMIT, MAX_LIMIT),
         offset: Math.max(0, Number(offset) || 0),
@@ -41,6 +43,7 @@ export function createNotesRouter(
         tag: typeof tag === "string" && tag ? tag : undefined,
         sort: parseSort(sort),
         order: parseOrder(order),
+        noteType: typeof note_type === "string" ? note_type : undefined,
       });
       res.json(result);
     }),
@@ -49,7 +52,7 @@ export function createNotesRouter(
   router.post(
     "/",
     asyncHandler(async (req, res) => {
-      const { title, content, path } = req.body;
+      const { title, content, path, noteType, meetingLocation, meetingStart, meetingEnd } = req.body;
 
       if (!title && !content) {
         throw new BadRequest("title or content is required");
@@ -59,10 +62,25 @@ export function createNotesRouter(
         throw new BadRequest("path must be a string starting with /");
       }
 
-      const note = noteRepo.create({ title, content, path });
+      if (noteType && !["note", "meeting"].includes(noteType)) {
+        throw new BadRequest("noteType must be 'note' or 'meeting'");
+      }
+
+      const payload: NoteCreatePayload = { title, content, path };
+      if (noteType) payload.noteType = noteType;
+      if (meetingLocation !== undefined) payload.meetingLocation = meetingLocation || undefined;
+      if (meetingStart !== undefined) payload.meetingStart = meetingStart || undefined;
+      if (meetingEnd !== undefined) payload.meetingEnd = meetingEnd || undefined;
+
+      const note = noteRepo.create(payload);
       syncNoteRelations(note.id, content ?? "", noteRepo, tagRepo, linkRepo);
 
-      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo);
+      if (noteType === "meeting" && tagRepo) {
+        const meetingTag = tagRepo.upsert("meeting");
+        tagRepo.addToNote(note.id, meetingTag.id);
+      }
+
+      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
       res.status(201).json(full);
     }),
   );
@@ -104,8 +122,10 @@ export function createNotesRouter(
       const tags = tagRepo.getTagsForNote(id);
       const backlinks = linkRepo.getBacklinks(id);
       const outgoingLinks = linkRepo.getOutgoingLinks(id);
+      const people = peopleRepo ? peopleRepo.getNotePeople(id) : [];
+      const icsOutOfDate = note.icsUid ? checkIcsOutOfDate(note, peopleRepo) : false;
 
-      res.json({ ...note, tags, backlinks, outgoingLinks });
+      res.json({ ...note, tags, backlinks, outgoingLinks, people, icsOutOfDate });
     }),
   );
 
@@ -183,7 +203,7 @@ export function createNotesRouter(
 
       syncNoteRelations(note.id, note.content, noteRepo, tagRepo, linkRepo);
 
-      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo);
+      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
       res.json(full);
     }),
   );
@@ -238,6 +258,192 @@ export function createNotesRouter(
     }),
   );
 
+  router.post(
+    "/from-event",
+    asyncHandler(async (req, res) => {
+      const {
+        title, date, start, end, location,
+        organizer, attendees,
+      } = req.body;
+
+      if (!title || !date) {
+        throw new BadRequest("title and date are required");
+      }
+
+      if (!peopleRepo) {
+        throw new BadRequest("People repository not available");
+      }
+
+      // Check for duplicate by ICS UID (if provided)
+      const icsUid: string | undefined = req.body.icsUid;
+      if (icsUid) {
+        const existingNote = noteRepo.getByIcsUid(icsUid);
+        if (existingNote) {
+          const full = enrichNote(existingNote.id, noteRepo, tagRepo, linkRepo, peopleRepo);
+          res.json(full);
+          return;
+        }
+      }
+
+      const meetingContent = `# ${title}
+
+## Agenda
+
+1.
+
+## Action Items
+
+- [ ]
+
+## Notes
+`;
+
+      const now = new Date().toISOString();
+      const note = noteRepo.create({
+        title: `Meeting: ${title}`,
+        content: meetingContent,
+        path: "/Meetings",
+        noteType: "meeting",
+        meetingLocation: location || undefined,
+        meetingStart: start ? new Date(start).toISOString() : undefined,
+        meetingEnd: end ? new Date(end).toISOString() : undefined,
+        icsUid: icsUid || undefined,
+        icsLastSynced: icsUid ? now : undefined,
+      });
+
+      // Auto-link meeting tag
+      const meetingTag = tagRepo.upsert("meeting");
+      tagRepo.addToNote(note.id, meetingTag.id);
+
+      // Link organizer
+      if (organizer) {
+        const orgPerson = peopleRepo.upsert(organizer.name, organizer.email);
+        peopleRepo.linkToNote(note.id, orgPerson.id, "organizer");
+      }
+
+      // Link attendees with status
+      if (attendees && Array.isArray(attendees)) {
+        for (const att of attendees) {
+          const attPerson = peopleRepo.upsert(att.name, att.email);
+          peopleRepo.linkToNote(note.id, attPerson.id, "attendee", att.status ?? null);
+        }
+      }
+
+      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
+      res.status(201).json(full);
+    }),
+  );
+
+  // Sync meeting note from ICS
+  router.post(
+    "/:id/sync-from-ics",
+    asyncHandler(async (req, res) => {
+      const note = noteRepo.getById(req.params.id as string);
+      if (!note) throw new NotFound("Note not found");
+      if (note.noteType !== "meeting") {
+        throw new BadRequest("Only meeting notes can be synced from ICS");
+      }
+      if (!note.icsUid) {
+        throw new BadRequest("Note is not linked to an ICS event");
+      }
+      if (!peopleRepo) {
+        throw new BadRequest("People repository not available");
+      }
+
+      const {
+        title, start, end, location,
+        organizer, attendees,
+      } = req.body;
+
+      const now = new Date().toISOString();
+
+      // Update meeting metadata
+      if (start || end || location) {
+        noteRepo.updateMeetingFields(note.id, {
+          meetingLocation: location !== undefined ? location : undefined,
+          meetingStart: start ? new Date(start).toISOString() : undefined,
+          meetingEnd: end ? new Date(end).toISOString() : undefined,
+          icsLastSynced: now,
+        });
+      } else {
+        noteRepo.updateMeetingFields(note.id, { icsLastSynced: now });
+      }
+
+      // Update title if changed
+      if (title && title !== note.title) {
+        noteRepo.update(note.id, { title: `Meeting: ${title}` });
+      }
+
+      // Update organizer
+      if (organizer) {
+        peopleRepo.clearRoleFromNote(note.id, "organizer");
+        const orgPerson = peopleRepo.upsert(organizer.name, organizer.email);
+        peopleRepo.linkToNote(note.id, orgPerson.id, "organizer");
+      }
+
+      // Update attendees — upsert with new statuses, keep existing removed ones
+      if (attendees && Array.isArray(attendees)) {
+        for (const att of attendees) {
+          const attPerson = peopleRepo.upsert(att.name, att.email);
+          peopleRepo.linkToNote(note.id, attPerson.id, "attendee", att.status ?? null);
+        }
+      }
+
+      const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
+      res.json(full);
+    }),
+  );
+
+  // Link people to note
+  router.post(
+    "/:id/people",
+    asyncHandler(async (req, res) => {
+      const noteId = req.params.id as string;
+      const note = noteRepo.getById(noteId);
+      if (!note) throw new NotFound("Note not found");
+      if (!peopleRepo) throw new BadRequest("People repository not available");
+
+      const { personIds, role, status } = req.body;
+      if (!Array.isArray(personIds) || personIds.length === 0) {
+        throw new BadRequest("personIds array is required");
+      }
+      if (!role || !["organizer", "attendee", "mentioned"].includes(role)) {
+        throw new BadRequest("role must be 'organizer', 'attendee', or 'mentioned'");
+      }
+
+      for (const personId of personIds) {
+        peopleRepo.linkToNote(noteId, personId, role, status ?? null);
+      }
+
+      const full = enrichNote(noteId, noteRepo, tagRepo, linkRepo, peopleRepo);
+      res.json(full);
+    }),
+  );
+
+  // Unlink person from note
+  router.delete(
+    "/:id/people/:personId",
+    asyncHandler(async (req, res) => {
+      const noteId = req.params.id as string;
+      const personId = req.params.personId as string;
+      const role = typeof req.query.role === "string" ? req.query.role : null;
+
+      if (!peopleRepo) throw new BadRequest("People repository not available");
+
+      if (role) {
+        peopleRepo.unlinkFromNote(noteId, personId, role);
+      } else {
+        // Remove all roles for this person on this note
+        for (const r of ["organizer", "attendee", "mentioned"]) {
+          peopleRepo.unlinkFromNote(noteId, personId, r);
+        }
+      }
+
+      const full = enrichNote(noteId, noteRepo, tagRepo, linkRepo, peopleRepo);
+      res.json(full);
+    }),
+  );
+
   return router;
 }
 
@@ -285,6 +491,7 @@ function enrichNote(
   noteRepo: NoteRepository,
   tagRepo: TagRepository,
   linkRepo: LinkRepository,
+  peopleRepo?: PeopleRepository,
 ): Record<string, unknown> {
   const note = noteRepo.getById(noteId);
   if (!note) return {};
@@ -292,6 +499,20 @@ function enrichNote(
   const tags = tagRepo.getTagsForNote(noteId);
   const backlinks = linkRepo.getBacklinks(note.id);
   const outgoingLinks = linkRepo.getOutgoingLinks(note.id);
+  const people = peopleRepo ? peopleRepo.getNotePeople(note.id) : [];
+  const icsOutOfDate = note.icsUid ? checkIcsOutOfDate(note, peopleRepo) : false;
 
-  return { ...note, tags, backlinks, outgoingLinks };
+  return { ...note, tags, backlinks, outgoingLinks, people, icsOutOfDate };
+}
+
+function checkIcsOutOfDate(
+  _note: { icsUid: string | null; icsLastSynced: string | null },
+  _peopleRepo?: PeopleRepository,
+): boolean {
+  // This is a placeholder — actual stale detection happens in the outlook
+  // sync flow when the ICS feed is re-fetched. The flag is primarily set
+  // by the /api/calendar/outlook/stale endpoint and synced via
+  // sync-from-ics. For now, we return false — the client can rely on the
+  // stale endpoint for accurate data.
+  return false;
 }

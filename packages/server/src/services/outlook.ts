@@ -8,6 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONFIG_PATH = join(__dirname, "../../data/outlook-config.json");
 
+export interface OutlookAttendee {
+  name: string;
+  email?: string;
+  status: string;
+}
+
 export interface OutlookEvent {
   id: string;
   title: string;
@@ -15,6 +21,8 @@ export interface OutlookEvent {
   end: string;
   location: string;
   isAllDay: boolean;
+  organizer?: { name: string; email?: string };
+  attendees?: OutlookAttendee[];
 }
 
 export type OutlookMethod = "ics" | "none";
@@ -84,6 +92,26 @@ async function fetchIcsFromUrl(
     const startDateObj = event.start;
     const endDateObj = event.end;
 
+    const organizer = event.organizer
+      ? {
+          name: icalValue((event.organizer as { params?: { CN?: string } })?.params?.CN || icalValue(event.organizer)) || icalValue(event.organizer),
+          email: icalValue(event.organizer).replace(/^mailto:/i, ""),
+        }
+      : undefined;
+
+    const attendees: OutlookAttendee[] = [];
+    if (event.attendee) {
+      const attList = Array.isArray(event.attendee) ? event.attendee : [event.attendee];
+      for (const att of attList) {
+        const attObj = att as { params?: { CN?: string; PARTSTAT?: string }; val?: string };
+        attendees.push({
+          name: attObj?.params?.CN || icalValue(att).replace(/^mailto:/i, ""),
+          email: icalValue(att).replace(/^mailto:/i, ""),
+          status: attObj?.params?.PARTSTAT?.toLowerCase() || "needs-action",
+        });
+      }
+    }
+
     events.push({
       id: event.uid ?? key,
       title: icalValue(event.summary) || "(no subject)",
@@ -93,6 +121,8 @@ async function fetchIcsFromUrl(
       isAllDay: startDateObj instanceof Date
         ? startDateObj.getHours() === 0 && startDateObj.getMinutes() === 0
         : false,
+      organizer: organizer?.name ? organizer : undefined,
+      attendees: attendees.length > 0 ? attendees : undefined,
     });
   }
 

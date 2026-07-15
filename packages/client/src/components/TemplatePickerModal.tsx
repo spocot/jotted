@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { IconCopy, IconPlus } from "@tabler/icons-react";
-import { useGetTemplatesQuery, useApplyTemplateMutation } from "../store/redux/api";
+import { IconCopy, IconPlus, IconCalendarEvent } from "@tabler/icons-react";
+import { useGetTemplatesQuery, useApplyTemplateMutation, useCreateNoteMutation } from "../store/redux/api";
 import type { Template } from "../types";
 
 interface TemplatePickerModalProps {
@@ -11,13 +11,24 @@ interface TemplatePickerModalProps {
 }
 
 export default function TemplatePickerModal({ target, onClose, onApplied, onCreateBlank }: TemplatePickerModalProps) {
-  const [tab, setTab] = useState<"blank" | "template">("blank");
+  const [tab, setTab] = useState<"blank" | "meeting" | "template">("blank");
   const { data: templates = [], isLoading } = useGetTemplatesQuery({ type: target });
   const [applyTemplate] = useApplyTemplateMutation();
+  const [createNote] = useCreateNoteMutation();
 
   const handleApply = async (tpl: Template) => {
     try {
       const result = await applyTemplate({ id: tpl.id, target }).unwrap();
+      onApplied(result);
+      onClose();
+    } catch {
+      // error handled by RTK
+    }
+  };
+
+  const handleCreateMeetingNote = async () => {
+    try {
+      const result = await createNote({ noteType: "meeting", title: "Meeting", path: "/Meetings" }).unwrap();
       onApplied(result);
       onClose();
     } catch {
@@ -51,6 +62,19 @@ export default function TemplatePickerModal({ target, onClose, onApplied, onCrea
             <IconPlus className="w-3.5 h-3.5 inline mr-1" />
             Blank
           </button>
+          {target === "note" && (
+            <button
+              onClick={() => setTab("meeting")}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                tab === "meeting"
+                  ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              <IconCalendarEvent className="w-3.5 h-3.5 inline mr-1" />
+              Meeting Note
+            </button>
+          )}
           <button
             onClick={() => setTab("template")}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
@@ -82,6 +106,18 @@ export default function TemplatePickerModal({ target, onClose, onApplied, onCrea
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
             >
               Create Blank
+            </button>
+          </div>
+        ) : tab === "meeting" ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Create a new meeting note with the meeting template.
+            </p>
+            <button
+              onClick={handleCreateMeetingNote}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded transition-colors"
+            >
+              Create Meeting Note
             </button>
           </div>
         ) : isLoading ? (

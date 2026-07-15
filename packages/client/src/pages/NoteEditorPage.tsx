@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconFolder, IconAlertCircle, IconLoader2, IconCheck } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -16,15 +16,19 @@ import {
   useRemoveNoteTagMutation,
   useUploadFileMutation,
   useCreateTemplateMutation,
+  useLazyGetPeopleQuery,
+  useSyncNoteFromIcsMutation,
+  useUnlinkPersonFromNoteMutation,
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import { Wikilink, Tag, CodeBlockHighlight } from "../extensions";
+import { Wikilink, Tag, Mention, CodeBlockHighlight } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import EditorSidePanel from "../components/EditorSidePanel";
+import MentionList from "../components/MentionList";
 import { EditorSkeleton } from "../components/Skeleton";
 
 // Give TaskList higher parse priority than BulletList so that
@@ -54,6 +58,7 @@ export default function NoteEditorPage() {
   const [addNoteTag] = useAddNoteTagMutation();
   const [removeNoteTag] = useRemoveNoteTagMutation();
   const [uploadFile] = useUploadFileMutation();
+  const [triggerGetPeople] = useLazyGetPeopleQuery();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const titleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isInitialLoadRef = useRef(false);
@@ -68,6 +73,70 @@ export default function NoteEditorPage() {
 
   const dispatch = useAppDispatch();
   const uploadImageRef = useRef<(file: File) => Promise<void>>(async () => {});
+  const triggerGetPeopleRef = useRef(triggerGetPeople);
+  triggerGetPeopleRef.current = triggerGetPeople;
+
+  const mentionSuggestion = {
+    items: async ({ query }: { query: string }) => {
+      const result = await triggerGetPeopleRef.current({ q: query }).unwrap();
+      return (result ?? []).map((p) => ({
+        personId: p.id,
+        name: p.name,
+        email: p.email,
+      }));
+    },
+    render: () => {
+      let component: ReactRenderer | null = null;
+      let popup: HTMLElement | null = null;
+
+      return {
+        onStart: (props: any) => {
+          component = new ReactRenderer(MentionList, {
+            props: { ...props, isLoading: false },
+            editor: props.editor,
+          });
+          if (!props.clientRect) return;
+          popup = document.createElement("div");
+          popup.style.position = "absolute";
+          popup.style.zIndex = "50";
+          const rect = props.clientRect();
+          if (rect) {
+            popup.style.left = `${rect.left + window.scrollX}px`;
+            popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
+          }
+          document.body.appendChild(popup);
+          popup.appendChild(component.element);
+        },
+        onUpdate: (props: any) => {
+          component?.updateProps(props);
+          if (!props.clientRect || !popup) return;
+          const rect = props.clientRect();
+          if (rect) {
+            popup.style.left = `${rect.left + window.scrollX}px`;
+            popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
+          }
+        },
+        onKeyDown: (props: any) => {
+          if (props.event.key === "Escape") {
+            popup?.remove();
+            popup = null;
+            return true;
+          }
+          if (component?.ref) {
+            const listEl = (component.ref as any)?.handleKeyDown?.(props.event);
+            if (listEl) return true;
+          }
+          return false;
+        },
+        onExit: () => {
+          component?.destroy();
+          component = null;
+          popup?.remove();
+          popup = null;
+        },
+      };
+    },
+  };
 
   const editor = useEditor({
     extensions: [
@@ -93,6 +162,7 @@ export default function NoteEditorPage() {
       }),
       Wikilink,
       Tag,
+      Mention.configure({ suggestion: mentionSuggestion }),
     ],
     editorProps: {
       attributes: {
@@ -224,6 +294,8 @@ export default function NoteEditorPage() {
   };
 
   const [createTemplate] = useCreateTemplateMutation();
+  const [syncNoteFromIcs] = useSyncNoteFromIcsMutation();
+  const [unlinkPersonFromNote] = useUnlinkPersonFromNoteMutation();
 
   const handleSaveAsTemplate = async () => {
     if (!selectedNote) return;
@@ -358,6 +430,138 @@ export default function NoteEditorPage() {
               />
             </form>
           </div>
+
+          {/* Meeting metadata */}
+          {selectedNote?.noteType === "meeting" && (
+            <div className="mb-4 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+              {/* ICS Sync Banner */}
+              {selectedNote.icsUid && (
+                <div className="mb-3 flex items-center justify-between text-xs">
+                  {selectedNote.icsOutOfDate ? (
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      Changes pending — calendar event has updated
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      Up to date
+                    </span>
+                  )}
+                  {selectedNote.icsOutOfDate && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await syncNoteFromIcs({ id: id!, payload: {} as any }).unwrap();
+                          dispatch(addToast("Synced with calendar", "success"));
+                        } catch {
+                          dispatch(addToast("Sync failed", "error"));
+                        }
+                      }}
+                      className="px-2 py-0.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded transition-colors"
+                    >
+                      Sync
+                    </button>
+                  )}
+                  {!selectedNote.icsOutOfDate && selectedNote.icsLastSynced && (
+                    <span className="text-gray-400 dark:text-gray-500">
+                      Last synced: {new Date(selectedNote.icsLastSynced).toLocaleString()}
+                    </span>
+                  )}
+                  {!selectedNote.icsOutOfDate && !selectedNote.icsLastSynced && (
+                    <span className="text-gray-400 dark:text-gray-500">
+                      Linked to calendar · synced on creation
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Meeting details */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {selectedNote.meetingStart && (
+                  <div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
+                    <p className="text-gray-900 dark:text-gray-100">
+                      {new Date(selectedNote.meetingStart).toLocaleDateString("en-US", {
+                        weekday: "long", year: "numeric", month: "long", day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                )}
+                {selectedNote.meetingStart && selectedNote.meetingEnd && (
+                  <div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
+                    <p className="text-gray-900 dark:text-gray-100">
+                      {new Date(selectedNote.meetingStart).toLocaleTimeString("en-US", {
+                        hour: "numeric", minute: "2-digit",
+                      })}{" "}
+                      –{" "}
+                      {new Date(selectedNote.meetingEnd).toLocaleTimeString("en-US", {
+                        hour: "numeric", minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                )}
+                {selectedNote.meetingLocation && (
+                  <div className="col-span-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedNote.meetingLocation}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Organizer */}
+              {selectedNote.people?.filter((p) => p.role === "organizer").length ? (
+                <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organizer</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedNote.people.filter((p) => p.role === "organizer").map((p) => (
+                      <span key={p.personId} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded-full">
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Attendees */}
+              {selectedNote.people?.filter((p) => p.role === "attendee").length ? (
+                <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Attendees</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedNote.people.filter((p) => p.role === "attendee").map((p) => {
+                      const statusColors: Record<string, string> = {
+                        accepted: "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200",
+                        tentative: "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200",
+                        declined: "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200",
+                        "needs-action": "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+                      };
+                      const colorClass = statusColors[p.status ?? ""] ?? "bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200";
+                      return (
+                        <span key={p.personId} className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
+                          {p.name}
+                          {p.status && (
+                            <span className="opacity-70">
+                              {p.status === "accepted" ? "✓" : p.status === "tentative" ? "~" : p.status === "declined" ? "✗" : ""}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (id) {
+                                unlinkPersonFromNote({ noteId: id, personId: p.personId, role: "attendee" });
+                              }
+                            }}
+                            className="ml-0.5 hover:text-red-500 transition-colors"
+                            title="Remove attendee"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Toolbar */}
           {editor && (

@@ -11,7 +11,7 @@ import { AppError } from "../lib/errors.js";
 function createApp() {
   const db = new Database(":memory:");
   db.exec(`
-    CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '/', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '/', note_type TEXT NOT NULL DEFAULT 'note', meeting_location TEXT, meeting_start TEXT, meeting_end TEXT, ics_uid TEXT, ics_last_synced TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE);
     CREATE TABLE note_tags (note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE, tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (note_id, tag_id));
     CREATE TABLE links (source_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE, target_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE, PRIMARY KEY (source_id, target_id));

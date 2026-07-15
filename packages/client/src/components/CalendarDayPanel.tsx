@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { IconX } from "@tabler/icons-react";
+import { IconX, IconCalendarPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import { useCreateNoteMutation } from "../store/redux/api";
+import { useCreateNoteMutation, useCreateNoteFromEventMutation } from "../store/redux/api";
 import type { CalendarDayItem, OutlookEvent } from "../types";
 
 interface CalendarDayPanelProps {
@@ -31,6 +31,7 @@ export default function CalendarDayPanel({
 }: CalendarDayPanelProps) {
   const navigate = useNavigate();
   const [createNote] = useCreateNoteMutation();
+  const [createNoteFromEvent] = useCreateNoteFromEventMutation();
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -162,9 +163,9 @@ export default function CalendarDayPanel({
                 {outlookEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20"
+                    className="px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 relative group"
                   >
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 pr-6">
                       {event.title}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -173,6 +174,31 @@ export default function CalendarDayPanel({
                         : `${formatTime(event.start)} – ${formatTime(event.end)}`}
                       {event.location && ` · ${event.location}`}
                     </div>
+                    <button
+                      onClick={async () => {
+                        const fullEvent = outlookEvents.find((e) => e.title === event.title);
+                        if (!fullEvent) return;
+                        try {
+                          const result = await createNoteFromEvent({
+                            title: fullEvent.title,
+                            date: dateStr,
+                            start: fullEvent.start,
+                            end: fullEvent.end,
+                            location: fullEvent.location,
+                            organizer: fullEvent.organizer,
+                            attendees: fullEvent.attendees,
+                            icsUid: fullEvent.id,
+                          }).unwrap();
+                          navigate(`/note/${result.id}`);
+                        } catch {
+                          // error handled by RTK
+                        }
+                      }}
+                      className="absolute top-2 right-2 p-1 rounded text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800/50 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Create meeting note"
+                    >
+                      <IconCalendarPlus className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>

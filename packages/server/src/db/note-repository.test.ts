@@ -5,7 +5,7 @@ import { NoteRepository } from "./note-repository.js";
 function createDb() {
   const db = new Database(":memory:");
   db.exec(`
-    CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '/', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '/', note_type TEXT NOT NULL DEFAULT 'note', meeting_location TEXT, meeting_start TEXT, meeting_end TEXT, ics_uid TEXT, ics_last_synced TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
     CREATE VIRTUAL TABLE notes_fts USING fts5(note_id UNINDEXED, title, content);
   `);
   return db;

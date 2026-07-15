@@ -2,6 +2,7 @@ import { Router } from "express";
 import type Database from "better-sqlite3";
 import type { NoteRepository } from "../db/note-repository.js";
 import type { TagRepository } from "../db/tag-repository.js";
+import type { PeopleRepository } from "../db/people-repository.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { BadRequest } from "../lib/errors.js";
 import {
@@ -20,6 +21,7 @@ export function createSearchRouter(
   db: Database.Database,
   noteRepo: NoteRepository,
   tagRepo?: TagRepository,
+  peopleRepo?: PeopleRepository,
 ): Router {
   const router = Router();
 
@@ -95,6 +97,21 @@ export function createSearchRouter(
         if (tagEntry) {
           const tagNoteIds = new Set(tagRepo.getNoteIdsForTag(tagEntry.id));
           notes = notes.filter((n) => tagNoteIds.has(n.id));
+        }
+      }
+
+      // Filter by person / @name
+      const person = typeof req.query.person === "string" ? req.query.person : null;
+      const personRole = typeof req.query.personRole === "string" ? req.query.personRole : null;
+      if (person && peopleRepo) {
+        const matched = peopleRepo.search(person);
+        if (matched.length > 0) {
+          const personId = matched[0].id;
+          const personNotes = peopleRepo.getPersonNotes(personId, personRole ?? undefined, undefined, 1000, 0);
+          const personNoteIds = new Set(personNotes.items.map((n) => n.id));
+          notes = notes.filter((n) => personNoteIds.has(n.id));
+        } else {
+          notes = [];
         }
       }
 

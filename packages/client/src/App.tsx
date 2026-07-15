@@ -18,6 +18,7 @@ import ProjectMilestonesPage from "./pages/ProjectMilestonesPage";
 import ProjectTimelinePage from "./pages/ProjectTimelinePage";
 import TemplatesPage from "./pages/TemplatesPage";
 import InquiryPage from "./pages/InquiryPage";
+import PeoplePage from "./pages/PeoplePage";
 import {
   useLazyGetNoteByTitleQuery,
   useCreateNoteMutation,
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/project/:id/milestones" element={<ProjectMilestonesPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/inquiry" element={<InquiryPage />} />
+        <Route path="/people" element={<PeoplePage />} />
         </Routes>
       </Layout>
     </ConfirmProvider>

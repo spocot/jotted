@@ -38,6 +38,9 @@ import type {
   InquiryRow,
   InquiryForeignKey,
   CardMilestoneLink,
+  Person,
+  CreateNoteFromEventPayload,
+  StaleResponse,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -85,6 +88,8 @@ export const apiSlice = createApi({
     "Graph",
     "Template",
     "Inquiry",
+    "Person",
+    "PersonList",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -150,6 +155,48 @@ export const apiSlice = createApi({
         "NoteList",
         "Folder",
         "Graph",
+      ],
+    }),
+
+    createNoteFromEvent: builder.mutation<EnrichedNote, CreateNoteFromEventPayload>({
+      query: (payload) => ({
+        url: "/notes/from-event",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["NoteList", "Folder", "Graph", "Calendar"],
+    }),
+
+    syncNoteFromIcs: builder.mutation<EnrichedNote, { id: string; payload: CreateNoteFromEventPayload }>({
+      query: ({ id, payload }) => ({
+        url: `/notes/${id}/sync-from-ics`,
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Note", id },
+        "NoteList",
+      ],
+    }),
+
+    linkPeopleToNote: builder.mutation<EnrichedNote, { noteId: string; personIds: string[]; role: string; status?: string }>({
+      query: ({ noteId, personIds, role, status }) => ({
+        url: `/notes/${noteId}/people`,
+        method: "POST",
+        body: { personIds, role, status },
+      }),
+      invalidatesTags: (_result, _error, { noteId }) => [
+        { type: "Note", id: noteId },
+      ],
+    }),
+
+    unlinkPersonFromNote: builder.mutation<EnrichedNote, { noteId: string; personId: string; role?: string }>({
+      query: ({ noteId, personId, role }) => ({
+        url: `/notes/${noteId}/people/${personId}${role ? `?role=${role}` : ""}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { noteId }) => [
+        { type: "Note", id: noteId },
       ],
     }),
 
@@ -450,6 +497,76 @@ export const apiSlice = createApi({
         method: "DELETE",
       }),
       invalidatesTags: ["Calendar"],
+    }),
+
+    getOutlookStale: builder.query<StaleResponse, { start: string; end: string }>({
+      query: ({ start, end }) =>
+        `/calendar/outlook/stale?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      providesTags: ["Calendar"],
+    }),
+
+    // ---- People ----
+    getPeople: builder.query<(Person & { noteCount: number })[], { q?: string } | void>({
+      query: (params) => {
+        const sp = new URLSearchParams();
+        if (params?.q) sp.set("q", params.q);
+        const qs = sp.toString();
+        return `/people${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: ["PersonList"],
+    }),
+
+    getPerson: builder.query<Person & { roleCounts: { role: string; count: number }[] }, string>({
+      query: (id) => `/people/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Person", id }],
+    }),
+
+    getPersonNotes: builder.query<
+      PageResponse<Note & { role: string; status: string | null }>,
+      { personId: string; role?: string; status?: string; limit?: number; offset?: number }
+    >({
+      query: ({ personId, role, status, limit, offset }) => {
+        const sp = new URLSearchParams();
+        if (role) sp.set("role", role);
+        if (status) sp.set("status", status);
+        if (limit) sp.set("limit", String(limit));
+        if (offset) sp.set("offset", String(offset));
+        const qs = sp.toString();
+        return `/people/${personId}/notes${qs ? `?${qs}` : ""}`;
+      },
+      providesTags: (_result, _error, { personId }) => [
+        { type: "Person", id: personId },
+      ],
+    }),
+
+    createPerson: builder.mutation<Person, { name: string; email?: string }>({
+      query: (body) => ({
+        url: "/people",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["PersonList"],
+    }),
+
+    updatePerson: builder.mutation<Person, { id: string; name?: string; email?: string }>({
+      query: ({ id, ...body }) => ({
+        url: `/people/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Person", id },
+        "PersonList",
+      ],
+    }),
+
+    deletePerson: builder.mutation<void, string>({
+      query: (id) => ({ url: `/people/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Person", id },
+        "PersonList",
+        "NoteList",
+      ],
     }),
 
     // ---- Canvases ----
@@ -1593,6 +1710,19 @@ export const {
   useUpdateTemplateMutation,
   useDeleteTemplateMutation,
   useApplyTemplateMutation,
+  useCreateNoteFromEventMutation,
+  useSyncNoteFromIcsMutation,
+  useLinkPeopleToNoteMutation,
+  useUnlinkPersonFromNoteMutation,
+  useGetOutlookStaleQuery,
+  useGetPeopleQuery,
+  useLazyGetPeopleQuery,
+  useGetPersonQuery,
+  useGetPersonNotesQuery,
+  useCreatePersonMutation,
+  useUpdatePersonMutation,
+  useDeletePersonMutation,
+  useSearchSuggestQuery,
   useGetInquiryTablesQuery,
   useGetInquiryTableSchemaQuery,
   useGetInquiryTableRowsQuery,

@@ -432,4 +432,58 @@ function initSchema(database: Database.Database): void {
       CREATE INDEX IF NOT EXISTS idx_project_milestone_cards_card ON project_milestone_cards(card_id);
     `);
   }
+
+  // Migration v13: add note_type, meeting fields, and ics identity columns
+  const noteTableInfo = database.pragma("table_info(notes)") as Array<{ name: string }>;
+  if (!noteTableInfo.find((col) => col.name === "note_type")) {
+    database.exec("ALTER TABLE notes ADD COLUMN note_type TEXT NOT NULL DEFAULT 'note'");
+  }
+  if (!noteTableInfo.find((col) => col.name === "meeting_location")) {
+    database.exec("ALTER TABLE notes ADD COLUMN meeting_location TEXT");
+  }
+  if (!noteTableInfo.find((col) => col.name === "meeting_start")) {
+    database.exec("ALTER TABLE notes ADD COLUMN meeting_start TEXT");
+  }
+  if (!noteTableInfo.find((col) => col.name === "meeting_end")) {
+    database.exec("ALTER TABLE notes ADD COLUMN meeting_end TEXT");
+  }
+  if (!noteTableInfo.find((col) => col.name === "ics_uid")) {
+    database.exec("ALTER TABLE notes ADD COLUMN ics_uid TEXT");
+    database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_ics_uid ON notes(ics_uid) WHERE ics_uid IS NOT NULL");
+  }
+  if (!noteTableInfo.find((col) => col.name === "ics_last_synced")) {
+    database.exec("ALTER TABLE notes ADD COLUMN ics_last_synced TEXT");
+  }
+
+  // Migration v14: create people table
+  const peopleInfo = database.pragma("table_info(people)") as Array<{ name: string }>;
+  if (peopleInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS people (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_people_name ON people(name);
+      CREATE INDEX IF NOT EXISTS idx_people_email ON people(email);
+    `);
+  }
+
+  // Migration v15: create note_people junction table
+  const notePeopleInfo = database.pragma("table_info(note_people)") as Array<{ name: string }>;
+  if (notePeopleInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS note_people (
+        note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        status TEXT,
+        UNIQUE (note_id, person_id, role)
+      );
+      CREATE INDEX IF NOT EXISTS idx_note_people_note_id ON note_people(note_id);
+      CREATE INDEX IF NOT EXISTS idx_note_people_person_id ON note_people(person_id, role);
+    `);
+  }
 }

@@ -3,6 +3,12 @@ export interface Note {
   title: string;
   content: string;
   path: string;
+  noteType: string;
+  meetingLocation: string | null;
+  meetingStart: string | null;
+  meetingEnd: string | null;
+  icsUid: string | null;
+  icsLastSynced: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -11,6 +17,10 @@ export interface NoteCreatePayload {
   title?: string;
   content?: string;
   path?: string;
+  noteType?: string;
+  meetingLocation?: string;
+  meetingStart?: string;
+  meetingEnd?: string;
 }
 
 export interface NoteUpdatePayload {
@@ -23,6 +33,8 @@ export interface EnrichedNote extends Note {
   tags: Tag[];
   backlinks: string[];
   outgoingLinks: Link[];
+  people?: NotePerson[];
+  icsOutOfDate?: boolean;
 }
 
 export interface Tag {
@@ -115,6 +127,12 @@ export interface CalendarData {
   days: CalendarDay[];
 }
 
+export interface OutlookAttendee {
+  name: string;
+  email?: string;
+  status: string;
+}
+
 export interface OutlookEvent {
   id: string;
   title: string;
@@ -122,6 +140,8 @@ export interface OutlookEvent {
   end: string;
   location: string;
   isAllDay: boolean;
+  organizer?: { name: string; email?: string };
+  attendees?: OutlookAttendee[];
 }
 
 export interface OutlookResponse {
@@ -136,6 +156,45 @@ export interface OutlookStatus {
   method: "ics" | "none";
   hasIcsUrl: boolean;
   icsUrl?: string;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  email: string | null;
+  createdAt: string;
+  updatedAt: string;
+  noteCount?: number;
+}
+
+export interface NotePerson {
+  noteId: string;
+  personId: string;
+  role: string;
+  status: string | null;
+  name: string;
+  email: string | null;
+}
+
+export interface CreateNoteFromEventPayload {
+  title: string;
+  date: string;
+  start?: string;
+  end?: string;
+  location?: string;
+  organizer?: { name: string; email?: string };
+  attendees?: { name: string; email?: string; status: string }[];
+  icsUid?: string;
+}
+
+export interface StaleNoteInfo {
+  icsUid: string;
+  noteId: string;
+  changes: string[];
+}
+
+export interface StaleResponse {
+  stale: StaleNoteInfo[];
 }
 
 export interface StreakInfo {

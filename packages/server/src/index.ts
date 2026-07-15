@@ -10,6 +10,7 @@ import { CanvasRepository } from "./db/canvas-repository.js";
 import { ProjectRepository } from "./db/project-repository.js";
 import { TemplateRepository } from "./db/template-repository.js";
 import type { Template } from "./db/template-repository.js";
+import { PeopleRepository } from "./db/people-repository.js";
 import { createNotesRouter } from "./routes/notes.js";
 import { createCanvasesRouter } from "./routes/canvases.js";
 import { createTagsRouter } from "./routes/tags.js";
@@ -23,6 +24,7 @@ import { createOutlookRouter } from "./routes/outlook.js";
 import { createProjectsRouter } from "./routes/projects.js";
 import { createTemplatesRouter } from "./routes/templates.js";
 import { createInquiryRouter } from "./routes/inquiry.js";
+import { createPeopleRouter } from "./routes/people.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,25 +52,27 @@ const versionRepo = new VersionRepository(db);
 const canvasRepo = new CanvasRepository(db);
 const projectRepo = new ProjectRepository(db);
 const templateRepo = new TemplateRepository(db);
+const peopleRepo = new PeopleRepository(db);
 seedBuiltInTemplates(templateRepo);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo, versionRepo));
+app.use("/api/notes", createNotesRouter(noteRepo, tagRepo, linkRepo, versionRepo, peopleRepo));
 app.use("/api/canvases", createCanvasesRouter(canvasRepo));
 app.use("/api/notes", createVersionsRouter(noteRepo, tagRepo, linkRepo, versionRepo));
 app.use("/api/tags", createTagsRouter(tagRepo, noteRepo));
-app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo));
+app.use("/api/search", createSearchRouter(db, noteRepo, tagRepo, peopleRepo));
 app.use("/api/graph", createGraphRouter(noteRepo, linkRepo, tagRepo));
 app.use("/api/folders", createFoldersRouter(noteRepo));
 app.use("/api/uploads", createUploadsRouter(db));
 app.use("/api/calendar", createCalendarRouter(noteRepo));
-app.use("/api/calendar/outlook", createOutlookRouter());
+app.use("/api/calendar/outlook", createOutlookRouter(noteRepo, peopleRepo));
 app.use("/api/projects", createProjectsRouter(projectRepo));
 app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectRepo, tagRepo));
 app.use("/api/inquiry", createInquiryRouter());
+app.use("/api/people", createPeopleRouter(peopleRepo));
 
 function seedBuiltInTemplates(repo: TemplateRepository): void {
   const existing = repo.list();
@@ -83,16 +87,6 @@ function seedBuiltInTemplates(repo: TemplateRepository): void {
         body: "# {{date}}\n\n## Tasks\n\n- [ ] \n\n## Notes\n\n",
         tags: ["daily"],
         folder: "/Journal",
-      },
-    },
-    {
-      name: "Meeting Notes",
-      description: "Structured notes for meetings with attendees and action items",
-      content: {
-        title: "Meeting: {{title}}",
-        body: "# Meeting: {{title}}\n\n## Attendees\n\n- \n\n## Agenda\n\n1. \n\n## Action Items\n\n- [ ] \n\n## Notes\n\n",
-        tags: ["meeting"],
-        folder: "/Meetings",
       },
     },
     {
