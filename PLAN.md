@@ -683,6 +683,231 @@ A developer/power-user page for browsing all database tables, viewing row data i
 
 ---
 
+### Phase 39: Meeting Notes as First-Class Type
+
+Meeting notes are promoted from a built-in template to a first-class note type
+(`note_type = "meeting"`). This enables structured organizer/attendee tracking
+outside of note body text, and a dedicated create/edit UI.
+
+**Data Model — Extend `notes` table (`db/index.ts` migration):**
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `note_type` | TEXT NOT NULL | `"note"` | `"note"` or `"meeting"` |
+| `meeting_location` | TEXT | — | From ICS event |
+| `meeting_start` | TEXT | — | ISO datetime |
+| `meeting_end` | TEXT | — | ISO datetime |
+
+**New table: `people`**
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | UUID |
+| `name` | TEXT NOT NULL | Display name |
+| `email` | TEXT | For ICS mailto matching |
+| `created_at` | TEXT | |
+| `updated_at` | TEXT | |
+
+**New table: `note_people`** (M:N junction with role + status)
+
+| Column | Type | Notes |
+|---|---|---|
+| `note_id` | TEXT FK → notes.id | CASCADE |
+| `person_id` | TEXT FK → people.id | CASCADE |
+| `role` | TEXT NOT NULL | `"organizer"`, `"attendee"`, `"mentioned"` |
+| `status` | TEXT nullable | `"accepted"`, `"tentative"`, `"declined"`, `"needs-action"` (only for `role='attendee'`) |
+| UNIQUE | `(note_id, person_id, role)` | Same person can be both attendee AND mentioned in same note |
+
+**Template Changes:**
+- **Remove** the "Meeting Notes" built-in template from `seedBuiltInTemplates()` in `index.ts`
+- Meeting notes are created directly as type `"meeting"`, not via template apply
+- Keep other built-in templates (Daily Note, To-Do)
+
+**Server — Extend OutlookEvent type (`outlook.ts`):**
+- Add: `organizer?: { name: string; email?: string }`
+- Add: `attendees?: { name: string; email?: string; status: string }[]`
+- Extract `event.organizer` and `event.attendee` arrays from VEvent (node-ical already parses these)
+- Do NOT filter attendees by status — store all invited persons regardless of ACCEPTED/TENTATIVE/DECLINED
+
+**Server — Endpoints (`routes/notes.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/notes` | Updated to accept `note_type: "note" | "meeting"` and meeting fields |
+| `POST` | `/api/notes/from-event` | Create meeting note from ICS event: stores organizer + attendees in `note_people`, sets meeting metadata, pre-fills Markdown body (agenda, action items, notes) |
+| `GET` | `/api/notes?note_type=meeting` | Filter notes by type |
+
+**Server — People endpoints (`routes/people.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/people` | List people (sorted by name, `?q=` filter) |
+| `POST` | `/api/people` | Create person (`{ name, email? }`) |
+| `GET` | `/api/people/:id` | Person detail + role/status breakdown counts |
+| `GET` | `/api/people/:id/notes?role=&status=` | Paginated notes linked to person, filtered by role and/or attendee status |
+| `PUT` | `/api/people/:id` | Update name/email |
+| `DELETE` | `/api/people/:id` | Delete person (cascade unlinks) |
+
+**Server — Note-people linking (`routes/notes.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/notes/:id/people` | Link people to a note (`{ personIds: string[], role }`) |
+| `DELETE` | `/api/notes/:id/people/:personId` | Unlink person from note |
+
+**Auto-Linking from ICS Event (`routes/notes.ts` POST `/from-event`):**
+1. Create note with `note_type = 'meeting'`, set `meeting_location`, `meeting_start`, `meeting_end`
+2. Organizer: upsert person by email/name → insert `note_people` with `role='organizer'`
+3. Each attendee: upsert person by email/name → insert `note_people` with `role='attendee'` and `status` from ICS PARTSTAT
+4. Body pre-filled with default meeting structure (agenda, action items, notes — attendees rendered from `note_people`, not body text)
+
+**Client — Types (`types/index.ts`):**
+- `Note` extended: `noteType`, `meetingLocation`, `meetingStart`, `meetingEnd`, `people?: NotePerson[]`
+- `Person` interface: `{ id, name, email?, createdAt, updatedAt }`
+- `NotePerson` interface: `{ personId, person, role, status? }`
+- `OutlookEvent` extended with `organizer` and `attendees`
+
+**Client — "Create Note" flow update:**
+- Current options: Blank, From Template
+- New picker: **Blank Note** | **Meeting Note** | **From Template**
+- Meeting Note option skips the template picker; creates a `note_type='meeting'` note directly with default body
+
+**Client — Meeting Note Editor (`MeetingNoteEditor.tsx` or conditional section in `NoteEditorPage.tsx`):**
+- **Header section** (above TipTap editor, read-only until clicked to edit):
+  - Title, Date, Time, Location
+- **Organizer**: single person chip with label
+- **Attendee list**: chips with status icons
+  - Green check = accepted, Yellow clock = tentative, Red X = declined, Gray ? = no response
+  - Add/remove attendees manually (search people, pick from autocomplete)
+- **Body**: standard TipTap editor for agenda/notes/action items
+- **Sidebar**: People section with organizer + attendees + @mentions subsections
+
+**Client — CalendarDayPanel:**
+- "Create Meeting Note" icon button next to each ICS event
+- On click → fires `createMeetingNoteFromEvent` mutation → navigates to new meeting note
+
+**Client — RTK Query (`api.ts`):**
+- Mutations: `createMeetingNote` (manual), `createMeetingNoteFromEvent` (from calendar), `updateNotePeople`
+- Queries: `getPeople`, `getPerson`, `getPersonNotes`
+- Tags: `"Person"`, `"PersonList"`, `"Note"` (people changes invalidate note listings)
+
+---
+
+### Phase 39.5: ICS Event Identity, Sync & Stale Detection
+
+Handles keeping meeting notes in sync with their source ICS events as the feed
+changes over time. Uses pull-to-refresh with a change summary and manual sync.
+
+**Data Model — Extend `notes` table:**
+
+| Column | Type | Notes |
+|---|---|---|
+| `ics_uid` | TEXT UNIQUE nullable | Links note to ICS VEVENT UID. Null for non-ICS meeting notes. |
+| `ics_last_synced` | TEXT nullable | ISO timestamp of last pull from ICS. Null = never synced or manually created. |
+
+No new tables — all sync state is per-note metadata. Existing `note_people` tracks
+attendee changes.
+
+**Duplicate Prevention:**
+- `POST /api/notes/from-event` checks `SELECT id FROM notes WHERE ics_uid = ?`
+- If found → returns existing note (200), client navigates to it instead of creating
+- CalendarDayPanel button labels change: "Create Meeting Note" (no note) → "Open Meeting Note" (exists)
+
+**Stale Detection:**
+- On each ICS refresh (fetch for visible month range), for every event `uid`:
+  - If a note exists with that `ics_uid`, compare current ICS data against stored note
+  - Differences to check: `start`, `end`, `location`, `organizer`, `attendees` (list + statuses)
+  - If any field differs, flag the note as `icsOutOfDate: true`
+- `GET /api/notes/:id` returns `icsOutOfDate` boolean in the response
+- `GET /api/calendar/outlook/stale?start=&end=` returns list of `{ icsUid, noteId, changes[] }` for the UI
+
+**Meeting Note Editor — Sync Banner:**
+- When `icsOutOfDate` is true, render a banner above the meeting header:
+  - "Calendar event has changed" with a summary of diffs (e.g. "+2 attendees, time moved, 1 status change")
+  - "Sync" button that calls the sync endpoint
+  - Dismiss button to hide the banner until next refresh
+
+**Sync Endpoint:**
+- `POST /api/notes/:id/sync-from-ics`:
+  - Re-fetches the ICS feed, locates the event by `ics_uid`
+  - Updates `meeting_start`, `meeting_end`, `meeting_location`, `ics_last_synced`
+  - Organizer: upsert person → update `note_people` (replace existing organizer)
+  - Attendees: upsert each person → upsert `note_people` rows (update status for existing, insert new, leave removed attendees untouched — manual deletion is the user's responsibility)
+  - Does NOT modify note body/content (agenda, notes, action items are user-editable)
+  - Sets `icsOutOfDate: false`
+
+**Off-Calendar / Fell Out of Range:**
+- ICS feeds are typically sliding windows (past 30d, next 90d). Old events naturally drop out.
+- When a note with `ics_uid` is no longer returned by the current fetch:
+  - Calendar: stop showing purple dot for that event (note still appears via note-activity dots)
+  - Meeting note editor: show subdued indicator "Calendar event no longer in feed" + last synced date
+  - Sync button hidden; data is frozen
+- `ics_uid` stays set — permanent link. If the event reappears (recurring meetings expand window), re-attachment happens on next fetch automatically
+
+**UICe — CalendarDayPanel & Calendar Tooltips:**
+- Purple dot shown only if the ICS event exists in the current fetch AND no note exists OR note has changes
+- "Create Meeting Note" button when no note exists for event uid
+- "Open Meeting Note" button when note exists (navigates to `/note/:id`)
+- Subtle indicator (small amber dot on the button) when note is out of sync
+
+**UICe — Note Editor Sidebar (meeting notes):**
+- Sync status indicator next to meeting metadata header
+- Green check + "Up to date" when synced
+- Amber refresh icon + "Changes pending" when `icsOutOfDate`
+- Gray cloud-off icon + "Off calendar" when event not in feed
+
+---
+
+### Phase 40: People Tagging, @Mentions & Directory
+
+Browsing, searching, and inline-mentioning of people stored in the `people` table.
+Builds on the schema and endpoints from Phase 39.
+
+**@Mention TipTap Extension:**
+- Custom `@mention` node type, similar pattern to the existing `#tag` extension
+- Trigger character: `@` — opens autocomplete popup as user types
+- Autocomplete queries `GET /api/people?q=` debounced
+- Rendered as an inline chip (indigo/purple color, distinct from tag chips)
+- Chip stores `personId` in node attrs (`data-person-id`)
+- Inline creation: typing a name not in results → "Create 'New Name'" option
+- On note save: walk the TipTap document, collect all `@mention` nodes, sync `note_people` (role='mentioned') — insert missing, remove stale
+- Read-only resolution: chip resolves `personId` → current display name at render time
+
+**People Picker (Note Editor Sidebar):**
+- Section below Tags: "People" with autocomplete search input
+- Selected people shown as removable chips
+- For meeting notes: separate subsections for Organizer, Attendees, @Mentions
+- For regular notes: only @Mentions section (organizer/attendee is meeting-only)
+
+**PeoplePage (`/people`):**
+- Grid of person cards: name, email, total-linked-notes badge
+- Search/filter bar by name
+- Click a person → expand detail view with tabs:
+  - **Organized** — meeting notes where `role='organizer'`
+  - **Attending** — meeting notes where `role='attendee'`, with status breakdown (accepted/tentative/declined count badges)
+  - **Mentioned** — any note (meeting or regular) where `role='mentioned'`
+  - **All** — combined list with role badge per entry
+- Add/edit/delete person inline
+
+**People Filter in Sidebar:**
+- New "People" section alongside existing tag chips and folder tree
+- Click a person chip → filters note list to notes linked to that person (all roles)
+- Multi-select: clicking multiple people narrows the list further
+
+**@Name Filter in Global Search:**
+- Search bar (`Ctrl+Shift+F`) supports `@name` syntax
+- `@jane` → filters results to notes where Jane is linked (any role)
+- `@jane organizer` → only where Jane is organizer
+- `@jane attendee` → only where Jane is an attendee
+- `@jane declined` → only where Jane declined
+- Search endpoint updated to accept `?person=` and `?personRole=` params
+
+**Routing:**
+- `<Route path="/people" element={<PeoplePage />} />` in `App.tsx`
+- `<Link to="/people">People</Link>` in `Layout.tsx` header nav
+
+---
+
 ## Cross-Platform Build Notes
 
 - `better-sqlite3`: uses `prebuild-install` for prebuilt binaries; falls back to `node-gyp`. Document Windows build tools requirement.
