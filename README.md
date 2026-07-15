@@ -156,6 +156,14 @@ example.com {
 npx serve packages/client/dist -l 4173
 ```
 
+#### Pre-Built Release
+
+Tagged releases include a `jotted-client.zip` of the built client (root base, ready for any web server):
+
+1. Push a version tag: `git tag v1.0.0 && git push --tags`
+2. Or trigger manually from the **Actions → Release Client → Run workflow** tab
+3. Download `jotted-client.zip` from the [Releases](https://github.com/anomalyco/jotted/releases) page
+
 ### Connecting Client to Server
 
 1. Open the deployed client in your browser
