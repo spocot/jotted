@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Note } from "../types";
 
 interface NoteCardProps {
@@ -14,8 +15,8 @@ export default function NoteCard({
   footer,
 }: NoteCardProps) {
   return (
-    <a
-      href={`/note/${note.id}`}
+    <Link
+      to={`/note/${note.id}`}
       className="block p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
     >
       <h3 className="font-medium text-gray-900 dark:text-gray-100">
@@ -37,6 +38,6 @@ export default function NoteCard({
           })}
         </div>
       )}
-    </a>
+    </Link>
   );
 }
