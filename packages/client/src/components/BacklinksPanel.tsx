@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useGetNoteBacklinksQuery,
@@ -18,36 +18,79 @@ export default function BacklinksPanel({ noteId, noteTitle }: BacklinksPanelProp
   const navigate = useNavigate();
   const [backlinkOffset, setBacklinkOffset] = useState(0);
   const [backlinkItems, setBacklinkItems] = useState<Note[]>([]);
-  const [backlinkLoaded, setBacklinkLoaded] = useState(false);
+  const [backlinkHasMore, setBacklinkHasMore] = useState(false);
+  const prevNoteId = useRef(noteId);
+
+  const [unlinkedOffset, setUnlinkedOffset] = useState(0);
+  const [unlinkedItems, setUnlinkedItems] = useState<Note[]>([]);
+  const [unlinkedHasMore, setUnlinkedHasMore] = useState(false);
+
+  useEffect(() => {
+    if (prevNoteId.current !== noteId) {
+      prevNoteId.current = noteId;
+      setBacklinkOffset(0);
+      setBacklinkItems([]);
+      setBacklinkHasMore(false);
+      setUnlinkedOffset(0);
+      setUnlinkedItems([]);
+      setUnlinkedHasMore(false);
+    }
+  }, [noteId]);
 
   const { data: backlinkPage, isLoading: loadingBacklinks } =
     useGetNoteBacklinksQuery(
       { id: noteId, limit: BACKLINK_PAGE_SIZE, offset: backlinkOffset },
-      { skip: backlinkLoaded && backlinkOffset === 0 },
     );
 
-  // Accumulate backlinks
-  if (backlinkPage && !backlinkLoaded) {
-    setBacklinkItems(backlinkPage.items);
-    setBacklinkLoaded(true);
-  }
+  useEffect(() => {
+    if (backlinkPage) {
+      if (backlinkOffset === 0) {
+        setBacklinkItems(backlinkPage.items);
+      } else {
+        setBacklinkItems((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newItems = backlinkPage.items.filter((n) => !existingIds.has(n.id));
+          return [...prev, ...newItems];
+        });
+      }
+      setBacklinkHasMore(backlinkPage.hasMore);
+    }
+  }, [backlinkPage, backlinkOffset]);
 
   const { data: unlinkedPage, isLoading: loadingUnlinked } =
     useGetNoteUnlinkedMentionsQuery(
-      { id: noteId, limit: UNLINKED_PAGE_SIZE, offset: 0 },
+      { id: noteId, limit: UNLINKED_PAGE_SIZE, offset: unlinkedOffset },
     );
 
-  const loading = (loadingBacklinks && !backlinkLoaded) || loadingUnlinked;
+  useEffect(() => {
+    if (unlinkedPage) {
+      if (unlinkedOffset === 0) {
+        setUnlinkedItems(unlinkedPage.items);
+      } else {
+        setUnlinkedItems((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newItems = unlinkedPage.items.filter((n) => !existingIds.has(n.id));
+          return [...prev, ...newItems];
+        });
+      }
+      setUnlinkedHasMore(unlinkedPage.hasMore);
+    }
+  }, [unlinkedPage, unlinkedOffset]);
 
-  const loadMoreBacklinks = useCallback(async () => {
-    // Handled by RTK Query — next query will update backlinkPage
+  const loading = loadingBacklinks || loadingUnlinked;
+
+  const loadMoreBacklinks = useCallback(() => {
     setBacklinkOffset((prev) => prev + BACKLINK_PAGE_SIZE);
-    setBacklinkLoaded(false);
+  }, []);
+
+  const loadMoreUnlinked = useCallback(() => {
+    setUnlinkedOffset((prev) => prev + UNLINKED_PAGE_SIZE);
   }, []);
 
   const backlinks = backlinkItems;
-  const unlinked = unlinkedPage?.items ?? [];
-  const hasMoreBacklinks = backlinkPage?.hasMore ?? false;
+  const unlinked = unlinkedItems;
+  const hasMoreBacklinks = backlinkHasMore;
+  const hasMoreUnlinked = unlinkedHasMore;
 
   if (loading && backlinks.length === 0 && unlinked.length === 0) {
     return (
@@ -115,6 +158,14 @@ export default function BacklinksPanel({ noteId, noteTitle }: BacklinksPanelProp
               </li>
             ))}
           </ul>
+          {hasMoreUnlinked && (
+            <button
+              onClick={loadMoreUnlinked}
+              className="text-xs text-blue-500 hover:underline mt-1"
+            >
+              Load more
+            </button>
+          )}
         </div>
       )}
     </div>
