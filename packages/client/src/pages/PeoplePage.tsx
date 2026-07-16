@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { IconSearch, IconUser, IconMail, IconPencil, IconTrash, IconNotes } from "@tabler/icons-react";
+import { useState, useEffect } from "react";
+import { IconSearch, IconUser, IconMail, IconPencil, IconTrash, IconNotes, IconBuilding } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import {
   useGetPeopleQuery,
@@ -20,6 +20,19 @@ const ROLE_LABELS: Record<string, string> = {
 
 const PAGE_SIZE = 20;
 
+function nameToEmail(name: string, domain: string): string {
+  const parts = name.trim().toLowerCase().split(/\s+/);
+  return parts.join(".") + "@" + domain;
+}
+
+function getStoredDomain(): string {
+  try { return localStorage.getItem("jotted_company_domain") ?? ""; } catch { return ""; }
+}
+
+function storeDomain(domain: string): void {
+  try { localStorage.setItem("jotted_company_domain", domain); } catch { /* ignore */ }
+}
+
 type PersonDetailTab = "organizer" | "attendee" | "mentioned" | "all";
 
 const TAB_CONFIG: { key: PersonDetailTab; label: string; role?: string }[] = [
@@ -38,6 +51,8 @@ export default function PeoplePage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [useCompanyDomain, setUseCompanyDomain] = useState(true);
+  const [companyDomain, setCompanyDomain] = useState(getStoredDomain);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -48,6 +63,12 @@ export default function PeoplePage() {
   const [createPerson] = useCreatePersonMutation();
   const [updatePerson] = useUpdatePersonMutation();
   const [deletePerson] = useDeletePersonMutation();
+
+  useEffect(() => {
+    if (useCompanyDomain && companyDomain && newName.trim()) {
+      setNewEmail(nameToEmail(newName, companyDomain));
+    }
+  }, [newName, useCompanyDomain, companyDomain]);
 
   const handleCreatePerson = async () => {
     if (!newName.trim()) return;
@@ -92,7 +113,7 @@ export default function PeoplePage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">People</h2>
         <button
-          onClick={() => setShowAdd(!showAdd)}
+          onClick={() => { setShowAdd(!showAdd); if (!showAdd) setUseCompanyDomain(true); }}
           className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
         >
           {showAdd ? "Cancel" : "Add Person"}
@@ -100,7 +121,23 @@ export default function PeoplePage() {
       </div>
 
       {showAdd && (
-        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+          <div className="flex items-center gap-2">
+            <IconBuilding className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              type="text"
+              value={companyDomain}
+              onChange={(e) => {
+                setCompanyDomain(e.target.value);
+                storeDomain(e.target.value);
+              }}
+              placeholder="Company email domain (e.g. acmecorp.com)"
+              className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+            />
+            {companyDomain && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">@{companyDomain}</span>
+            )}
+          </div>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -124,9 +161,17 @@ export default function PeoplePage() {
               <input
                 type="email"
                 value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                onChange={(e) => {
+                  setNewEmail(e.target.value);
+                  if (e.target.value && useCompanyDomain) setUseCompanyDomain(false);
+                }}
+                placeholder={useCompanyDomain && companyDomain ? nameToEmail("john doe", companyDomain) : "email@example.com"}
+                readOnly={useCompanyDomain && !!companyDomain}
+                className={`w-full px-3 py-1.5 text-sm border rounded bg-white dark:bg-gray-800 outline-none transition-colors ${
+                  useCompanyDomain && companyDomain
+                    ? "border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    : "border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400"
+                }`}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreatePerson();
                 }}
@@ -140,6 +185,22 @@ export default function PeoplePage() {
               Add
             </button>
           </div>
+          {companyDomain && (
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useCompanyDomain}
+                onChange={(e) => {
+                  setUseCompanyDomain(e.target.checked);
+                  if (e.target.checked && companyDomain && newName.trim()) {
+                    setNewEmail(nameToEmail(newName, companyDomain));
+                  }
+                }}
+                className="rounded"
+              />
+              Use company default (@{companyDomain})
+            </label>
+          )}
         </div>
       )}
 
