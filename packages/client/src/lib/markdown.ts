@@ -8,6 +8,7 @@ function escapeHtml(str: string): string {
 
 function applyInlinePreprocessing(md: string): string {
   return md
+    .replace(/!\[\[([^\]]+?)\]\]/g, '<div data-note-embed data-title="$1"></div>')
     .replace(/\\\[\\\[([^\]]+?)\\\]\\\]/g, '<span data-wikilink data-title="$1"></span>')
     .replace(/\[\[([^\]]+?)\]\]/g, '<span data-wikilink data-title="$1"></span>')
     .replace(/(^|\s)(#[\w/-]+(?=[\s.,;:!?]|$))/gm,

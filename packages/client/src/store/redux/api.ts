@@ -104,7 +104,7 @@ export const apiSlice = createApi({
     // ---- Notes ----
     getNotes: builder.query<
       PageResponse<Note>,
-      { folder?: string; tag?: string; sort?: SortField; order?: SortOrder; limit?: number; offset?: number } | void
+      { folder?: string; tag?: string; sort?: SortField; order?: SortOrder; limit?: number; offset?: number; title?: string } | void
     >({
       query: (params) => {
         const sp = new URLSearchParams();
@@ -114,6 +114,7 @@ export const apiSlice = createApi({
         if (params?.order) sp.set("order", params.order);
         if (params?.limit) sp.set("limit", String(params.limit));
         if (params?.offset) sp.set("offset", String(params.offset));
+        if (params?.title) sp.set("title", params.title);
         const qs = sp.toString();
         return `/notes${qs ? `?${qs}` : ""}`;
       },

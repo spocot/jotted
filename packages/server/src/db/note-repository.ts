@@ -49,6 +49,7 @@ export interface NoteListParams {
   sort?: string | null;
   order?: "ASC" | "DESC";
   noteType?: string;
+  title?: string;
 }
 
 export class NoteRepository {
@@ -136,7 +137,7 @@ export class NoteRepository {
   }
 
   list(params: NoteListParams): PageResponse<Note> {
-    const { folder, tag, sort, order, limit, offset, noteType } = params;
+    const { folder, tag, sort, order, limit, offset, noteType, title } = params;
 
     const joins: string[] = [];
     const conditions: string[] = [];
@@ -152,6 +153,11 @@ export class NoteRepository {
       joins.push("JOIN tags t ON nt.tag_id = t.id");
       conditions.push("t.name = ?");
       queryParams.push(tag);
+    }
+
+    if (title) {
+      conditions.push("n.title = ?");
+      queryParams.push(title);
     }
 
     if (noteType) {

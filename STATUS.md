@@ -582,17 +582,17 @@
 - [x] SearchPage: "Save as smart folder" button when results are active
 - [ ] Tests: repository CRUD, API endpoints, modal form validation
 
-## Phase 43: Note Embedding (Transclusion) ⬜
+## Phase 43: Note Embedding (Transclusion) ✅
 
-- [ ] TipTap NoteEmbed node (`extensions/NoteEmbed.ts`) — `ReactNodeViewRenderer` with `title` attr
-- [ ] `NoteEmbedView.tsx` — React component: loading skeleton / error badge / embedded note card
-- [ ] Markdown serialization: `![[title]]` output (`serializer.ts`)
-- [ ] Markdown deserialization: `![[...]]` pre-processing BEFORE regular `[[...]]` (`markdown.ts`)
-- [ ] Server: add `?title=` query param to `GET /api/notes` for exact title lookup
-- [ ] `NoteRepository.list()` — add optional `WHERE n.title = ?` clause
-- [ ] Import NoteEmbed in `NoteEditorPage.tsx`
-- [ ] RTK Query: update `getNotes` param types to include `title`
-- [ ] Tests: serializer round-trip, deserialization precedence (embed before wikilink), not-found state
+- [x] TipTap NoteEmbed node (`extensions/NoteEmbed.ts`) — `ReactNodeViewRenderer` with `title` attr
+- [x] `NoteEmbedView.tsx` — React component: loading skeleton / error badge / embedded note card
+- [x] Markdown serialization: `![[title]]` output (`serializer.ts`)
+- [x] Markdown deserialization: `![[...]]` pre-processing BEFORE regular `[[...]]` (`markdown.ts`)
+- [x] Server: add `?title=` query param to `GET /api/notes` for exact title lookup
+- [x] `NoteRepository.list()` — add optional `WHERE n.title = ?` clause
+- [x] RTK Query: updated `getNotes` params to include `title`
+- [x] Import NoteEmbed in `NoteEditorPage.tsx`
+- [ ] Tests: serializer round-trip, deserialization precedence, not-found state
 
 ## Phase 44: Tag Hierarchy / Nested Tags ⬜
 

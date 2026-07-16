@@ -35,7 +35,7 @@ export function createNotesRouter(
   router.get(
     "/",
     asyncHandler(async (req, res) => {
-      const { folder, tag, sort, order, limit, offset, note_type } = req.query;
+      const { folder, tag, sort, order, limit, offset, note_type, title } = req.query;
       const result = noteRepo.list({
         limit: clampLimit(limit, DEFAULT_LIMIT, MAX_LIMIT),
         offset: Math.max(0, Number(offset) || 0),
@@ -44,6 +44,7 @@ export function createNotesRouter(
         sort: parseSort(sort),
         order: parseOrder(order),
         noteType: typeof note_type === "string" ? note_type : undefined,
+        title: typeof title === "string" && title ? title : undefined,
       });
       res.json(result);
     }),
