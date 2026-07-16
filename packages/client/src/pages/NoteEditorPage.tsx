@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { IconFolder, IconAlertCircle, IconLoader2, IconCheck, IconUserPlus, IconX } from "@tabler/icons-react";
+import { IconFolder, IconAlertCircle, IconLoader2, IconCheck, IconUserPlus, IconX, IconClipboardList } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -23,7 +23,7 @@ import {
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import { Wikilink, Tag, Mention, CodeBlockHighlight } from "../extensions";
+import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
@@ -109,6 +109,8 @@ export default function NoteEditorPage() {
   const [meetingEndTime, setMeetingEndTime] = useState("");
   const [meetingLocationValue, setMeetingLocationValue] = useState("");
   const [editingMeta, setEditingMeta] = useState(false);
+  const [calloutDropdownOpen, setCalloutDropdownOpen] = useState(false);
+  const calloutDropdownRef = useRef<HTMLDivElement>(null);
 
   const toDateInput = (iso: string | null | undefined) => {
     if (!iso) return "";
@@ -265,6 +267,7 @@ export default function NoteEditorPage() {
       }),
       Wikilink,
       Tag,
+      Callout,
       Mention.configure({ suggestion: mentionSuggestion }),
     ],
     editorProps: {
@@ -462,6 +465,18 @@ export default function NoteEditorPage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [editor, id]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (calloutDropdownRef.current && !calloutDropdownRef.current.contains(e.target as Node)) {
+        setCalloutDropdownOpen(false);
+      }
+    };
+    if (calloutDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [calloutDropdownOpen]);
 
   if (!id) {
     return <div className="text-gray-400 dark:text-gray-500">Select a note</div>;
@@ -994,6 +1009,45 @@ export default function NoteEditorPage() {
               >
                 {`{ }`}
               </ToolbarButton>
+
+              <div className="relative" ref={calloutDropdownRef}>
+                <button
+                  onClick={() => setCalloutDropdownOpen(!calloutDropdownOpen)}
+                  title="Callout"
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    editor.isActive("callout")
+                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <IconClipboardList size={12} stroke={2} />
+                    Callout
+                  </span>
+                </button>
+                {calloutDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto py-1">
+                    {CALLOUT_TYPES.map((ct) => {
+                      const dotColor = ct.color === "blue" ? "bg-blue-500" : ct.color === "amber" ? "bg-amber-500" : ct.color === "emerald" ? "bg-emerald-500" : ct.color === "red" ? "bg-red-500" : ct.color === "sky" ? "bg-sky-500" : ct.color === "purple" ? "bg-purple-500" : ct.color === "teal" ? "bg-teal-500" : ct.color === "green" ? "bg-green-500" : ct.color === "rose" ? "bg-rose-500" : ct.color === "violet" ? "bg-violet-500" : "bg-slate-500";
+                      return (
+                        <button
+                          key={ct.type}
+                          onClick={() => {
+                            editor.chain().focus().setCallout({ type: ct.type }).run();
+                            setCalloutDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2.5"
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+                          {ct.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <span className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
 
               <ToolbarButton
                 onClick={handleSaveAsTemplate}

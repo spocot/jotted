@@ -73,6 +73,12 @@ const nodes: Record<string, (state: MarkdownSerializerState, node: Node, parent:
   mention(state, node) {
     state.write(`[@${node.attrs.name ?? ""}](mention:${node.attrs.personId ?? ""})`);
   },
+  callout(state, node) {
+    const title = node.attrs.title ? ` ${node.attrs.title}` : "";
+    state.write(`> [!${node.attrs.type}]${title}`);
+    state.ensureNewLine();
+    state.wrapBlock("> ", null, node, () => state.renderContent(node));
+  },
 };
 
 function isPlainUrl(mark: Mark): boolean {

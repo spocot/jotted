@@ -1,18 +1,33 @@
 import { marked } from "marked";
 
-// Post-process HTML from marked to convert task list syntax
-// into the structure TipTap's TaskList/TaskItem extensions expect.
+const CALLOUT_BODY_RE = /^> \[!(\w+)\](?: (.+?))?(?:\r?\n)((?:^> .*(?:\r?\n|$))*)/gm;
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function applyInlinePreprocessing(md: string): string {
+  return md
+    .replace(/\\\[\\\[([^\]]+?)\\\]\\\]/g, '<span data-wikilink data-title="$1"></span>')
+    .replace(/\[\[([^\]]+?)\]\]/g, '<span data-wikilink data-title="$1"></span>')
+    .replace(/(^|\s)(#[\w/-]+(?=[\s.,;:!?]|$))/gm,
+      (_, before, tag) => `${before}<span data-tag data-name="${tag.slice(1)}">${tag}</span>`)
+    .replace(/\[@([^\]]+)\]\(mention:([^)]+)\)/g,
+      '<span data-type="mention" data-person-id="$2" data-name="$1">@$1</span>');
+}
+
+function applyMarkdownToHtml(md: string): string {
+  const html = applyInlinePreprocessing(md);
+  const result = marked.parse(html, { async: false });
+  return typeof result === "string" ? result : "";
+}
+
 function postProcessTaskLists(html: string): string {
-  // marked renders "- [ ] content" as:
-  //   <li><input disabled="" type="checkbox"> content</li>  (no blank lines)
-  //   <li><p><input disabled="" type="checkbox"> content</p></li>  (blank lines between items)
-  // Remove the <p> wrapper first so the input regex matches both forms.
   let result = html.replace(
     /(<li>)<p>(<input [^>]+> .*?)<\/p>/g,
     "$1$2",
   );
 
-  // Convert the <input> checkbox to TipTap's data attributes
   result = result
     .replace(
       /<li><input disabled="" type="checkbox"> /g,
@@ -23,7 +38,6 @@ function postProcessTaskLists(html: string): string {
       '<li data-type="taskItem" data-checked="true">',
     );
 
-  // Mark <ul> as task list if it contains at least one task item
   result = result.replace(
     /(<ul>)([\s\S]*?<li data-type="taskItem")/g,
     '<ul data-type="taskList">$2',
@@ -32,22 +46,29 @@ function postProcessTaskLists(html: string): string {
   return result;
 }
 
-// Pre-process markdown to HTML for TipTap consumption.
-// Converts [[wikilinks]] → <span data-wikilink> and #tags → <span data-tag>
-// Then converts remaining markdown to HTML via marked.
 export function markdownToHtml(md: string): string {
-  let html = md
-    // Handle escaped \[\[wikilinks\]\] from previous serializer escaping
-    .replace(/\\\[\\\[([^\]]+?)\\\]\\\]/g, '<span data-wikilink data-title="$1"></span>')
-    // Preserve [[wikilinks]] as custom spans
-    .replace(/\[\[([^\]]+?)\]\]/g, '<span data-wikilink data-title="$1"></span>')
-    // Preserve #tags
-    .replace(/(^|\s)(#[\w/-]+(?=[\s.,;:!?]|$))/gm, (_, before, tag) => `${before}<span data-tag data-name="${tag.slice(1)}">${tag}</span>`)
-    // Preserve @mentions: [@name](mention:person-id)
-    .replace(/\[@([^\]]+)\]\(mention:([^)]+)\)/g, '<span data-type="mention" data-person-id="$2" data-name="$1">@$1</span>');
+  let calloutIndex = 0;
+  const callouts: { type: string; title: string; bodyMd: string }[] = [];
 
-  const result = marked.parse(html, { async: false });
-  const output = typeof result === "string" ? result : "";
+  let processed = md.replace(CALLOUT_BODY_RE, (_, type, title, body) => {
+    const key = `<!-- JTD-CALLOUT-${calloutIndex} -->`;
+    callouts.push({ type, title: (title || "").trim(), bodyMd: body });
+    calloutIndex++;
+    return key;
+  });
+
+  let output = applyMarkdownToHtml(processed);
+
+  for (let i = 0; i < callouts.length; i++) {
+    const { type, title, bodyMd } = callouts[i];
+    const cleanBody = bodyMd.replace(/^> /gm, "");
+    const bodyHtml = applyMarkdownToHtml(cleanBody);
+    const titleAttr = title ? ` data-title="${escapeHtml(title)}"` : "";
+    output = output.replace(
+      `<!-- JTD-CALLOUT-${i} -->`,
+      `<div data-callout data-type="${type}"${titleAttr}><div class="callout-body">${bodyHtml}</div></div>`,
+    );
+  }
 
   return postProcessTaskLists(output);
 }

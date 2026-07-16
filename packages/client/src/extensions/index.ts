@@ -5,3 +5,5 @@ export type { TagOptions } from "./Tag";
 export { Mention } from "./Mention";
 export type { MentionOptions } from "./Mention";
 export { default as CodeBlockHighlight, SUPPORTED_LANGUAGES } from "./CodeBlockHighlight";
+export { Callout, CALLOUT_TYPES } from "./Callout";
+export type { CalloutType } from "./Callout";

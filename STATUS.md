@@ -554,16 +554,17 @@
 - [x] RTK Query: person search + filter endpoints
 - [x] Tests: all existing tests pass
 
-## Phase 41: Callouts / Admonitions ⬜
+## Phase 41: Callouts / Admonitions 🔄
 
-- [ ] TipTap Callout node (`extensions/Callout.ts`) — block node with `type` + `title` attrs
-- [ ] 12 callout types with distinct icon + color per type
-- [ ] `renderHTML`: colored left-border box with icon header + collapsible body
-- [ ] Markdown serialization: `> [!type] Title` blockquote syntax (`serializer.ts`)
-- [ ] Markdown deserialization: callout block detection + placeholder expansion (`markdown.ts`)
-- [ ] Formatting toolbar: "Callout" type-picker dropdown
+- [x] TipTap Callout node (`extensions/Callout.ts`) — block node with `type` + `title` attrs
+- [x] 12 callout types with distinct icon + color per type (icons sourced from `@tabler/icons-react` via CSS `mask-image`)
+- [x] `renderHTML`: colored left-border box with icon header + collapsible body
+- [x] Markdown serialization: `> [!type] Title` blockquote syntax (`serializer.ts`)
+- [x] Markdown deserialization: callout block detection + placeholder expansion (`markdown.ts`)
+- [x] Formatting toolbar: "Callout" type-picker dropdown
 - [ ] Convert blockquote ↔ callout action
-- [ ] Import Callout extension in `NoteEditorPage.tsx`
+- [x] Import Callout extension in `NoteEditorPage.tsx`
+- [x] Backspace in empty callout deletes the node; Backspace with content lifts/unwraps
 - [ ] Tests: serializer round-trip, deserialization, all 12 types render correctly
 
 ## Phase 42: Smart Folders / Saved Searches ⬜
