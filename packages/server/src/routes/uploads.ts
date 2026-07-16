@@ -24,15 +24,20 @@ const storage = multer.diskStorage({
   },
 });
 
+const ALLOWED_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|bmp|ico|pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf|zip|tar|gz|bz2|7z|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp|h|json|ya?ml|xml|html|css|sql|sh|toml|mp[34]|wav|ogg|webm|mov|avi|flac|epub|mobi)$/i;
+
+const BLOCKED_EXTENSIONS = /\.(exe|dll|so|dylib|bat|cmd|ps1|msi|app|dmg|scr|php|aspx?|jsp|cgi|pl)$/i;
+
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
-    if (allowed.test(extname(file.originalname))) {
+    const ext = extname(file.originalname);
+    if (BLOCKED_EXTENSIONS.test(ext)) {
+      cb(new Error("File type not allowed"));
+    } else if (ALLOWED_EXTENSIONS.test(ext)) {
       cb(null, true);
     } else {
-      cb(new Error("Only image files are allowed"));
+      cb(new Error(`Unsupported file type: ${ext}`));
     }
   },
 });

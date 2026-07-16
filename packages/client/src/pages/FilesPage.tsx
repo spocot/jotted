@@ -4,13 +4,8 @@ import { useGetAllUploadsQuery, useDeleteUploadMutation } from "../store/redux/a
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
 import { useConfirm } from "../hooks/useConfirm";
+import { getFileIcon, formatFileSize, getFileExtension } from "../lib/file-utils";
 import type { Upload } from "../types";
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -52,7 +47,7 @@ export default function FilesPage() {
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <IconFile className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>No files uploaded yet.</p>
-          <p className="text-sm mt-1">Upload images in a note's Attachments panel to see them here.</p>
+          <p className="text-sm mt-1">Upload files in a note's Attachments panel to see them here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -76,6 +71,7 @@ function FileCard({ upload, onDelete, onNavigate }: {
   onNavigate: (noteId: string) => void;
 }) {
   const isImage = upload.mimeType.startsWith("image/");
+  const { icon: fileIcon, color } = getFileIcon(upload);
 
   return (
     <div className="group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 transition-colors hover:border-gray-300 dark:hover:border-gray-600">
@@ -94,9 +90,17 @@ function FileCard({ upload, onDelete, onNavigate }: {
           />
         </a>
       ) : (
-        <div className="aspect-square flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-          <IconFile className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-        </div>
+        <a
+          href={upload.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`aspect-square flex flex-col items-center justify-center gap-2 bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors ${color}`}
+        >
+          {fileIcon}
+          <span className="text-xs font-mono font-medium text-gray-400 dark:text-gray-500 uppercase bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+            {getFileExtension(upload.originalName)}
+          </span>
+        </a>
       )}
 
       <div className="p-2">
@@ -104,7 +108,7 @@ function FileCard({ upload, onDelete, onNavigate }: {
           {upload.originalName}
         </div>
         <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center justify-between">
-          <span>{formatSize(upload.size)}</span>
+          <span>{formatFileSize(upload.size)}</span>
           <span>{formatDate(upload.createdAt)}</span>
         </div>
 
