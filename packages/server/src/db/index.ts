@@ -492,4 +492,18 @@ function initSchema(database: Database.Database): void {
   if (!noteTagTableInfo.find((col) => col.name === "source")) {
     database.exec("ALTER TABLE note_tags ADD COLUMN source TEXT NOT NULL DEFAULT 'content'");
   }
+
+  // Migration v17: create smart_folders table
+  const smartFoldersInfo = database.pragma("table_info(smart_folders)") as Array<{ name: string }>;
+  if (smartFoldersInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS smart_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        query_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+  }
 }

@@ -487,3 +487,25 @@ export interface DevSeedResponse {
   success: boolean;
   created: Record<string, number>;
 }
+
+export interface SavedSearchQuery {
+  q?: string;
+  tag?: string;
+  person?: string;
+  personRole?: string;
+  sort?: SortField;
+  order?: SortOrder;
+}
+
+export interface SmartFolder {
+  id: string;
+  name: string;
+  queryJson: SavedSearchQuery;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SmartFolderCreatePayload {
+  name: string;
+  queryJson?: string;
+}

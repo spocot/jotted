@@ -12,6 +12,7 @@ import {
   setSidebarWidth,
 } from "../store/redux/uiSlice";
 import TagPill from "./TagPill";
+import SmartFolderTree from "./SmartFolderTree";
 import CreateNoteModal from "./CreateNoteModal";
 import { useConfirm } from "../hooks/useConfirm";
 import type { Note } from "../types";
@@ -139,6 +140,11 @@ export default function Sidebar() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Smart Folders */}
+      <div className="border-t border-gray-200 dark:border-gray-800">
+        <SmartFolderTree />
       </div>
 
       {/* Tags section */}

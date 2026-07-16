@@ -45,6 +45,8 @@ import type {
   DevResetResponse,
   DevSeedConfig,
   DevSeedResponse,
+  SmartFolder,
+  SmartFolderCreatePayload,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -95,6 +97,8 @@ export const apiSlice = createApi({
     "Person",
     "PersonList",
     "DevTools",
+    "SmartFolder",
+    "SmartFolderList",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -580,6 +584,49 @@ export const apiSlice = createApi({
         { type: "Person", id },
         "PersonList",
         "NoteList",
+      ],
+    }),
+
+    // ---- Smart Folders ----
+    getSmartFolders: builder.query<SmartFolder[], void>({
+      query: () => "/smart-folders",
+      providesTags: ["SmartFolderList"],
+    }),
+
+    getSmartFolder: builder.query<SmartFolder, string>({
+      query: (id) => `/smart-folders/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "SmartFolder", id }],
+    }),
+
+    createSmartFolder: builder.mutation<SmartFolder, SmartFolderCreatePayload>({
+      query: (payload) => ({
+        url: "/smart-folders",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["SmartFolderList"],
+    }),
+
+    updateSmartFolder: builder.mutation<SmartFolder, { id: string; name?: string; queryJson?: string }>({
+      query: ({ id, ...payload }) => ({
+        url: `/smart-folders/${id}`,
+        method: "PUT",
+        body: payload,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "SmartFolder", id },
+        "SmartFolderList",
+      ],
+    }),
+
+    deleteSmartFolder: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/smart-folders/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "SmartFolder", id },
+        "SmartFolderList",
       ],
     }),
 
@@ -1792,6 +1839,11 @@ export const {
   useCreatePersonMutation,
   useUpdatePersonMutation,
   useDeletePersonMutation,
+  useGetSmartFoldersQuery,
+  useGetSmartFolderQuery,
+  useCreateSmartFolderMutation,
+  useUpdateSmartFolderMutation,
+  useDeleteSmartFolderMutation,
   useSearchSuggestQuery,
   useGetInquiryTablesQuery,
   useGetInquiryTableSchemaQuery,

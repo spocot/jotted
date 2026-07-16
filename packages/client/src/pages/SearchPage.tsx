@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronUp, IconStar } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
-import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
-import type { Note, SortField, SortOrder } from "../types";
+import {
+  useLazySearchNotesQuery,
+  useGetTagsQuery,
+  useGetSmartFolderQuery,
+} from "../store/redux/api";
+import type { Note, SortField, SortOrder, SavedSearchQuery } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 import NoteCard from "../components/NoteCard";
 import TagPill from "../components/TagPill";
+import SmartFolderEditorModal from "../components/SmartFolderEditorModal";
 import { HighlightedContentPreview, buildPreviewSnippet } from "../components/NoteContentPreview";
 
 const SNIPPET_WORDS = 30;
@@ -17,6 +22,7 @@ export default function SearchPage() {
   const tagParam = searchParams.get("tag") ?? "";
   const sortParam: SortField = (searchParams.get("sort") ?? "relevance") as SortField;
   const orderParam: SortOrder = (searchParams.get("order") ?? "DESC") as SortOrder;
+  const smartFolderParam = searchParams.get("smartFolder") ?? "";
 
   const [query, setQuery] = useState(qParam);
   const [results, setResults] = useState<Note[]>([]);
@@ -25,16 +31,35 @@ export default function SearchPage() {
   const [searched, setSearched] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [resolvedSmartFolderName, setResolvedSmartFolderName] = useState("");
   const { data: tags = [] } = useGetTagsQuery();
   const [searchNotes] = useLazySearchNotesQuery();
+  const { data: smartFolder } = useGetSmartFolderQuery(smartFolderParam, { skip: !smartFolderParam });
 
-  // Auto-search on mount if q param present
+  // Auto-search on mount if q param present, or resolve smart folder
   useEffect(() => {
     if (qParam) {
       doSearch(qParam, tagParam, sortParam, orderParam, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Resolve smart folder when loaded
+  useEffect(() => {
+    if (smartFolder && smartFolderParam) {
+      const raw = smartFolder.queryJson as unknown;
+      const q: SavedSearchQuery = typeof raw === "string" ? JSON.parse(raw) : (raw as SavedSearchQuery);
+      const resolvedQ = q.q ?? "";
+      const resolvedTag = q.tag ?? "";
+      setQuery(resolvedQ);
+      const resolvedSort: SortField = q.sort ?? "relevance";
+      const resolvedOrder: SortOrder = q.order ?? "DESC";
+      setResolvedSmartFolderName(smartFolder.name);
+      doSearch(resolvedQ, resolvedTag, resolvedSort, resolvedOrder, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [smartFolder, smartFolderParam]);
 
   const doSearch = async (
     q: string,
@@ -193,6 +218,24 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {/* Smart folder badge and save button */}
+      <div className="flex items-center gap-2 mb-4">
+        {resolvedSmartFolderName && (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-full">
+            <IconStar size={12} />
+            {resolvedSmartFolderName}
+          </span>
+        )}
+        {searched && !smartFolderParam && (
+          <button
+            onClick={() => setShowSaveModal(true)}
+            className="text-xs text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+          >
+            Save as smart folder
+          </button>
+        )}
+      </div>
+
       {loading && <NoteListSkeleton />}
 
       {!loading && searched && results.length === 0 && (
@@ -223,6 +266,11 @@ export default function SearchPage() {
           </button>
         </div>
       )}
+
+      <SmartFolderEditorModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+      />
     </div>
   );
 }

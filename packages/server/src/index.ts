@@ -11,6 +11,7 @@ import { ProjectRepository } from "./db/project-repository.js";
 import { TemplateRepository } from "./db/template-repository.js";
 import type { Template } from "./db/template-repository.js";
 import { PeopleRepository } from "./db/people-repository.js";
+import { SmartFolderRepository } from "./db/smart-folder-repository.js";
 import { createNotesRouter } from "./routes/notes.js";
 import { createCanvasesRouter } from "./routes/canvases.js";
 import { createTagsRouter } from "./routes/tags.js";
@@ -26,6 +27,7 @@ import { createTemplatesRouter } from "./routes/templates.js";
 import { createInquiryRouter } from "./routes/inquiry.js";
 import { createPeopleRouter } from "./routes/people.js";
 import { createDevRouter } from "./routes/dev.js";
+import { createSmartFoldersRouter } from "./routes/smart-folders.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,6 +56,7 @@ const canvasRepo = new CanvasRepository(db);
 const projectRepo = new ProjectRepository(db);
 const templateRepo = new TemplateRepository(db);
 const peopleRepo = new PeopleRepository(db);
+const smartFolderRepo = new SmartFolderRepository(db);
 seedBuiltInTemplates(templateRepo);
 
 app.get("/api/health", (_req, res) => {
@@ -75,6 +78,7 @@ app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectR
 app.use("/api/inquiry", createInquiryRouter());
 app.use("/api/people", createPeopleRouter(peopleRepo));
 app.use("/api/dev", createDevRouter(templateRepo, noteRepo, tagRepo, projectRepo, peopleRepo));
+app.use("/api/smart-folders", createSmartFoldersRouter(smartFolderRepo));
 
 function seedBuiltInTemplates(repo: TemplateRepository): void {
   const existing = repo.list();

@@ -567,19 +567,20 @@
 - [x] Backspace in empty callout deletes the node; Backspace with content lifts/unwraps
 - [ ] Tests: serializer round-trip, deserialization, all 12 types render correctly
 
-## Phase 42: Smart Folders / Saved Searches ⬜
+## Phase 42: Smart Folders / Saved Searches ✅
 
-- [ ] DB: `smart_folders` table migration with `id`, `name`, `query_json`, timestamps
-- [ ] `SmartFolderRepository` — prepared statements for CRUD (list, getById, create, update, delete)
-- [ ] `routes/smart-folders.ts` — GET list, POST create, GET/:id, PUT/:id, DELETE/:id
-- [ ] Mount router at `/api/smart-folders` in `index.ts`
-- [ ] Client types: `SmartFolder`, `SavedSearchQuery`
-- [ ] RTK Query: `useGetSmartFoldersQuery`, `useCreateSmartFolderMutation`, etc.
-- [ ] `SmartFolderEditorModal` — name input, tag/person/sort selectors, live preview count
-- [ ] `SmartFolderTree.tsx` — sidebar section with smart folder list (star icon)
-- [ ] Sidebar integration: render smart folders between folder tree and tags
-- [ ] SearchPage: `smartFolder` param resolution + "Save as Smart Folder" button
-- [ ] Tests: repository CRUD, API endpoint responses, modal form validation
+- [x] DB: `smart_folders` table migration with `id`, `name`, `query_json`, timestamps
+- [x] `SmartFolderRepository` — prepared statements for CRUD (list, getById, create, update, delete)
+- [x] `routes/smart-folders.ts` — GET list, POST create, GET/:id, PUT/:id, DELETE/:id
+- [x] Mount router at `/api/smart-folders` in `index.ts`
+- [x] Client types: `SmartFolder`, `SavedSearchQuery`, `SmartFolderCreatePayload`
+- [x] RTK Query: `useGetSmartFoldersQuery`, `useCreateSmartFolderMutation`, etc.
+- [x] `SmartFolderEditorModal` — name input, text/tag search fields, create/edit support
+- [x] `SmartFolderTree.tsx` — sidebar section with star icon, click to search, hover edit/delete
+- [x] Sidebar integration: smart folders section between recent notes and tags
+- [x] SearchPage: `smartFolder` param resolution — auto-loads query + tag + runs search
+- [x] SearchPage: "Save as smart folder" button when results are active
+- [ ] Tests: repository CRUD, API endpoints, modal form validation
 
 ## Phase 43: Note Embedding (Transclusion) ⬜
 
