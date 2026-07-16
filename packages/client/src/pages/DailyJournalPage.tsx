@@ -2,22 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGetDailyNotesQuery, useGetDailyStreakQuery } from "../store/redux/api";
 import type { Note } from "../types";
+import NoteContentPreview from "../components/NoteContentPreview";
 
 const PAGE_SIZE = 50;
 
 function getDayOfWeek(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
   return d.toLocaleDateString("en-US", { weekday: "long" });
-}
-
-function getContentPreview(content: string): string {
-  const stripped = content
-    .replace(/^#\s+.*$/m, "")
-    .replace(/^##\s+.*$/gm, "")
-    .replace(/^[-*]\s+\[.?\]\s+/gm, "")
-    .replace(/[#*_~`>|]/g, "")
-    .trim();
-  return stripped.slice(0, 200) || "No content";
 }
 
 function groupByMonth(notes: Note[]): Array<{ label: string; notes: Note[] }> {
@@ -142,7 +133,7 @@ export default function DailyJournalPage() {
                         </p>
                         {note.content && (
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 line-clamp-2">
-                            {getContentPreview(note.content)}
+                            <NoteContentPreview content={note.content} />
                           </p>
                         )}
                       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 import { useLazySearchNotesQuery, useGetTagsQuery } from "../store/redux/api";
@@ -6,51 +6,10 @@ import type { Note, SortField, SortOrder } from "../types";
 import { NoteListSkeleton } from "../components/Skeleton";
 import NoteCard from "../components/NoteCard";
 import TagPill from "../components/TagPill";
+import { HighlightedContentPreview, buildPreviewSnippet } from "../components/NoteContentPreview";
 
 const SNIPPET_WORDS = 30;
 const PAGE_SIZE = 20;
-
-function highlightText(text: string, query: string): string {
-  if (!query.trim()) return text;
-  const terms = query.trim().split(/\s+/).filter(Boolean);
-  let result = text;
-  for (const term of terms) {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "gi");
-    result = result.replace(regex, "%%HL%%$1%%/HL%%");
-  }
-  return result;
-}
-
-function buildSnippet(content: string, query: string): string {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return content.slice(0, 200);
-
-  const lower = content.toLowerCase();
-  let bestIdx = -1;
-  let bestScore = 0;
-
-  for (const term of terms) {
-    const idx = lower.indexOf(term);
-    if (idx >= 0) {
-      const score = term.length;
-      if (score > bestScore) {
-        bestScore = score;
-        bestIdx = idx;
-      }
-    }
-  }
-
-  if (bestIdx < 0) return content.slice(0, 200);
-
-  const words = content.split(/\s+/);
-  const beforeWords = content.slice(0, bestIdx).split(/\s+/).length;
-  const start = Math.max(0, beforeWords - Math.floor(SNIPPET_WORDS / 2));
-  const snippet = words.slice(start, start + SNIPPET_WORDS).join(" ");
-
-  if (start > 0) return `...${highlightText(snippet, query)}...`;
-  return highlightText(snippet, query);
-}
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -269,16 +228,19 @@ export default function SearchPage() {
 }
 
 function SearchResultItem({ note, query }: { note: Note; query: string }) {
-  const snippetHtml = useMemo(
-    () => buildSnippet(note.content, query),
-    [note.content, query],
-  );
+  const snippet = buildPreviewSnippet(note.content, query, SNIPPET_WORDS);
 
   return (
     <NoteCard
       note={note}
       title={<HighlightedText text={note.title || "Untitled"} query={query} />}
-      content={<SnippetRenderer html={snippetHtml} />}
+      content={
+        snippet.highlightedSnippet ? (
+          <SnippetRenderer content={snippet.highlightedSnippet} />
+        ) : (
+          "No content"
+        )
+      }
       footer={
         <div className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
           {new Date(note.updatedAt).toLocaleDateString()}
@@ -311,21 +273,6 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   );
 }
 
-function SnippetRenderer({ html }: { html: string }) {
-  const parts = html.split(/(%%HL%%[\s\S]*?%%\/HL%%%)/g);
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("%%HL%%")) {
-          const inner = part.replace("%%HL%%", "").replace("%%/HL%%%", "").replace("%%/HL%%", "");
-          return (
-            <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">
-              {inner}
-            </mark>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
+function SnippetRenderer({ content }: { content: string }) {
+  return <HighlightedContentPreview content={content} query="" />;
 }

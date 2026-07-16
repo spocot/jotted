@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLazyGetNoteByTitleQuery } from "../store/redux/api";
 import type { Note } from "../types";
+import NoteContentPreview from "./NoteContentPreview";
 
 const POPOVER_DELAY = 400;
 
@@ -88,12 +89,6 @@ export default function NotePreviewPopover() {
 
   if (!visible || !note) return null;
 
-  const snippet = note.content
-    ? note.content.length > 200
-      ? note.content.slice(0, 200) + "..."
-      : note.content
-    : "No content";
-
   return (
     <div
       ref={popoverRef}
@@ -113,7 +108,11 @@ export default function NotePreviewPopover() {
         {note.title || "Untitled"}
       </button>
       <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-4">
-        {snippet}
+        {note.content ? (
+          <NoteContentPreview content={note.content} maxLength={200} />
+        ) : (
+          "No content"
+        )}
       </p>
       <div className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
         {new Date(note.updatedAt).toLocaleDateString()}

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Note } from "../types";
+import NoteContentPreview from "./NoteContentPreview";
 
 interface NoteCardProps {
   note: Note;
@@ -23,7 +24,7 @@ export default function NoteCard({
         {title ?? (note.title || "Untitled")}
       </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-        {content ?? (note.content || "No content")}
+        {content ?? (note.content ? <NoteContentPreview content={note.content} /> : "No content")}
       </p>
       {footer !== undefined ? (
         footer
