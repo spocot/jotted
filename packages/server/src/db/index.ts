@@ -486,4 +486,10 @@ function initSchema(database: Database.Database): void {
       CREATE INDEX IF NOT EXISTS idx_note_people_person_id ON note_people(person_id, role);
     `);
   }
+
+  // Migration v16: add source column to note_tags for content vs. manual distinction
+  const noteTagTableInfo = database.pragma("table_info(note_tags)") as Array<{ name: string }>;
+  if (!noteTagTableInfo.find((col) => col.name === "source")) {
+    database.exec("ALTER TABLE note_tags ADD COLUMN source TEXT NOT NULL DEFAULT 'content'");
+  }
 }

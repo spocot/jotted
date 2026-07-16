@@ -392,10 +392,19 @@ export default function NoteEditorPage() {
     }
   };
 
-  const handleRemoveTag = async (tagName: string) => {
+  const handleRemoveTag = async (tagName: string, source?: string) => {
     if (!id) return;
     try {
       await removeNoteTag({ noteId: id, tagName }).unwrap();
+      if (source === "content" && editor) {
+        const serialized = serializer.serialize(editor.state.doc);
+        const cleaned = serialized
+          .replace(new RegExp(`#${tagName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "")
+          .replace(/  +/g, " ")
+          .trim();
+        const html = markdownToHtml(cleaned);
+        editor.commands.setContent(html);
+      }
     } catch {
       // ignore
     }
@@ -516,9 +525,9 @@ export default function NoteEditorPage() {
               >
                 #{tag.name}
                 <button
-                  onClick={() => handleRemoveTag(tag.name)}
+                  onClick={() => handleRemoveTag(tag.name, tag.source)}
                   className="hover:text-red-500 transition-colors"
-                  title={`Remove #${tag.name}`}
+                  title={tag.source === "content" ? `Remove #${tag.name} from content` : `Remove #${tag.name} tag`}
                 >
                   ×
                 </button>

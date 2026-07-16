@@ -8,6 +8,7 @@ export interface Tag {
   id: string;
   name: string;
   noteCount: number;
+  source?: "content" | "manual";
 }
 
 export class TagRepository {
@@ -21,6 +22,8 @@ export class TagRepository {
   private deleteUnusedStmt: Database.Statement;
   private renameStmt: Database.Statement;
   private deleteTagStmt: Database.Statement;
+  private getTagsForNoteStmt: Database.Statement;
+  private getTagsForNoteBySourceStmt: Database.Statement;
 
   constructor(private db: Database.Database) {
     this.getAllStmt = db.prepare(`
@@ -46,7 +49,7 @@ export class TagRepository {
     `);
     this.insertTagStmt = db.prepare("INSERT INTO tags (id, name) VALUES (?, ?)");
     this.addToNoteStmt = db.prepare(
-      "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO note_tags (note_id, tag_id, source) VALUES (?, ?, ?)",
     );
     this.removeFromNoteStmt = db.prepare(
       "DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?",
@@ -54,6 +57,20 @@ export class TagRepository {
     this.getNoteIdsStmt = db.prepare(
       "SELECT note_id FROM note_tags WHERE tag_id = ?",
     );
+    this.getTagsForNoteStmt = db.prepare(`
+      SELECT t.id, t.name, COUNT(nt2.note_id) AS noteCount, nt.source
+      FROM tags t
+      JOIN note_tags nt ON t.id = nt.tag_id
+      LEFT JOIN note_tags nt2 ON t.id = nt2.tag_id
+      WHERE nt.note_id = ?
+      GROUP BY t.id
+    `);
+    this.getTagsForNoteBySourceStmt = db.prepare(`
+      SELECT t.id, t.name, nt.source
+      FROM tags t
+      JOIN note_tags nt ON t.id = nt.tag_id
+      WHERE nt.note_id = ? AND nt.source = ?
+    `);
     this.renameStmt = db.prepare("UPDATE tags SET name = ? WHERE id = ?");
     this.deleteTagStmt = db.prepare("DELETE FROM tags WHERE id = ?");
     this.deleteUnusedStmt = db.prepare(
@@ -90,8 +107,8 @@ export class TagRepository {
     return { id, name, noteCount: 0 };
   }
 
-  addToNote(noteId: string, tagId: string): void {
-    this.addToNoteStmt.run(noteId, tagId);
+  addToNote(noteId: string, tagId: string, source: "content" | "manual" = "content"): void {
+    this.addToNoteStmt.run(noteId, tagId, source);
   }
 
   removeFromNote(noteId: string, tagId: string): void {
@@ -146,15 +163,11 @@ export class TagRepository {
   }
 
   getTagsForNote(noteId: string): Tag[] {
-    return this.db
-      .prepare(
-        `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
-         FROM tags t
-         JOIN note_tags nt ON t.id = nt.tag_id
-         WHERE nt.note_id = ?
-         GROUP BY t.id`,
-      )
-      .all(noteId) as Tag[];
+    return this.getTagsForNoteStmt.all(noteId) as Tag[];
+  }
+
+  getTagsForNoteBySource(noteId: string, source: "content" | "manual"): Tag[] {
+    return this.getTagsForNoteBySourceStmt.all(noteId, source) as Tag[];
   }
 
   deleteUnused(): void {

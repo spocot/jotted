@@ -77,7 +77,7 @@ export function createNotesRouter(
 
       if (noteType === "meeting" && tagRepo) {
         const meetingTag = tagRepo.upsert("meeting");
-        tagRepo.addToNote(note.id, meetingTag.id);
+        tagRepo.addToNote(note.id, meetingTag.id, "manual");
       }
 
       const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
@@ -238,7 +238,7 @@ export function createNotesRouter(
       }
 
       const tag = tagRepo.upsert(name.trim());
-      tagRepo.addToNote(note.id, tag.id);
+      tagRepo.addToNote(note.id, tag.id, "manual");
 
       const full = enrichNote(id, noteRepo, tagRepo, linkRepo);
       res.json(full);
@@ -318,7 +318,7 @@ export function createNotesRouter(
 
       // Auto-link meeting tag
       const meetingTag = tagRepo.upsert("meeting");
-      tagRepo.addToNote(note.id, meetingTag.id);
+      tagRepo.addToNote(note.id, meetingTag.id, "manual");
 
       // Link organizer
       if (organizer) {
@@ -462,7 +462,7 @@ function syncNoteRelations(
 ): void {
   const { wikilinks, tags, mentions } = parseContent(content);
 
-  const currentTags = tagRepo.getTagsForNote(noteId);
+  const currentTags = tagRepo.getTagsForNoteBySource(noteId, "content");
   const currentTagIds = currentTags.map((t) => t.id);
 
   const newTagIds: string[] = [];
@@ -470,7 +470,7 @@ function syncNoteRelations(
     const t = tagRepo.upsert(tagMatch.name);
     newTagIds.push(t.id);
     if (!currentTagIds.includes(t.id)) {
-      tagRepo.addToNote(noteId, t.id);
+      tagRepo.addToNote(noteId, t.id, "content");
     }
   }
 
