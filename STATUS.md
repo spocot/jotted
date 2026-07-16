@@ -554,3 +554,74 @@
 - [x] RTK Query: person search + filter endpoints
 - [x] Tests: all existing tests pass
 
+## Phase 41: Callouts / Admonitions ⬜
+
+- [ ] TipTap Callout node (`extensions/Callout.ts`) — block node with `type` + `title` attrs
+- [ ] 12 callout types with distinct icon + color per type
+- [ ] `renderHTML`: colored left-border box with icon header + collapsible body
+- [ ] Markdown serialization: `> [!type] Title` blockquote syntax (`serializer.ts`)
+- [ ] Markdown deserialization: callout block detection + placeholder expansion (`markdown.ts`)
+- [ ] Formatting toolbar: "Callout" type-picker dropdown
+- [ ] Convert blockquote ↔ callout action
+- [ ] Import Callout extension in `NoteEditorPage.tsx`
+- [ ] Tests: serializer round-trip, deserialization, all 12 types render correctly
+
+## Phase 42: Smart Folders / Saved Searches ⬜
+
+- [ ] DB: `smart_folders` table migration with `id`, `name`, `query_json`, timestamps
+- [ ] `SmartFolderRepository` — prepared statements for CRUD (list, getById, create, update, delete)
+- [ ] `routes/smart-folders.ts` — GET list, POST create, GET/:id, PUT/:id, DELETE/:id
+- [ ] Mount router at `/api/smart-folders` in `index.ts`
+- [ ] Client types: `SmartFolder`, `SavedSearchQuery`
+- [ ] RTK Query: `useGetSmartFoldersQuery`, `useCreateSmartFolderMutation`, etc.
+- [ ] `SmartFolderEditorModal` — name input, tag/person/sort selectors, live preview count
+- [ ] `SmartFolderTree.tsx` — sidebar section with smart folder list (star icon)
+- [ ] Sidebar integration: render smart folders between folder tree and tags
+- [ ] SearchPage: `smartFolder` param resolution + "Save as Smart Folder" button
+- [ ] Tests: repository CRUD, API endpoint responses, modal form validation
+
+## Phase 43: Note Embedding (Transclusion) ⬜
+
+- [ ] TipTap NoteEmbed node (`extensions/NoteEmbed.ts`) — `ReactNodeViewRenderer` with `title` attr
+- [ ] `NoteEmbedView.tsx` — React component: loading skeleton / error badge / embedded note card
+- [ ] Markdown serialization: `![[title]]` output (`serializer.ts`)
+- [ ] Markdown deserialization: `![[...]]` pre-processing BEFORE regular `[[...]]` (`markdown.ts`)
+- [ ] Server: add `?title=` query param to `GET /api/notes` for exact title lookup
+- [ ] `NoteRepository.list()` — add optional `WHERE n.title = ?` clause
+- [ ] Import NoteEmbed in `NoteEditorPage.tsx`
+- [ ] RTK Query: update `getNotes` param types to include `title`
+- [ ] Tests: serializer round-trip, deserialization precedence (embed before wikilink), not-found state
+
+## Phase 44: Tag Hierarchy / Nested Tags ⬜
+
+- [ ] `TagRepository.getNoteIdsForTagHierarchy()` — SQL with `LIKE prefix||'/%'`
+- [ ] `TagRepository.buildTagTree()` — parse flat tags into `TagTreeNode[]` tree
+- [ ] `TagRepository.getHierarchicalNoteCount()` — aggregate child counts
+- [ ] `GET /api/tags/hierarchy` — returns `TagTreeNode[]` tree structure
+- [ ] Update `GET /api/tags/:name/notes` with `?hierarchical=true` param
+- [ ] Client types: `TagTreeNode` interface
+- [ ] RTK Query: `useGetTagsHierarchyQuery`, update `getTagNotes` params
+- [ ] `TagTree.tsx` — recursive tree renderer with expand/collapse, indentation, note count badges
+- [ ] Sidebar: replace flat tag pills with `<TagTree>`
+- [ ] TagsPage: flat/tree view toggle, tree mode rendering
+- [ ] SearchPage: hierarchical tag filter dropdown
+- [ ] Tests: tree building, hierarchical note count, API responses
+
+## Phase 45: Plugins / Extensions System ⬜
+
+- [ ] Server: `GET /api/plugins` — scan plugins directory, return manifests
+- [ ] Server: `GET /api/plugins/:id` — single plugin manifest
+- [ ] Server: static serving of `plugins/` directory via Express
+- [ ] `client/src/plugins/types.ts` — `JottedPlugin`, `PluginAPI`, `SidebarPanel`, `Command` interfaces
+- [ ] `client/src/plugins/plugin-manager.ts` — `PluginManager` singleton (load, enable, disable, reload)
+- [ ] `client/src/plugins/plugin-context.tsx` — `PluginProvider` + `usePluginExtensions/usePluginSidebarPanels/usePluginCommands` hooks
+- [ ] `PluginAPI` implementation: extension/panel/command registration, toast, navigate, settings, API access
+- [ ] `PluginsPage.tsx` — plugin management UI (installed grid, enable/disable toggles, settings tab, reload)
+- [ ] `App.tsx` — add `/plugins` route
+- [ ] `Layout.tsx` — add "Plugins" link to "More" dropdown
+- [ ] `main.tsx` — wrap app in `<PluginProvider>`
+- [ ] `NoteEditorPage.tsx` — merge plugin extensions into editor config
+- [ ] `Sidebar.tsx` — render plugin-registered sidebar panels
+- [ ] `CommandPalette.tsx` — merge plugin commands into palette search
+- [ ] Error boundaries per plugin — crash isolation
+- [ ] Tests: PluginManager lifecycle, API registration hooks, plugin enable/disable

@@ -915,3 +915,368 @@ Builds on the schema and endpoints from Phase 39.
 - Root `dev` script uses `concurrently` for client + server
 - ICS calendar sync fetches from URLs and parses iCalendar data; doesn't require platform-specific APIs
 - Canvas auto-save uses debounced writes to avoid thrashing the DB
+
+---
+
+### Phase 41: Callouts / Admonitions
+
+Obsidian-style styled block callouts as a TipTap block node. Renders colored bordered boxes
+with type-specific icons and titles. Purely client-side — no DB or API changes.
+
+**Callout Types (12 total):**
+
+| Type | Icon (`@tabler/icons-react`) | Color class | Purpose |
+|---|---|---|---|
+| `note` | IconInfoCircle | blue | General information |
+| `warning` | IconAlertTriangle | amber | Cautions / warnings |
+| `tip` | IconFlame | green | Pro tips and tricks |
+| `danger` | IconAlertOctagon | red | Critical warnings |
+| `info` | IconInfoSquare | sky | Info boxes |
+| `question` | IconHelpCircle | purple | Q&A / FAQ |
+| `abstract` | IconClipboardList | teal | Summaries / TL;DR |
+| `success` | IconCircleCheck | emerald | Success / completed |
+| `failure` | IconCircleX | rose | Failure / error |
+| `bug` | IconBug | red | Bug reports |
+| `example` | IconFlask | violet | Examples / demos |
+| `quote` | IconQuote | gray | Block quotations |
+
+**TipTap Extension (`extensions/Callout.ts`):**
+
+- `Node.create({ name: "callout", group: "block", content: "block+", defining: true })`
+- Attributes: `type` (default `"note"`), `title` (default `""`)
+- `parseHTML`: matches `<div data-callout data-type="...">`
+- `renderHTML`: renders structured `<div class="callout-wrapper ...border-l-4...">` with:
+  - Header row: colored icon SVG (inlined from `@tabler/icons-react`) + bold title
+  - Body `<div>` containing standard block children (headings, paragraphs, lists, wikilinks, tags all work inside)
+  - Collapsible: clicking the header toggles `hidden` + `max-h-0` on body (CSS transition)
+
+**Markdown Round-Trip:**
+
+- **Serialization** (`serializer.ts`):
+  ```
+  > [!note] Title
+  > Content lines...
+  ```
+  Each child block is rendered with `> ` prefix via `state.wrapBlock`.
+
+- **Deserialization** (`markdown.ts` — pre-processing before `marked`):
+  1. Extract `> [!type] Title\n> ...` blocks via regex → replace with `__CALLOUT_N__` placeholders
+  2. Pass remaining markdown through `marked`
+  3. Replace placeholders with `<div data-callout data-type="..." data-title="...">`
+     containing the callout body rendered as HTML by a second `marked.parse()` pass
+
+**Formatting Toolbar:**
+- "Callout" dropdown button in toolbar (next to existing blockquote button)
+- Opens a 12-item palette showing type icons and labels
+- Clicking a type:
+  - If cursor is inside a blockquote → convert to callout of selected type
+  - If empty paragraph or content selected → insert new callout block with placeholder text
+- Active state: highlights when cursor is inside a callout node
+- Convert back to blockquote: "Remove callout" option at bottom of dropdown
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `packages/client/src/extensions/Callout.ts` | **New** — TipTap callout node definition |
+| `packages/client/src/extensions/index.ts` | Add `export { Callout }` |
+| `packages/client/src/lib/serializer.ts` | Add `callout` serialization handler |
+| `packages/client/src/lib/markdown.ts` | Add callout block pre-processing + placeholder expansion |
+| `packages/client/src/pages/NoteEditorPage.tsx` | Import Callout, add toolbar dropdown |
+
+---
+
+### Phase 42: Smart Folders / Saved Searches
+
+Persist search configurations as named "smart folders" that dynamically show matching
+notes when clicked. Reuses existing search infrastructure end-to-end.
+
+**Data Model:**
+
+```sql
+CREATE TABLE IF NOT EXISTS smart_folders (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  query_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+**`query_json` schema:**
+```typescript
+interface SavedSearchQuery {
+  q?: string;          // FTS text query
+  tag?: string;        // Single tag filter (hierarchical — includes children)
+  person?: string;     // Person name filter
+  personRole?: string; // "organizer" | "attendee" | "mentioned"
+  sort?: "updatedAt" | "createdAt" | "title" | "relevance";
+  order?: "ASC" | "DESC";
+}
+```
+
+**Backend — `SmartFolderRepository` (`db/smart-folder-repository.ts`):**
+
+Standard CRUD repository with prepared statements: `list()`, `getById()`, `create()`,
+`update(id, { name?, queryJson? })`, `delete(id)`.
+
+**Backend — Routes (`routes/smart-folders.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/smart-folders` | List all (ordered by name) |
+| `POST` | `/api/smart-folders` | Create `{ name, queryJson }` |
+| `GET` | `/api/smart-folders/:id` | Get by ID |
+| `PUT` | `/api/smart-folders/:id` | Update name or query |
+| `DELETE` | `/api/smart-folders/:id` | Delete |
+
+**Frontend — `SmartFolderEditorModal`:**
+- Name input
+- Text search field (maps to `q`)
+- Tag selector dropdown (fetches tags, shows hierarchical options)
+- Person selector (autocomplete from people endpoint)
+- Sort dropdown (relevance / updated / created / title)
+- Live preview: shows matching note count as filters change (debounced API call)
+
+**Frontend — `SmartFolderTree.tsx` (Sidebar integration):**
+- New section in sidebar between FolderTree and Tags
+- Star/lightbulb icon + name for each smart folder
+- Click → navigates to `/search?smartFolder=<id>` which resolves the saved query
+
+**Frontend — SearchPage integration:**
+- Read `smartFolder` query param → fetch smart folder → populate all filter fields → execute search
+- Show smart folder name as badge/breadcrumb near search bar
+- "Save as Smart Folder" button in search header (active when any filter is set)
+
+**Frontend — RTK Query:**
+- Tag types: `"SmartFolder"`, `"SmartFolderList"`
+- Queries: `useGetSmartFoldersQuery`, `useGetSmartFolderQuery`
+- Mutations: `useCreateSmartFolderMutation`, `useUpdateSmartFolderMutation`, `useDeleteSmartFolderMutation`
+- Creating/deleting a smart folder invalidates `"SmartFolderList"`
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/db/index.ts` | Add `smart_folders` table migration |
+| `server/src/db/smart-folder-repository.ts` | **New** — repository |
+| `server/src/routes/smart-folders.ts` | **New** — route factory |
+| `server/src/index.ts` | Instantiate repo + mount router |
+| `client/src/types/index.ts` | Add `SmartFolder`, `SavedSearchQuery` |
+| `client/src/store/redux/api.ts` | Add query/mutation endpoints + auto-generated hooks |
+| `client/src/components/SmartFolderTree.tsx` | **New** — sidebar smart folder list |
+| `client/src/components/SmartFolderEditorModal.tsx` | **New** — create/edit modal |
+| `client/src/components/Sidebar.tsx` | Integrate `<SmartFolderTree>` |
+| `client/src/pages/SearchPage.tsx` | `smartFolder` param resolution + "Save" button |
+
+---
+
+### Phase 43: Note Embedding (Transclusion)
+
+Embed one note's content inside another using `![[note title]]` syntax.
+Renders the target note's content inline as a read-only card. First feature
+in Jotted to use TipTap's `ReactNodeViewRenderer` for async content rendering.
+
+**TipTap Extension (`extensions/NoteEmbed.ts`):**
+- `Node.create({ name: "noteEmbed", group: "block", atom: true, selectable: false })`
+- Uses `ReactNodeViewRenderer(NoteEmbedView)` — React component renders the embedded content
+- Attribute: `title` (the target note title, from `[[...]]`)
+- `parseHTML`: matches `<div data-note-embed data-title="...">`
+
+**React Node View (`components/NoteEmbedView.tsx`):**
+- Props: `node.attrs.title`
+- Uses RTK Query lazy hook to fetch note by title from the server
+- States:
+  - **Loading:** Card with skeleton placeholder and target title
+  - **Loaded:** Card structure:
+    - Header row: link icon + target note title (clickable → opens note in new tab)
+    - Body: note content rendered as HTML via `marked.parse()` on the client
+    - Subtle entry animation (fade in + slide up)
+  - **Error:** If note not found, renders `![[title]]` as plain text with small red "not found" badge
+- The embed refreshes on every edit — always shows live content of the target note.
+
+**Markdown Round-Trip:**
+- **Serialization:** `![[title]]` (literal string output via serializer handler)
+- **Deserialization:** `markdown.ts` pre-processing regex before the regular wikilink regex:
+  ```
+  ![[Title]] → <div data-note-embed data-title="Title"></div>
+  ```
+  Must run BEFORE `[[Title]]` → wikilink regex to avoid ambiguity.
+
+**Server — Note lookup by title:**
+- Add optional `?title=` query param to `GET /api/notes` (exact match)
+- `NoteRepository.list()` adds `WHERE n.title = ?` when title param is present
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `client/src/extensions/NoteEmbed.ts` | **New** — TipTap node definition |
+| `client/src/components/NoteEmbedView.tsx` | **New** — React NodeView component |
+| `client/src/extensions/index.ts` | Add export |
+| `client/src/lib/serializer.ts` | Add `noteEmbed` handler |
+| `client/src/lib/markdown.ts` | Add `![[...]]` pre-processing before `[[...]]` |
+| `client/src/pages/NoteEditorPage.tsx` | Import NoteEmbed extension |
+| `server/src/db/note-repository.ts` | Add optional `title` filter to `list()` |
+| `server/src/routes/notes.ts` | Pass `title` query param to `list()` |
+| `client/src/store/redux/api.ts` | Update `getNotes` query param types to include `title` |
+
+---
+
+### Phase 44: Tag Hierarchy / Nested Tags
+
+Promote `/`-separated tag names (`#dev/frontend/react`) from flat strings to
+a navigable hierarchy. Parent tags match all descendants: clicking `#dev` shows
+notes tagged `#dev`, `#dev/frontend`, `#dev/frontend/react`, etc.
+
+**Parser:** No change needed — existing regex already allows `/` in tags.
+
+**Server — `TagRepository` additions:**
+- `getNoteIdsForTagHierarchy(tagName): Set<string>` — uses SQL:
+  ```sql
+  SELECT n.id FROM notes n
+  JOIN note_tags nt ON n.id = nt.note_id
+  JOIN tags t ON nt.tag_id = t.id
+  WHERE t.name = ? OR t.name LIKE ?||'/%'
+  ```
+- `buildTagTree(): TagTreeNode[]` — parses flat tag names into tree by splitting on `/`,
+  creating intermediate nodes, aggregating note counts upward
+- `getHierarchicalNoteCount(tagName): number` — count of notes for tag + all descendants
+
+**Server — New endpoint:**
+- `GET /api/tags/hierarchy` → returns `TagTreeNode[]` (tree structure with direct + total note counts)
+- Update `GET /api/tags/:name/notes` to accept `?hierarchical=true` param (default `false`)
+
+**Client types:**
+```typescript
+interface TagTreeNode {
+  name: string;           // Segment name, e.g. "react"
+  fullName: string;       // Full path, e.g. "dev/frontend/react"
+  noteCount: number;      // Direct notes for this exact tag
+  totalNoteCount: number; // Notes for this tag + all descendants
+  children: TagTreeNode[];
+}
+```
+
+**Frontend — `TagTree.tsx` (sidebar):**
+- Recursive component replacing flat tag pills in sidebar
+- Each node: chevron (if children) + `#segmentName` + note count badge + children indented below
+- Expand/collapse via local state (same pattern as FolderTree)
+- Indentation: `8 + depth * 16`px
+- Clicking a leaf node: navigates to `/tags?tag=fullName`
+- Ctrl+click on parent node: navigates with hierarchical filter
+- Active state: highlights when viewing that tag's notes
+
+**Frontend — TagsPage:**
+- Toggle button: "Flat" / "Tree" view
+- Tree mode reuses `TagTree` recursive renderer
+- Tag rename/delete operations still available in tree mode (hover actions)
+
+**Frontend — Search filter:**
+- Tag filter dropdown in SearchPage shows tree structure with nesting
+- Selecting a parent tag auto-enables hierarchical mode for broader results
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/db/tag-repository.ts` | Add `getNoteIdsForTagHierarchy`, `buildTagTree`, `getHierarchicalNoteCount` |
+| `server/src/routes/tags.ts` | Add `GET /api/tags/hierarchy`, update `GET /api/tags/:name/notes` with `?hierarchical=` |
+| `client/src/types/index.ts` | Add `TagTreeNode` |
+| `client/src/store/redux/api.ts` | Add `getTagsHierarchy` query, update tag notes endpoint params |
+| `client/src/components/TagTree.tsx` | **New** — recursive tag tree renderer |
+| `client/src/components/Sidebar.tsx` | Replace flat tag pill section with `<TagTree>` |
+| `client/src/pages/TagsPage.tsx` | Add flat/tree toggle, tree mode rendering |
+| `client/src/pages/SearchPage.tsx` | Tag filter shows hierarchical options |
+
+---
+
+### Phase 45: Plugins / Extensions System
+
+User-invoked extensibility: client-side JavaScript plugins loaded from a
+`plugins/` directory. Plugins register TipTap extensions, sidebar panels,
+command palette entries, and context menu items through a sandboxed API.
+
+**Plugin Manifest — `JottedPlugin` interface:**
+```typescript
+interface JottedPlugin {
+  id: string;                             // Unique, e.g. "my-plugin"
+  name: string;                           // Display name
+  version: string;                        // Semver
+  description?: string;
+  author?: string;
+  register(api: PluginAPI): void | Promise<void>;
+  onEnable?(): void | Promise<void>;
+  onDisable?(): void | Promise<void>;
+}
+```
+
+**Plugin API (`PluginAPI`):**
+
+| Method | Purpose |
+|---|---|
+| `registerTipTapExtension(ext)` | Register a TipTap extension into the editor |
+| `registerSidebarPanel(panel)` | Register `{ id, title, component, position? }` — renders in sidebar |
+| `registerCommand(cmd)` | Register `{ id, label, shortcut?, handler }` — appears in command palette |
+| `registerEditorContextItem(item)` | Register `{ id, label, icon?, handler(editor) }` — right-click menu |
+| `onNoteSave(handler)` | Hook: called with `noteId` when any note is saved |
+| `onNoteOpen(handler)` | Hook: called with `noteId` when a note is opened |
+| `addToast(msg, type)` | Show a toast notification (success/error/info) |
+| `navigate(path)` | Navigate to an app route |
+| `settings.get(key)` / `settings.set(key, value)` | Persistent per-plugin settings (localStorage) |
+| `api` | Direct access to the RTK Query API client (for data fetching) |
+
+**PluginManager (`client/src/plugins/plugin-manager.ts`):**
+- `loadAll()`: Fetches plugin list from `/api/plugins`, dynamic-imports each
+  enabled plugin, calls `register()`, stores in registry
+- `enable(id)` / `disable(id)`: Toggles plugin, calls `onEnable/onDisable`,
+  persists enabled state to localStorage
+- `reload()`: Full reload cycle — unload all then load all
+- On error during `register()`: catches exception, marks plugin as "error" state,
+  skips it without crashing the app
+
+**React Integration — `PluginProvider` (`client/src/plugins/plugin-context.tsx`):**
+- Context provider wrapping the app (mounted in `main.tsx` inside Redux Provider)
+- On mount, calls `PluginManager.loadAll()`
+- Exposes hooks:
+  - `usePluginExtensions()` → `Extension[]` (for editor)
+  - `usePluginSidebarPanels()` → `SidebarPanel[]` (for sidebar)
+  - `usePluginCommands()` → `Command[]` (for command palette)
+
+**Server — Plugin discovery (`routes/plugins.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/plugins` | List installed plugin manifests from `plugins/` directory |
+| `GET` | `/api/plugins/:id` | Single plugin manifest |
+
+Plugin directory: `<workspace>/plugins/<plugin-id>/manifest.json` + `index.js`.
+Server serves plugin static assets via: `app.use("/plugins", express.static(pluginsDir))`.
+
+**Frontend — `PluginsPage` (`/plugins`):**
+- Route at `/plugins`, nav link in Layout header
+- Tabs: "Installed" (grid of plugin cards: name, version, description, enable/disable toggle, settings gear)
+- Tab: "Settings" (per-plugin forms when plugin has configurable settings)
+- Reload button: re-scans plugin directory on disk
+
+**Security:**
+- Plugins are user-installed JS — trust model is user-controlled
+- Error boundaries around every plugin-registered component
+- Plugin API does not expose: file system writes, raw DB access, server env vars, or `eval`
+- Plugin registry catches and logs errors; broken plugins are disabled automatically
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/index.ts` | Add GET `/api/plugins` endpoint + `/plugins/*` static serving |
+| `client/src/plugins/types.ts` | **New** — `JottedPlugin`, `PluginAPI`, `SidebarPanel`, `Command` interfaces |
+| `client/src/plugins/plugin-manager.ts` | **New** — `PluginManager` singleton class |
+| `client/src/plugins/plugin-context.tsx` | **New** — `PluginProvider` + hooks |
+| `client/src/pages/PluginsPage.tsx` | **New** — plugin management UI |
+| `client/src/main.tsx` | Wrap app in `<PluginProvider>` |
+| `client/src/App.tsx` | Add `/plugins` route |
+| `client/src/components/Layout.tsx` | Add "Plugins" link to "More" dropdown |
+| `client/src/pages/NoteEditorPage.tsx` | Merge plugin extensions into editor config |
+| `client/src/components/Sidebar.tsx` | Render plugin sidebar panels |
+| `client/src/components/CommandPalette.tsx` | Merge plugin commands into palette actions |
