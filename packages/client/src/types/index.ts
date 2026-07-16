@@ -509,3 +509,54 @@ export interface SmartFolderCreatePayload {
   name: string;
   queryJson?: string;
 }
+
+export interface AtlassianStatus {
+  configured: boolean;
+  unlocked: boolean;
+  hasPassword: boolean;
+  domain?: string;
+  email?: string;
+  user?: { user: string; displayName: string } | null;
+  connectionError?: string | null;
+}
+
+export interface JiraIssueInfo {
+  key: string;
+  summary: string;
+  status: string;
+  statusColor: string;
+  assignee: string;
+  priority: string;
+  priorityIcon: string;
+  issueType: string;
+  issueTypeIcon: string;
+  url: string;
+}
+
+export interface ConfluencePageInfo {
+  pageId: string;
+  title: string;
+  spaceKey: string;
+  spaceName: string;
+  url: string;
+}
+
+export interface IntegrationLink {
+  id: string;
+  entityType: string;
+  entityId: string;
+  integrationType: string;
+  externalId: string;
+  externalUrl: string;
+  title: string | null;
+  metaJson: string | null;
+  syncedAt: string | null;
+  createdAt: string;
+}
+
+export interface IntegrationLinkCreatePayload {
+  entityType: string;
+  entityId: string;
+  integrationType: string;
+  externalId: string;
+}

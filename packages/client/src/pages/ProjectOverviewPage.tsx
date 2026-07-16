@@ -32,6 +32,7 @@ import {
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
 import ArtifactEditModal from "../components/ArtifactEditModal";
+import IntegrationLinksPanel from "../components/IntegrationLinksPanel";
 import { useConfirm } from "../hooks/useConfirm";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -394,6 +395,9 @@ export default function ProjectOverviewPage() {
           </button>
         </div>
       </div>
+
+      {/* Linked Resources */}
+      <IntegrationLinksPanel entityType="project" entityId={project.id} />
 
       {/* Groups section */}
       <section className="mb-8">

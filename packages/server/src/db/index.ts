@@ -506,4 +506,26 @@ function initSchema(database: Database.Database): void {
       );
     `);
   }
+
+  // Migration v18: create integration_links table
+  const ilTableInfo = database.pragma("table_info(integration_links)") as Array<{ name: string }>;
+  if (ilTableInfo.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS integration_links (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        integration_type TEXT NOT NULL,
+        external_id TEXT NOT NULL,
+        external_url TEXT NOT NULL,
+        title TEXT,
+        meta_json TEXT,
+        synced_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(entity_type, entity_id, integration_type, external_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_il_entity ON integration_links(entity_type, entity_id);
+      CREATE INDEX IF NOT EXISTS idx_il_external ON integration_links(integration_type, external_id);
+    `);
+  }
 }

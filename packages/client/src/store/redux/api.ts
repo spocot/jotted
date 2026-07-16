@@ -47,6 +47,11 @@ import type {
   DevSeedResponse,
   SmartFolder,
   SmartFolderCreatePayload,
+  AtlassianStatus,
+  JiraIssueInfo,
+  ConfluencePageInfo,
+  IntegrationLink,
+  IntegrationLinkCreatePayload,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -99,6 +104,7 @@ export const apiSlice = createApi({
     "DevTools",
     "SmartFolder",
     "SmartFolderList",
+    "IntegrationLink",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -628,6 +634,108 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "SmartFolder", id },
         "SmartFolderList",
+      ],
+    }),
+
+    // ---- Atlassian Integrations ----
+    getAtlassianStatus: builder.query<AtlassianStatus, void>({
+      query: () => "/integrations/atlassian/status",
+    }),
+
+    configureAtlassian: builder.mutation<
+      { message: string; user: { user: string; displayName: string } | null; encrypted: boolean },
+      { domain: string; email: string; apiToken: string; masterPassword?: string }
+    >({
+      query: (payload) => ({
+        url: "/integrations/atlassian/config",
+        method: "POST",
+        body: payload,
+      }),
+    }),
+
+    deleteAtlassianConfig: builder.mutation<{ message: string }, void>({
+      query: () => ({
+        url: "/integrations/atlassian/config",
+        method: "DELETE",
+      }),
+    }),
+
+    unlockAtlassian: builder.mutation<
+      { message: string; unlocked: boolean; hadConfig: boolean },
+      { masterPassword: string }
+    >({
+      query: (payload) => ({
+        url: "/integrations/atlassian/unlock",
+        method: "POST",
+        body: payload,
+      }),
+    }),
+
+    getJiraIssue: builder.query<JiraIssueInfo, string>({
+      query: (key) => `/integrations/jira/issues/${encodeURIComponent(key)}`,
+    }),
+
+    resolveConfluencePage: builder.query<ConfluencePageInfo, string>({
+      query: (url) =>
+        `/integrations/confluence/pages/resolve?url=${encodeURIComponent(url)}`,
+    }),
+
+    getConfluencePageContent: builder.query<
+      { pageInfo: ConfluencePageInfo; tipTapJson: object },
+      string
+    >({
+      query: (id) => `/integrations/confluence/pages/${id}`,
+    }),
+
+    // ---- Integration Links ----
+    getIntegrationLinks: builder.query<
+      IntegrationLink[],
+      { entityType: string; entityId: string }
+    >({
+      query: ({ entityType, entityId }) =>
+        `/integration-links?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`,
+      providesTags: (_result, _error, { entityType, entityId }) => [
+        { type: "IntegrationLink", id: `${entityType}:${entityId}` },
+      ],
+    }),
+
+    createIntegrationLink: builder.mutation<
+      IntegrationLink,
+      IntegrationLinkCreatePayload
+    >({
+      query: (payload) => ({
+        url: "/integration-links",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: (_result, _error, { entityType, entityId }) => [
+        { type: "IntegrationLink", id: `${entityType}:${entityId}` },
+      ],
+    }),
+
+    deleteIntegrationLink: builder.mutation<
+      void,
+      { id: string; entityType: string; entityId: string }
+    >({
+      query: ({ id }) => ({
+        url: `/integration-links/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { entityType, entityId }) => [
+        { type: "IntegrationLink", id: `${entityType}:${entityId}` },
+      ],
+    }),
+
+    refreshIntegrationLink: builder.mutation<
+      IntegrationLink,
+      { id: string; entityType: string; entityId: string }
+    >({
+      query: ({ id }) => ({
+        url: `/integration-links/${id}/refresh`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { entityType, entityId }) => [
+        { type: "IntegrationLink", id: `${entityType}:${entityId}` },
       ],
     }),
 
@@ -1845,6 +1953,20 @@ export const {
   useCreateSmartFolderMutation,
   useUpdateSmartFolderMutation,
   useDeleteSmartFolderMutation,
+  useGetAtlassianStatusQuery,
+  useConfigureAtlassianMutation,
+  useDeleteAtlassianConfigMutation,
+  useUnlockAtlassianMutation,
+  useLazyGetJiraIssueQuery,
+  useLazyResolveConfluencePageQuery,
+  useLazyGetConfluencePageContentQuery,
+  useGetJiraIssueQuery,
+  useResolveConfluencePageQuery,
+  useGetConfluencePageContentQuery,
+  useGetIntegrationLinksQuery,
+  useCreateIntegrationLinkMutation,
+  useDeleteIntegrationLinkMutation,
+  useRefreshIntegrationLinkMutation,
   useSearchSuggestQuery,
   useGetInquiryTablesQuery,
   useGetInquiryTableSchemaQuery,

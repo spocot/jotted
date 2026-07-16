@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import BacklinksPanel from "./BacklinksPanel";
 import SubgraphView from "./SubgraphView";
 import VersionHistoryPanel from "./VersionHistoryPanel";
+import IntegrationLinksPanel from "./IntegrationLinksPanel";
 
-type Tab = "connections" | "graph" | "history";
+type Tab = "connections" | "graph" | "history" | "links";
 
 interface EditorSidePanelProps {
   noteId: string;
@@ -48,6 +49,16 @@ export default function EditorSidePanel({ noteId, noteTitle }: EditorSidePanelPr
         >
           History
         </button>
+        <button
+          onClick={() => setTab("links")}
+          className={`flex-1 px-3 py-2 text-xs font-medium text-center transition-colors ${
+            tab === "links"
+              ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-500"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          }`}
+        >
+          Links
+        </button>
       </div>
 
       {/* Tab content */}
@@ -78,6 +89,9 @@ export default function EditorSidePanel({ noteId, noteTitle }: EditorSidePanelPr
             </h3>
             <VersionHistoryPanel noteId={noteId} />
           </div>
+        )}
+        {tab === "links" && (
+          <IntegrationLinksPanel entityType="note" entityId={noteId} />
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import type {
   ProjectChecklistItem,
   ProjectCardTemplate,
 } from "../types";
+import IntegrationLinksPanel from "./IntegrationLinksPanel";
 import {
   IconX,
   IconCalendarDue,
@@ -376,6 +377,11 @@ export default function CardEditor({
                 )}
               </div>
             </div>
+          )}
+
+          {/* Linked Resources */}
+          {card && (
+            <IntegrationLinksPanel entityType="card" entityId={card.id} />
           )}
 
           {/* Checklist */}

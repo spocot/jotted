@@ -31,6 +31,7 @@ import CardEditor from "../components/CardEditor";
 import ArtifactCard from "../components/ArtifactCard";
 import ArtifactPickerModal from "../components/ArtifactPickerModal";
 import ArtifactEditModal from "../components/ArtifactEditModal";
+import IntegrationLinksPanel from "../components/IntegrationLinksPanel";
 import type {
   ProjectCard,
   ProjectColumn,
@@ -525,6 +526,11 @@ export default function ProjectGroupPage() {
           )}
         </div>
       )}
+
+      {/* Linked Resources */}
+      <div className="mb-3 shrink-0">
+        <IntegrationLinksPanel entityType="group" entityId={groupId!} />
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200 dark:border-gray-800 mb-4 shrink-0">

@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import type { ProjectMilestone, ProjectCard } from "../types";
 import { useConfirm } from "../hooks/useConfirm";
+import IntegrationLinksPanel from "../components/IntegrationLinksPanel";
 
 type FilterTab = "all" | "pending" | "completed";
 type SortField = "position" | "dueDate" | "title";
@@ -263,6 +264,11 @@ export default function ProjectMilestonesPage() {
           </div>
         </div>
       )}
+
+      {/* Linked Resources */}
+      <div className="mb-4">
+        <IntegrationLinksPanel entityType="project" entityId={id!} />
+      </div>
 
       {/* Tab bar */}
       <div className="flex items-center justify-between mb-4">

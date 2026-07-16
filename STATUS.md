@@ -554,6 +554,30 @@
 - [x] RTK Query: person search + filter endpoints
 - [x] Tests: all existing tests pass
 
+## Phase 46: Jira & Confluence Read-Only Integration ✅
+
+- [x] PLAN.md updated with full specification
+- [x] Server: `services/atlassian/atlassian-config.ts` — encrypted config load/save (AES-256-GCM + PBKDF2)
+- [x] Server: `services/atlassian/atlassian-client.ts` — HTTP client with Basic auth
+- [x] Server: `services/atlassian/jira-service.ts` — `testConnection()`, `getIssue(key)`
+- [x] Server: `services/atlassian/confluence-service.ts` — `resolvePage(url)`, `getPageContent(id)`
+- [x] Server: `services/atlassian/adf-converter.ts` — ADF JSON → TipTap JSON converter
+- [x] Server: `db/integration-link-repository.ts` — CRUD for `integration_links` table
+- [x] Server: `db/index.ts` — Migration v18: `integration_links` table + indexes
+- [x] Server: `routes/integrations.ts` — Config + Atlassian lookup endpoints
+- [x] Server: `routes/integration-links.ts` — Link CRUD endpoints
+- [x] Server: Wire new repos + routes in `index.ts`
+- [x] Client: `types/index.ts` — `AtlassianStatus`, `JiraIssueInfo`, `ConfluencePageInfo`, `IntegrationLink`
+- [x] Client: `store/redux/api.ts` — 11 new endpoints + `IntegrationLink` tag
+- [x] Client: `components/IntegrationLinkBadge.tsx` — Inline badge with tooltip
+- [x] Client: `components/IntegrationLinkModal.tsx` — Key/URL input + lookup + confirmation
+- [x] Client: `components/IntegrationLinksPanel.tsx` — Sidebar panel for linked resources
+- [x] Client: Integrate into ProjectOverviewPage, ProjectGroupPage, ProjectMilestonesPage
+- [x] Client: Integrate into CardEditor and NoteEditorPage (EditorSidePanel "Links" tab)
+- [ ] Client: Add "Import from Confluence" option to New Note flow
+- [ ] Tests: ADF converter, integration-link routes
+- [x] Verify type checking + all tests pass (43 server + 4 client)
+
 ## Phase 41: Callouts / Admonitions 🔄
 
 - [x] TipTap Callout node (`extensions/Callout.ts`) — block node with `type` + `title` attrs

@@ -908,6 +908,147 @@ Builds on the schema and endpoints from Phase 39.
 
 ---
 
+### Phase 46: Jira & Confluence Read-Only Integration
+
+Pull external data from Atlassian tools into Jotted for linking and reference.
+Never push changes back to Jira or Confluence.
+
+**Core Principle:** Any Jira issue (Epic, Story, Task, Bug, etc.) or Confluence page
+can be linked at any level of Jotted's project hierarchy (Project, Group, Milestone, Card, Note).
+The user decides the semantic mapping — a Jotted project might map to a Jira Epic, a
+Jitted card to a Jira Story, etc.
+
+**Linking UX:** Simple text input for entering a Jira issue key or Confluence page URL.
+Server validates existence via Atlassian REST APIs. No browse/search UI (future enhancement).
+
+**Credential Security:**
+
+- Credentials (domain, email, API token) stored encrypted at `packages/server/data/atlassian-config.enc`
+- AES-256-GCM with PBKDF2-derived key (SHA-256, 100k iterations, random salt)
+- Key derived from user-defined master password, entered once per session via Settings UI
+- Key held in server memory only (module-level variable), never persisted
+- On server restart, user re-enters password via `POST /api/integrations/atlassian/unlock`
+- `POST /api/integrations/atlassian/config` encrypts with master password if set; falls back to plain JSON file with `chmod 600` if user declines password
+
+**Data Model:**
+
+```sql
+CREATE TABLE integration_links (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,       -- 'project', 'group', 'milestone', 'card', 'note'
+  entity_id TEXT NOT NULL,
+  integration_type TEXT NOT NULL,   -- 'jira', 'confluence'
+  external_id TEXT NOT NULL,        -- Jira issue key (PROJ-123) or Confluence page ID
+  external_url TEXT NOT NULL,
+  title TEXT,                       -- Cached: issue summary / page title
+  meta_json TEXT,                   -- Cached: { status, assignee, priority, spaceKey, ... }
+  synced_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(entity_type, entity_id, integration_type, external_id)
+);
+
+CREATE INDEX idx_il_entity ON integration_links(entity_type, entity_id);
+CREATE INDEX idx_il_external ON integration_links(integration_type, external_id);
+```
+
+**Services (`packages/server/src/services/atlassian/`):**
+
+- `atlassian-config.ts` — Load/save encrypted config file. PBKDF2 key derivation + AES-256-GCM encrypt/decrypt. Exports: `loadConfig()`, `saveConfig()`, `setMasterPassword()`, `isUnlocked()`, `clearConfig()`, `getStatus()`.
+- `atlassian-client.ts` — Shared HTTP client: `fetchAtlassian(domain, email, apiToken, path)`. Base URL construction, Basic auth header, response error handling, JSON parsing.
+- `jira-service.ts` — `testConnection()`, `getIssue(key)` returning `{ key, summary, status, statusColor, assignee, priority, priorityIcon, issueType, issueTypeIcon, url }`.
+- `confluence-service.ts` — `resolvePage(url)` returning `{ pageId, title, spaceKey, spaceName, url }`, `getPageContent(pageId)` fetching ADF and converting to TipTap JSON.
+- `adf-converter.ts` — Pure function converting Atlassian Document Format JSON → TipTap JSON. Maps: heading, paragraph, text, bulletList/orderedList/listItem, blockquote, codeBlock, rule, hardBreak, taskList/taskItem, panel→callout, table, strong→bold, em→italic, underline, strike, code, link, subsup. Media→image (download + upload as Jotted attachment). Mentions/emojis/status/date→text. layout/expand/cards→flattened.
+
+**Routes — Config & Auth (`routes/integrations.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/integrations/atlassian/status` | Check config + unlock state + test connection (returns `{ jiraConfigured, confluenceConfigured, unlocked, user? }`) |
+| POST | `/api/integrations/atlassian/config` | Set domain + email + API token |
+| DELETE | `/api/integrations/atlassian/config` | Clear config |
+| POST | `/api/integrations/atlassian/unlock` | Submit master password to decrypt config in memory |
+
+**Routes — Validation & Lookup (`routes/integrations.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/integrations/jira/issues/:key` | Validate issue key + return metadata |
+| GET | `/api/integrations/confluence/pages/resolve?url=` | Resolve URL → page metadata |
+| GET | `/api/integrations/confluence/pages/:id` | Full page as TipTap JSON (for import-as-note) |
+
+**Routes — Link CRUD (`routes/integration-links.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/integration-links?entity_type=&entity_id=` | Links for any entity |
+| POST | `/api/integration-links` | Create link (server fetches + caches metadata) |
+| DELETE | `/api/integration-links/:id` | Remove link |
+| POST | `/api/integration-links/:id/refresh` | Refresh cached metadata |
+
+**Frontend — Types (`types/index.ts`):**
+
+- `AtlassianStatus` — `{ jiraConfigured, confluenceConfigured, unlocked, user? }`
+- `JiraIssueInfo` — `{ key, summary, status, statusColor, assignee, priority, priorityIcon, issueType, issueTypeIcon, url }`
+- `ConfluencePageInfo` — `{ pageId, title, spaceKey, spaceName, url }`
+- `IntegrationLink` — `{ id, entityType, entityId, integrationType, externalId, externalUrl, title, metaJson, syncedAt, createdAt }`
+- `IntegrationLinkCreatePayload` — `{ entityType, entityId, integrationType, externalId }`
+
+**Frontend — RTK Query (`api.ts`):**
+
+- Tag type: `"IntegrationLink"`
+- Queries: `getIntegrationLinks`, `getAtlassianStatus`, `getJiraIssue`, `getConfluencePageById`
+- Mutations: `createIntegrationLink`, `deleteIntegrationLink`, `refreshIntegrationLink`, `configureAtlassian`, `deleteAtlassianConfig`, `unlockAtlassian`, `resolveConfluencePage`
+
+**Frontend — Components:**
+
+- `IntegrationLinkBadge.tsx` — Inline badge rendered on linked entities: shows Jira key + status icon or Confluence page title. Hover = tooltip with cached metadata. Click = open in browser.
+- `IntegrationLinkModal.tsx` — Reusable modal: dropdown to pick Jira/Confluence, text input for key or URL, "Look up" button, confirmation card, "Confirm Link" button.
+- `IntegrationLinksPanel.tsx` — Sidebar panel listing all linked external resources for a note, with add/remove/refresh actions.
+
+**Frontend — Page Integrations:**
+
+- ProjectOverviewPage, ProjectGroupPage, ProjectMilestonesPage — "Linked Resources" section with IntegrationLinkBadge + "+ Link" button
+- CardEditor — "Linked Resources" section in card modal
+- NoteEditorPage — IntegrationLinksPanel in editor sidebar
+
+**Frontend — New Note Flow:**
+
+- "Import from Confluence" option alongside "Blank Note" and "From Template"
+- Enter Confluence page URL → server resolves → fetches ADF → converts to TipTap JSON → creates note + auto-links
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/services/atlassian/atlassian-config.ts` | **New** — Encrypted config load/save |
+| `server/src/services/atlassian/atlassian-client.ts` | **New** — HTTP client |
+| `server/src/services/atlassian/jira-service.ts` | **New** — Jira API wrappers |
+| `server/src/services/atlassian/confluence-service.ts` | **New** — Confluence API wrappers |
+| `server/src/services/atlassian/adf-converter.ts` | **New** — ADF→TipTap converter |
+| `server/src/db/integration-link-repository.ts` | **New** — Repository for `integration_links` |
+| `server/src/db/index.ts` | Edit — Migration v18 |
+| `server/src/routes/integrations.ts` | **New** — Config + lookup endpoints |
+| `server/src/routes/integration-links.ts` | **New** — Link CRUD endpoints |
+| `server/src/index.ts` | Edit — Wire repos + routes |
+| `client/src/types/index.ts` | Edit — New types |
+| `client/src/store/redux/api.ts` | Edit — 11 new endpoints + exports |
+| `client/src/components/IntegrationLinkBadge.tsx` | **New** |
+| `client/src/components/IntegrationLinkModal.tsx` | **New** |
+| `client/src/components/IntegrationLinksPanel.tsx` | **New** |
+| Client pages | Edit — Integrate badges + link buttons |
+
+**Future Enhancements (separate phases):**
+
+- Jira project/board browse and search UI
+- Bulk import Jira board issues as kanban cards (with status→column mapping)
+- Jira sprint dashboard widget
+- Jira activity feed sidebar panel
+- Jira issue as full note import
+- Cross-reference graph nodes for linked Jira/Confluence resources
+- Periodic background metadata refresh
+
+---
+
 ## Cross-Platform Build Notes
 
 - `better-sqlite3`: uses `prebuild-install` for prebuilt binaries; falls back to `node-gyp`. Document Windows build tools requirement.
