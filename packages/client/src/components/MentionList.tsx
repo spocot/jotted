@@ -82,7 +82,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
             className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors ${
               index === selectedIndex
                 ? "bg-indigo-50 dark:bg-indigo-900/30"
-                : "hover:bg-gray-50 dark:hover:bg-gray-750"
+                : "hover:bg-gray-50 dark:hover:bg-gray-800/70"
             }`}
           >
             <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">

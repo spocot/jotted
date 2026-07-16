@@ -134,7 +134,7 @@ export default function TemplatePickerModal({ target, onClose, onApplied, onCrea
               <button
                 key={tpl.id}
                 onClick={() => handleApply(tpl)}
-                className="w-full text-left px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group"
+                className="w-full text-left px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors group"
               >
                 <div className="flex items-center justify-between">
                   <div>

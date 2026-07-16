@@ -276,7 +276,7 @@ export default function PeoplePage() {
                       setExpandedId(nextId);
                       if (nextId) setActiveTab("all");
                     }}
-                    className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                    className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
@@ -357,7 +357,7 @@ function PersonDetail({ personId, activeTab, onTabChange, onNavigate }: PersonDe
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700">
-      <div className="flex gap-1 px-2 py-2 border-b border-gray-100 dark:border-gray-750">
+      <div className="flex gap-1 px-2 py-2 border-b border-gray-100 dark:border-gray-800">
         {TAB_CONFIG.map((tab) => {
           const count = tab.role
             ? roleCounts.find((rc) => rc.role === tab.role)?.count ?? 0
@@ -388,7 +388,7 @@ function PersonDetail({ personId, activeTab, onTabChange, onNavigate }: PersonDe
             <button
               key={note.id}
               onClick={() => onNavigate(note.id)}
-              className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+              className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors"
             >
               <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
                 {note.title || "Untitled"}
