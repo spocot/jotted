@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetTagsQuery,
   useRenameTagMutation,
@@ -14,6 +15,8 @@ const PAGE_SIZE = 50;
 
 export default function TagsPage() {
   const confirm = useConfirm();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTag = useRef(searchParams.get("tag"));
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -25,21 +28,36 @@ export default function TagsPage() {
   const [renameTag] = useRenameTagMutation();
   const [deleteTag] = useDeleteTagMutation();
 
+  useEffect(() => {
+    const tag = initialTag.current;
+    if (tag) {
+      setSelectedTag(tag);
+      trigger({ name: tag, limit: PAGE_SIZE, offset: 0 }).then((result) => {
+        if (result.data) {
+          setTagNotes(result.data.items);
+          setTagNotesHasMore(result.data.hasMore);
+        }
+      });
+    }
+  }, [trigger]);
+
   const handleSelectTag = useCallback(async (name: string) => {
     if (selectedTag === name) {
       setSelectedTag(null);
       setTagNotes([]);
+      setSearchParams({});
       return;
     }
     setSelectedTag(name);
     setTagNotes([]);
     setTagNotesOffset(0);
+    setSearchParams({ tag: name });
     const result = await trigger({ name, limit: PAGE_SIZE, offset: 0 });
     if (result.data) {
       setTagNotes(result.data.items);
       setTagNotesHasMore(result.data.hasMore);
     }
-  }, [selectedTag, trigger]);
+  }, [selectedTag, trigger, setSearchParams]);
 
   const loadMoreTagNotes = useCallback(async () => {
     if (!selectedTag || !tagNotesHasMore) return;
