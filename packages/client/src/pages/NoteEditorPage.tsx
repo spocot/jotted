@@ -108,6 +108,7 @@ export default function NoteEditorPage() {
   const [meetingStartTime, setMeetingStartTime] = useState("");
   const [meetingEndTime, setMeetingEndTime] = useState("");
   const [meetingLocationValue, setMeetingLocationValue] = useState("");
+  const [editingMeta, setEditingMeta] = useState(false);
 
   const toDateInput = (iso: string | null | undefined) => {
     if (!iso) return "";
@@ -124,30 +125,41 @@ export default function NoteEditorPage() {
       setMeetingStartTime(toTimeInput(selectedNote.meetingStart));
       setMeetingEndTime(toTimeInput(selectedNote.meetingEnd));
       setMeetingLocationValue(selectedNote.meetingLocation ?? "");
+      setEditingMeta(false);
     }
   }, [selectedNote?.id]);
 
-  const saveMeetingField = useCallback(
-    (field: string, value: string) => {
-      if (!id) return;
-      const payload: Record<string, string | undefined> = {};
-      if (field === "date" || field === "start" || field === "end") {
-        if (meetingDate && meetingStartTime) {
-          payload.meetingStart = `${meetingDate}T${meetingStartTime}:00`;
-        }
-        if (meetingDate && meetingEndTime) {
-          payload.meetingEnd = `${meetingDate}T${meetingEndTime}:00`;
-        }
-      }
-      if (field === "location") {
-        payload.meetingLocation = value || undefined;
-      }
-      if (Object.keys(payload).length > 0) {
-        updateNote({ id, payload });
-      }
-    },
-    [id, meetingDate, meetingStartTime, meetingEndTime, updateNote],
-  );
+  const handleSaveMeta = useCallback(() => {
+    if (!id) return;
+    const payload: Record<string, string | undefined> = {};
+    payload.meetingLocation = meetingLocationValue || undefined;
+    if (meetingDate && meetingStartTime) {
+      payload.meetingStart = `${meetingDate}T${meetingStartTime}:00`;
+    }
+    if (meetingDate && meetingEndTime) {
+      payload.meetingEnd = `${meetingDate}T${meetingEndTime}:00`;
+    }
+    updateNote({ id, payload });
+    setEditingMeta(false);
+  }, [id, meetingDate, meetingStartTime, meetingEndTime, meetingLocationValue, updateNote]);
+
+  const formatMeetingDateTime = (iso: string | null | undefined): string | null => {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleDateString("en-US", {
+        weekday: "short", year: "numeric", month: "short", day: "numeric",
+      });
+    } catch { return null; }
+  };
+
+  const formatMeetingTime = (start: string | null | undefined, end: string | null | undefined): string | null => {
+    if (!start || !end) return null;
+    try {
+      const s = new Date(start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const e = new Date(end).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      return `${s}–${e}`;
+    } catch { return null; }
+  };
 
   // Sync local title state when navigating to a different note
   useEffect(() => {
@@ -569,218 +581,130 @@ export default function NoteEditorPage() {
                 </div>
               )}
 
-              {/* Meeting details */}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {selectedNote.icsUid ? (
-                  <>
-                    {selectedNote.meetingStart && (
-                      <div>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
-                        <p className="text-gray-900 dark:text-gray-100">
-                          {new Date(selectedNote.meetingStart).toLocaleDateString("en-US", {
-                            weekday: "long", year: "numeric", month: "long", day: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    )}
-                    {selectedNote.meetingStart && selectedNote.meetingEnd && (
-                      <div>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
-                        <p className="text-gray-900 dark:text-gray-100">
-                          {new Date(selectedNote.meetingStart).toLocaleTimeString("en-US", {
-                            hour: "numeric", minute: "2-digit",
-                          })}{" "}
-                          –{" "}
-                          {new Date(selectedNote.meetingEnd).toLocaleTimeString("en-US", {
-                            hour: "numeric", minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    )}
-                    {selectedNote.meetingLocation && (
-                      <div className="col-span-2">
-                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
-                        <p className="text-gray-900 dark:text-gray-100">{selectedNote.meetingLocation}</p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
+              {/* Meeting details — compact */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {selectedNote.meetingStart || selectedNote.meetingLocation ? (
+                    <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {selectedNote.meetingStart && (
+                        <span>
+                          {formatMeetingDateTime(selectedNote.meetingStart)}
+                          {selectedNote.meetingEnd && (
+                            <span>
+                              {" · "}
+                              {formatMeetingTime(selectedNote.meetingStart, selectedNote.meetingEnd)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {selectedNote.meetingLocation && (
+                        <span>
+                          {selectedNote.meetingStart ? " · " : ""}
+                          {selectedNote.meetingLocation}
+                        </span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 italic">No meeting details set</p>
+                  )}
+                </div>
+                {!selectedNote.icsUid && (
+                  <button
+                    onClick={() => setEditingMeta(true)}
+                    className="shrink-0 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {/* Edit metadata popup */}
+              {editingMeta && (
+                <div className="mt-2 p-3 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-600 shadow-lg">
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Edit meeting details</span>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Date</span>
                       <input
                         type="date"
                         value={meetingDate}
-                        onChange={(e) => {
-                          setMeetingDate(e.target.value);
-                          saveMeetingField("date", e.target.value);
-                        }}
-                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                        onChange={(e) => setMeetingDate(e.target.value)}
+                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
                       />
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Time</span>
                       <div className="flex items-center gap-1 mt-0.5">
                         <input
                           type="time"
                           value={meetingStartTime}
-                          onChange={(e) => {
-                            setMeetingStartTime(e.target.value);
-                            saveMeetingField("start", e.target.value);
-                          }}
-                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
+                          onChange={(e) => setMeetingStartTime(e.target.value)}
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
                         />
                         <span className="text-gray-400 dark:text-gray-500 text-xs">–</span>
                         <input
                           type="time"
                           value={meetingEndTime}
-                          onChange={(e) => {
-                            setMeetingEndTime(e.target.value);
-                            saveMeetingField("end", e.target.value);
-                          }}
-                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
+                          onChange={(e) => setMeetingEndTime(e.target.value)}
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
                         />
                       </div>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Location</span>
                       <input
                         type="text"
                         value={meetingLocationValue}
                         onChange={(e) => setMeetingLocationValue(e.target.value)}
-                        onBlur={(e) => saveMeetingField("location", e.target.value)}
                         placeholder="Add location..."
-                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
                       />
                     </div>
-                  </>
-                )}
-              </div>
-
-              {/* Organizer */}
-              <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
-                <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organizer</span>
-                <div className="flex flex-wrap gap-1 mt-1 items-center">
-                  {selectedNote.people?.filter((p) => p.role === "organizer").map((p) => (
-                    <span key={p.personId} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded-full">
-                      {p.name}
-                      {!selectedNote.icsUid && (
-                        <button
-                          onClick={() => {
-                            if (id) unlinkPerson({ noteId: id, personId: p.personId, role: "organizer" });
-                          }}
-                          className="ml-0.5 hover:text-red-500 transition-colors"
-                          title="Remove organizer"
-                        >
-                          <IconX size={10} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                  {(selectedNote.people?.filter((p) => p.role === "organizer").length ?? 0) === 0 && (
-                    peoplePickerOpen === "organizer" ? (
-                      <div className="relative">
-                        <input
-                          autoFocus
-                          type="text"
-                          value={peopleSearch}
-                          onChange={(e) => handlePeopleSearch(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              setPeoplePickerOpen(null);
-                              setPeopleSearch("");
-                            }
-                          }}
-                          placeholder="Search people..."
-                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-40"
-                        />
-                        {(peopleSearchLoading || peopleResults.length > 0) && (
-                          <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
-                            {peopleSearchLoading ? (
-                              <div className="flex items-center justify-center py-2">
-                                <IconLoader2 className="w-3 h-3 animate-spin text-gray-400" />
-                              </div>
-                            ) : (
-                              peopleResults.map((person) => (
-                                <button
-                                  key={person.personId}
-                                  onClick={() => {
-                                    if (id) {
-                                      linkPeopleToNote({
-                                        noteId: id,
-                                        personIds: [person.personId],
-                                        role: "organizer",
-                                      });
-                                      setPeoplePickerOpen(null);
-                                      setPeopleSearch("");
-                                      setPeopleResults([]);
-                                    }
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
-                                >
-                                  <span className="font-medium">{person.name}</span>
-                                  {person.email && (
-                                    <span className="text-xs text-gray-400 ml-2">{person.email}</span>
-                                  )}
-                                </button>
-                              ))
-                            )}
-                            {!peopleSearchLoading && peopleResults.length === 0 && peopleSearch.trim() && (
-                              <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
-                                No people found
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setPeoplePickerOpen("organizer")}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-full transition-colors"
-                      >
-                        <IconUserPlus size={12} />
-                        Add organizer
-                      </button>
-                    )
-                  )}
+                  </div>
+                  <div className="flex justify-end gap-2 mt-3">
+                    <button
+                      onClick={() => {
+                        setEditingMeta(false);
+                        setMeetingDate(toDateInput(selectedNote?.meetingStart));
+                        setMeetingStartTime(toTimeInput(selectedNote?.meetingStart));
+                        setMeetingEndTime(toTimeInput(selectedNote?.meetingEnd));
+                        setMeetingLocationValue(selectedNote?.meetingLocation ?? "");
+                      }}
+                      className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveMeta}
+                      className="px-3 py-1 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Attendees */}
-              <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Attendees</span>
-                <div className="flex flex-wrap gap-1 mt-1 items-center">
-                  {selectedNote.people?.filter((p) => p.role === "attendee").map((p) => {
-                    const statusColors: Record<string, string> = {
-                      accepted: "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200",
-                      tentative: "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200",
-                      declined: "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200",
-                      "needs-action": "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
-                    };
-                    const colorClass = statusColors[p.status ?? ""] ?? "bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200";
-                    return (
-                      <span key={p.personId} className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
-                        {p.name}
-                        {p.status && (
-                          <span className="opacity-70">
-                            {p.status === "accepted" ? "✓" : p.status === "tentative" ? "~" : p.status === "declined" ? "✗" : ""}
-                          </span>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (id) {
-                              unlinkPerson({ noteId: id, personId: p.personId, role: "attendee" });
-                            }
-                          }}
-                          className="ml-0.5 hover:text-red-500 transition-colors"
-                          title="Remove attendee"
-                        >
-                          <IconX size={10} />
-                        </button>
-                      </span>
-                    );
-                  })}
-                  {peoplePickerOpen === "attendee" ? (
+              {/* Organizer — inline */}
+              <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800 flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Organizer:</span>
+                {selectedNote.people?.filter((p) => p.role === "organizer").map((p) => (
+                  <span key={p.personId} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded-full">
+                    {p.name}
+                    {!selectedNote.icsUid && (
+                      <button
+                        onClick={() => {
+                          if (id) unlinkPerson({ noteId: id, personId: p.personId, role: "organizer" });
+                        }}
+                        className="ml-0.5 hover:text-red-500 transition-colors"
+                        title="Remove organizer"
+                      >
+                        <IconX size={10} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {(selectedNote.people?.filter((p) => p.role === "organizer").length ?? 0) === 0 && (
+                  peoplePickerOpen === "organizer" ? (
                     <div className="relative">
                       <input
                         autoFocus
@@ -794,7 +718,7 @@ export default function NoteEditorPage() {
                           }
                         }}
                         placeholder="Search people..."
-                        className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-40"
+                        className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-36"
                       />
                       {(peopleSearchLoading || peopleResults.length > 0) && (
                         <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
@@ -811,8 +735,7 @@ export default function NoteEditorPage() {
                                     linkPeopleToNote({
                                       noteId: id,
                                       personIds: [person.personId],
-                                      role: "attendee",
-                                      status: "needs-action",
+                                      role: "organizer",
                                     });
                                     setPeoplePickerOpen(null);
                                     setPeopleSearch("");
@@ -838,18 +761,118 @@ export default function NoteEditorPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => {
-                        setPeoplePickerOpen("attendee");
-                        setPeopleSearch("");
-                        setPeopleResults([]);
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-full transition-colors"
+                      onClick={() => setPeoplePickerOpen("organizer")}
+                      className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 hover:underline"
                     >
                       <IconUserPlus size={12} />
-                      Add attendee
+                      Add
                     </button>
-                  )}
-                </div>
+                  )
+                )}
+              </div>
+
+              {/* Attendees — inline */}
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Attendees:</span>
+                {selectedNote.people?.filter((p) => p.role === "attendee").map((p) => {
+                  const statusColors: Record<string, string> = {
+                    accepted: "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200",
+                    tentative: "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200",
+                    declined: "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200",
+                    "needs-action": "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+                  };
+                  const colorClass = statusColors[p.status ?? ""] ?? "bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200";
+                  return (
+                    <span key={p.personId} className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
+                      {p.name}
+                      {p.status && (
+                        <span className="opacity-70">
+                          {p.status === "accepted" ? "✓" : p.status === "tentative" ? "~" : p.status === "declined" ? "✗" : ""}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (id) {
+                            unlinkPerson({ noteId: id, personId: p.personId, role: "attendee" });
+                          }
+                        }}
+                        className="ml-0.5 hover:text-red-500 transition-colors"
+                        title="Remove attendee"
+                      >
+                        <IconX size={10} />
+                      </button>
+                    </span>
+                  );
+                })}
+                {peoplePickerOpen === "attendee" ? (
+                  <div className="relative">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={peopleSearch}
+                      onChange={(e) => handlePeopleSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setPeoplePickerOpen(null);
+                          setPeopleSearch("");
+                        }
+                      }}
+                      placeholder="Search people..."
+                      className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-36"
+                    />
+                    {(peopleSearchLoading || peopleResults.length > 0) && (
+                      <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                        {peopleSearchLoading ? (
+                          <div className="flex items-center justify-center py-2">
+                            <IconLoader2 className="w-3 h-3 animate-spin text-gray-400" />
+                          </div>
+                        ) : (
+                          peopleResults.map((person) => (
+                            <button
+                              key={person.personId}
+                              onClick={() => {
+                                if (id) {
+                                  linkPeopleToNote({
+                                    noteId: id,
+                                    personIds: [person.personId],
+                                    role: "attendee",
+                                    status: "needs-action",
+                                  });
+                                  setPeoplePickerOpen(null);
+                                  setPeopleSearch("");
+                                  setPeopleResults([]);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                            >
+                              <span className="font-medium">{person.name}</span>
+                              {person.email && (
+                                <span className="text-xs text-gray-400 ml-2">{person.email}</span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                        {!peopleSearchLoading && peopleResults.length === 0 && peopleSearch.trim() && (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
+                            No people found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setPeoplePickerOpen("attendee");
+                      setPeopleSearch("");
+                      setPeopleResults([]);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    <IconUserPlus size={12} />
+                    Add
+                  </button>
+                )}
               </div>
             </div>
           )}
