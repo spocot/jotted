@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetInquiryTablesQuery,
   useGetInquiryTableSchemaQuery,
@@ -15,31 +16,34 @@ import InquiryJsonPanel from "../components/InquiryJsonPanel";
 const PAGE_SIZE = 50;
 
 export default function InquiryPage() {
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const table = searchParams.get("table") ?? "";
+  const sortColumn = searchParams.get("sort") || null;
+  const sortOrder = (searchParams.get("order") ?? "DESC") as "ASC" | "DESC";
+  const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+  const selectedRowKey = searchParams.get("row") || null;
+
   const [rows, setRows] = useState<InquiryRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
   const { data: tables = [], isLoading: tablesLoading } = useGetInquiryTablesQuery();
   const { data: schemaData, isLoading: schemaLoading } = useGetInquiryTableSchemaQuery(
-    selectedTable ?? "",
-    { skip: !selectedTable },
+    table || "",
+    { skip: !table },
   );
   const { data: foreignKeys = [] } = useGetInquiryTableForeignKeysQuery(
-    selectedTable ?? "",
-    { skip: !selectedTable },
+    table || "",
+    { skip: !table },
   );
   const [fetchRows, { isLoading: rowsLoading }] = useLazyGetInquiryTableRowsQuery();
   const [fetchRow, rowResult] = useLazyGetInquiryTableRowQuery();
 
   const loadRows = useCallback(
-    async (table: string, sortCol: string | null, order: string, off: number) => {
+    async (tbl: string, sortCol: string | null, order: string, off: number) => {
       const result = await fetchRows({
-        table,
+        table: tbl,
         sort: sortCol ?? undefined,
         order,
         limit: PAGE_SIZE,
@@ -54,85 +58,100 @@ export default function InquiryPage() {
     [fetchRows],
   );
 
-  const handleSelectTable = useCallback(
-    (table: string) => {
-      if (table === selectedTable) return;
-      setSelectedTable(table);
-      setSelectedRowKey(null);
+  useEffect(() => {
+    if (table) {
       setRows([]);
-      setOffset(0);
-      setSortColumn(null);
-      setSortOrder("DESC");
-      loadRows(table, null, "DESC", 0);
+      loadRows(table, sortColumn, sortOrder, offset);
+    } else {
+      setRows([]);
+      setTotal(0);
+      setHasMore(false);
+    }
+  }, [table, sortColumn, sortOrder, offset, loadRows]);
+
+  useEffect(() => {
+    if (table && selectedRowKey) {
+      fetchRow({ table, rowKey: selectedRowKey });
+    }
+  }, [table, selectedRowKey, fetchRow]);
+
+  const handleSelectTable = useCallback(
+    (newTable: string) => {
+      if (newTable === table) return;
+      setSearchParams({ table: newTable });
     },
-    [selectedTable, loadRows],
+    [table, setSearchParams],
   );
 
   const handleSortColumn = useCallback(
     (column: string) => {
-      if (!selectedTable) return;
+      if (!table) return;
       let newOrder: "ASC" | "DESC" = "ASC";
       if (sortColumn === column) {
         newOrder = sortOrder === "ASC" ? "DESC" : "ASC";
       }
-      setSortColumn(column);
-      setSortOrder(newOrder);
-      setOffset(0);
-      loadRows(selectedTable, column, newOrder, 0);
+      const params: Record<string, string> = { table };
+      params.sort = column;
+      if (newOrder !== "DESC") params.order = newOrder;
+      if (selectedRowKey) params.row = selectedRowKey;
+      setSearchParams(params);
     },
-    [selectedTable, sortColumn, sortOrder, loadRows],
+    [table, sortColumn, sortOrder, selectedRowKey, setSearchParams],
   );
 
   const handlePrevPage = useCallback(() => {
-    if (!selectedTable || offset === 0) return;
+    if (!table || offset === 0) return;
     const newOffset = Math.max(0, offset - PAGE_SIZE);
-    setOffset(newOffset);
-    loadRows(selectedTable, sortColumn, sortOrder, newOffset);
-  }, [selectedTable, offset, sortColumn, sortOrder, loadRows]);
+    const params: Record<string, string> = { table };
+    if (sortColumn) params.sort = sortColumn;
+    if (sortOrder !== "DESC") params.order = sortOrder;
+    if (newOffset > 0) params.offset = String(newOffset);
+    if (selectedRowKey) params.row = selectedRowKey;
+    setSearchParams(params);
+  }, [table, offset, sortColumn, sortOrder, selectedRowKey, setSearchParams]);
 
   const handleNextPage = useCallback(() => {
-    if (!selectedTable || !hasMore) return;
+    if (!table || !hasMore) return;
     const newOffset = offset + PAGE_SIZE;
-    setOffset(newOffset);
-    loadRows(selectedTable, sortColumn, sortOrder, newOffset);
-  }, [selectedTable, offset, hasMore, sortColumn, sortOrder, loadRows]);
+    const params: Record<string, string> = { table };
+    if (sortColumn) params.sort = sortColumn;
+    if (sortOrder !== "DESC") params.order = sortOrder;
+    params.offset = String(newOffset);
+    if (selectedRowKey) params.row = selectedRowKey;
+    setSearchParams(params);
+  }, [table, offset, hasMore, sortColumn, sortOrder, selectedRowKey, setSearchParams]);
 
   const handleRowClick = useCallback(
-    async (rowKey: string) => {
-      if (!selectedTable) return;
-      setSelectedRowKey(rowKey);
-      await fetchRow({ table: selectedTable, rowKey });
+    (rowKey: string) => {
+      if (!table) return;
+      const params: Record<string, string> = { table };
+      if (sortColumn) params.sort = sortColumn;
+      if (sortOrder !== "DESC") params.order = sortOrder;
+      if (offset > 0) params.offset = String(offset);
+      params.row = rowKey;
+      setSearchParams(params);
     },
-    [selectedTable, fetchRow],
+    [table, sortColumn, sortOrder, offset, setSearchParams],
   );
 
+  const handleCloseRow = useCallback(() => {
+    if (!table) return;
+    const params: Record<string, string> = { table };
+    if (sortColumn) params.sort = sortColumn;
+    if (sortOrder !== "DESC") params.order = sortOrder;
+    if (offset > 0) params.offset = String(offset);
+    setSearchParams(params);
+  }, [table, sortColumn, sortOrder, offset, setSearchParams]);
+
   const handleForeignKeyClick = useCallback(
-    async (refTable: string, refColumn: string, value: string) => {
-      setSelectedTable(refTable);
-      setRows([]);
-      setOffset(0);
-      setSortColumn(refColumn);
-      setSortOrder("DESC");
-
-      const rowResult = await fetchRow({ table: refTable, rowKey: value });
-      if (rowResult.data) {
-        setSelectedRowKey(value);
-      }
-
-      const result = await fetchRows({
+    (refTable: string, refColumn: string, value: string) => {
+      setSearchParams({
         table: refTable,
         sort: refColumn,
-        order: "ASC",
-        limit: PAGE_SIZE,
-        offset: 0,
+        row: value,
       });
-      if (result.data) {
-        setRows(result.data.items);
-        setTotal(result.data.total);
-        setHasMore(result.data.hasMore);
-      }
     },
-    [fetchRows, fetchRow],
+    [setSearchParams],
   );
 
   return (
@@ -146,7 +165,7 @@ export default function InquiryPage() {
         <div className="flex-1 overflow-hidden">
           <InquiryTableList
             tables={tables}
-            selectedTable={selectedTable}
+            selectedTable={table || null}
             onSelectTable={handleSelectTable}
             isLoading={tablesLoading}
           />
@@ -154,7 +173,7 @@ export default function InquiryPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {!selectedTable && (
+        {!table && (
           <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
             <div className="text-center">
               <p className="text-lg font-medium mb-1">Database Explorer</p>
@@ -163,10 +182,10 @@ export default function InquiryPage() {
           </div>
         )}
 
-        {selectedTable && (
+        {table && (
           <>
             <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              {selectedTable}
+              {table}
             </h2>
 
             <InquiryTableSchema columns={schemaData ?? []} isLoading={schemaLoading} />
@@ -197,7 +216,7 @@ export default function InquiryPage() {
         <InquiryJsonPanel
           row={rowResult.data ?? null}
           isLoading={rowResult.isLoading}
-          onClose={() => setSelectedRowKey(null)}
+          onClose={handleCloseRow}
         />
       )}
     </div>
