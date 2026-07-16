@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { IconMenu2, IconSettings, IconMoon } from "@tabler/icons-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { IconMenu2, IconSettings, IconMoon, IconChevronDown } from "@tabler/icons-react";
 import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import SearchBar from "./SearchBar";
@@ -21,6 +21,8 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [showSettings, setShowSettings] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useAppSelector(selectSidebarOpen);
   const darkMode = useAppSelector(selectDarkMode);
   const dispatch = useAppDispatch();
@@ -29,6 +31,16 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -62,41 +74,37 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex items-center gap-1 text-sm">
           <SearchBar />
-          <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Notes
-          </Link>
-          <Link to="/graph" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Graph
-          </Link>
-          <Link to="/tags" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Tags
-          </Link>
-          <Link to="/projects" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Projects
-          </Link>
-          <Link to="/canvas" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Canvas
-          </Link>
-          <Link to="/templates" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Templates
-          </Link>
-          <Link to="/calendar" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Calendar
-          </Link>
-          <Link to="/journal" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Journal
-          </Link>
-          <Link to="/inquiry" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Inquiry
-          </Link>
-          <Link to="/people" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            People
-          </Link>
-          <Link to="/dev-tools" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0">
-            Dev Tools
-          </Link>
+          <NavLink to="/">Notes</NavLink>
+          <NavLink to="/journal">Journal</NavLink>
+          <NavLink to="/calendar">Calendar</NavLink>
+          <NavLink to="/projects">Projects</NavLink>
+          <NavLink to="/graph">Graph</NavLink>
+          <NavLink to="/canvas">Canvas</NavLink>
+
+          <div className="relative" ref={moreRef}>
+            <button
+              onClick={() => setMoreOpen(!moreOpen)}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded transition-colors shrink-0 ${
+                moreOpen
+                  ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  : "hover:text-blue-600 dark:hover:text-blue-400"
+              }`}
+            >
+              More
+              <IconChevronDown className={`w-3.5 h-3.5 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
+            </button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                <DropdownLink to="/tags" onClick={() => setMoreOpen(false)}>Tags</DropdownLink>
+                <DropdownLink to="/people" onClick={() => setMoreOpen(false)}>People</DropdownLink>
+                <DropdownLink to="/templates" onClick={() => setMoreOpen(false)}>Templates</DropdownLink>
+                <DropdownLink to="/inquiry" onClick={() => setMoreOpen(false)}>Inquiry</DropdownLink>
+                <DropdownLink to="/dev-tools" onClick={() => setMoreOpen(false)}>Dev Tools</DropdownLink>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => {
               const today = new Date().toISOString().slice(0, 10);
@@ -135,5 +143,28 @@ export default function Layout({ children }: LayoutProps) {
       <NotePreviewPopover />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
+  );
+}
+
+function NavLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="px-2 py-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function DropdownLink({ to, onClick, children }: { to: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+    >
+      {children}
+    </Link>
   );
 }
