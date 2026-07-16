@@ -53,8 +53,6 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
   const images = uploads.filter((u) => u.mimeType.startsWith("image/"));
   const files = uploads.filter((u) => !u.mimeType.startsWith("image/"));
 
-  if (uploads.length === 0 && !loading) return null;
-
   return (
     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-2">
@@ -91,7 +89,11 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
             : "border-gray-200 dark:border-gray-700"
         }`}
       >
-        {uploads.length === 0 ? (
+        {loading ? (
+          <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">
+            Loading...
+          </div>
+        ) : uploads.length === 0 ? (
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">
             Drop files here or click Upload
           </div>
