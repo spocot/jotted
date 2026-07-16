@@ -25,6 +25,7 @@ import { createProjectsRouter } from "./routes/projects.js";
 import { createTemplatesRouter } from "./routes/templates.js";
 import { createInquiryRouter } from "./routes/inquiry.js";
 import { createPeopleRouter } from "./routes/people.js";
+import { createDevRouter } from "./routes/dev.js";
 import { AppError } from "./lib/errors.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,6 +74,7 @@ app.use("/api/projects", createProjectsRouter(projectRepo));
 app.use("/api/templates", createTemplatesRouter(templateRepo, noteRepo, projectRepo, tagRepo));
 app.use("/api/inquiry", createInquiryRouter());
 app.use("/api/people", createPeopleRouter(peopleRepo));
+app.use("/api/dev", createDevRouter(templateRepo, noteRepo, tagRepo, projectRepo, peopleRepo));
 
 function seedBuiltInTemplates(repo: TemplateRepository): void {
   const existing = repo.list();

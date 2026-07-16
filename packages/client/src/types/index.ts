@@ -460,3 +460,28 @@ export interface InquiryForeignKey {
   from: string[];
   to: string[];
 }
+
+export interface DevStats {
+  [table: string]: number;
+}
+
+export interface DevResetResponse {
+  success: boolean;
+  stats: DevStats;
+}
+
+export interface DevSeedConfig {
+  notes?: number;
+  projects?: number;
+  people?: number;
+  canvases?: number;
+  uploads?: number;
+  linkDensity?: number;
+  versionCount?: number;
+  tagPoolSize?: number;
+}
+
+export interface DevSeedResponse {
+  success: boolean;
+  created: Record<string, number>;
+}

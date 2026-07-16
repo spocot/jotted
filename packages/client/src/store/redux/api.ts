@@ -41,6 +41,10 @@ import type {
   Person,
   CreateNoteFromEventPayload,
   StaleResponse,
+  DevStats,
+  DevResetResponse,
+  DevSeedConfig,
+  DevSeedResponse,
 } from "../../types";
 import { getApiBaseUrl, absoluteUrl } from "../../lib/server-config";
 
@@ -90,6 +94,7 @@ export const apiSlice = createApi({
     "Inquiry",
     "Person",
     "PersonList",
+    "DevTools",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -1600,6 +1605,62 @@ export const apiSlice = createApi({
         { type: "Inquiry", id: `fks:${table}` },
       ],
     }),
+
+    getDevStats: builder.query<DevStats, void>({
+      query: () => "/dev/stats",
+      providesTags: ["DevTools"],
+    }),
+
+    resetDb: builder.mutation<DevResetResponse, { keepTemplates?: boolean } | void>({
+      query: (opts) => {
+        const keepTemplates = opts?.keepTemplates ?? true;
+        return { url: `/dev/reset?keepTemplates=${keepTemplates}`, method: "POST" };
+      },
+      invalidatesTags: [
+        "Note",
+        "NoteList",
+        "NoteVersions",
+        "Tag",
+        "TagList",
+        "Folder",
+        "Upload",
+        "Calendar",
+        "Canvas",
+        "Project",
+        "Graph",
+        "Template",
+        "Inquiry",
+        "Person",
+        "PersonList",
+        "DevTools",
+      ],
+    }),
+
+    seedDb: builder.mutation<DevSeedResponse, DevSeedConfig>({
+      query: (config) => ({
+        url: "/dev/seed",
+        method: "POST",
+        body: config,
+      }),
+      invalidatesTags: [
+        "Note",
+        "NoteList",
+        "NoteVersions",
+        "Tag",
+        "TagList",
+        "Folder",
+        "Upload",
+        "Calendar",
+        "Canvas",
+        "Project",
+        "Graph",
+        "Template",
+        "Inquiry",
+        "Person",
+        "PersonList",
+        "DevTools",
+      ],
+    }),
   }),
 });
 
@@ -1739,4 +1800,7 @@ export const {
   useGetInquiryTableRowQuery,
   useLazyGetInquiryTableRowQuery,
   useGetInquiryTableForeignKeysQuery,
+  useGetDevStatsQuery,
+  useResetDbMutation,
+  useSeedDbMutation,
 } = apiSlice;
