@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { extractWikilinks } from "./wikilink-parser.js";
 import { extractTags } from "./tag-parser.js";
+import { extractMentions } from "./mention-parser.js";
 import { parseContent } from "./index.js";
 
 describe("wikilink-parser", () => {
@@ -85,5 +86,44 @@ describe("parseContent", () => {
     expect(result.wikilinks[0].target).toBe("Note");
     expect(result.tags).toHaveLength(2);
     expect(result.tags.map((t) => t.name)).toEqual(["hello", "world"]);
+  });
+
+  it("extracts mentions from content", () => {
+    const result = parseContent("[@John](mention:abc-123) and [@Jane](mention:def-456)");
+    expect(result.mentions).toHaveLength(2);
+    expect(result.mentions[0].name).toBe("John");
+    expect(result.mentions[0].personId).toBe("abc-123");
+    expect(result.mentions[1].name).toBe("Jane");
+    expect(result.mentions[1].personId).toBe("def-456");
+  });
+});
+
+describe("mention-parser", () => {
+  it("extracts mentions from content", () => {
+    const result = extractMentions("[@John](mention:abc-123)");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("John");
+    expect(result[0].personId).toBe("abc-123");
+  });
+
+  it("extracts multiple mentions", () => {
+    const result = extractMentions("[@John](mention:id1) [@Jane](mention:id2)");
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.name)).toEqual(["John", "Jane"]);
+  });
+
+  it("handles names with special characters", () => {
+    const result = extractMentions("[@John-Doe](mention:id-1)");
+    expect(result[0].name).toBe("John-Doe");
+    expect(result[0].personId).toBe("id-1");
+  });
+
+  it("returns empty array for content without mentions", () => {
+    const result = extractMentions("Just plain text with [[wikilink]] and #tag");
+    expect(result).toHaveLength(0);
+  });
+
+  it("handles empty content", () => {
+    expect(extractMentions("")).toHaveLength(0);
   });
 });

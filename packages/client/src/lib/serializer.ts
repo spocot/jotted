@@ -70,6 +70,9 @@ const nodes: Record<string, (state: MarkdownSerializerState, node: Node, parent:
   tag(state, node) {
     state.write(`#${node.attrs.name ?? ""}`);
   },
+  mention(state, node) {
+    state.write(`[@${node.attrs.name ?? ""}](mention:${node.attrs.personId ?? ""})`);
+  },
 };
 
 function isPlainUrl(mark: Mark): boolean {

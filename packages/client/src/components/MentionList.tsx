@@ -1,8 +1,8 @@
-import { useState, useEffect, useImperativeHandle, forwardRef, type KeyboardEvent } from "react";
+import { useState, useLayoutEffect, useImperativeHandle, forwardRef, type KeyboardEvent } from "react";
 import { IconUser, IconLoader2 } from "@tabler/icons-react";
 
 interface MentionItem {
-  id: string;
+  personId: string;
   name: string;
   email: string | null;
 }
@@ -22,7 +22,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
   function MentionList({ items, command, isLoading }, _ref) {
     const [selectedIndex, setSelectedIndex] = useState(0);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       setSelectedIndex(0);
     }, [items]);
 
@@ -77,7 +77,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
       >
         {items.map((item, index) => (
           <button
-            key={item.id}
+            key={item.personId ?? index}
             onClick={() => command(item)}
             className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors ${
               index === selectedIndex

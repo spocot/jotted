@@ -73,7 +73,7 @@ export function createNotesRouter(
       if (meetingEnd !== undefined) payload.meetingEnd = meetingEnd || undefined;
 
       const note = noteRepo.create(payload);
-      syncNoteRelations(note.id, content ?? "", noteRepo, tagRepo, linkRepo);
+      syncNoteRelations(note.id, content ?? "", noteRepo, tagRepo, linkRepo, peopleRepo);
 
       if (noteType === "meeting" && tagRepo) {
         const meetingTag = tagRepo.upsert("meeting");
@@ -201,7 +201,7 @@ export function createNotesRouter(
       const note = noteRepo.update(id, { title, content, path });
       if (!note) throw new NotFound("Note not found");
 
-      syncNoteRelations(note.id, note.content, noteRepo, tagRepo, linkRepo);
+      syncNoteRelations(note.id, note.content, noteRepo, tagRepo, linkRepo, peopleRepo);
 
       const full = enrichNote(note.id, noteRepo, tagRepo, linkRepo, peopleRepo);
       res.json(full);
@@ -453,8 +453,9 @@ function syncNoteRelations(
   noteRepo: NoteRepository,
   tagRepo: TagRepository,
   linkRepo: LinkRepository,
+  peopleRepo?: PeopleRepository,
 ): void {
-  const { wikilinks, tags } = parseContent(content);
+  const { wikilinks, tags, mentions } = parseContent(content);
 
   const currentTags = tagRepo.getTagsForNote(noteId);
   const currentTagIds = currentTags.map((t) => t.id);
@@ -482,6 +483,27 @@ function syncNoteRelations(
     }
   }
   linkRepo.setLinks(noteId, targetIds);
+
+  if (peopleRepo) {
+    const currentPeople = peopleRepo.getNotePeopleByRole(noteId, "mentioned");
+    const currentPersonIds = currentPeople.map((p) => p.personId);
+
+    const newPersonIds: string[] = [];
+    for (const m of mentions) {
+      if (m.personId) {
+        newPersonIds.push(m.personId);
+        if (!currentPersonIds.includes(m.personId)) {
+          peopleRepo.linkToNote(noteId, m.personId, "mentioned");
+        }
+      }
+    }
+
+    for (const personId of currentPersonIds) {
+      if (!newPersonIds.includes(personId)) {
+        peopleRepo.unlinkFromNote(noteId, personId, "mentioned");
+      }
+    }
+  }
 
   tagRepo.deleteUnused();
 }

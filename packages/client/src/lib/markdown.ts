@@ -42,7 +42,9 @@ export function markdownToHtml(md: string): string {
     // Preserve [[wikilinks]] as custom spans
     .replace(/\[\[([^\]]+?)\]\]/g, '<span data-wikilink data-title="$1"></span>')
     // Preserve #tags
-    .replace(/(^|\s)(#[\w/-]+(?=[\s.,;:!?]|$))/gm, (_, before, tag) => `${before}<span data-tag data-name="${tag.slice(1)}">${tag}</span>`);
+    .replace(/(^|\s)(#[\w/-]+(?=[\s.,;:!?]|$))/gm, (_, before, tag) => `${before}<span data-tag data-name="${tag.slice(1)}">${tag}</span>`)
+    // Preserve @mentions: [@name](mention:person-id)
+    .replace(/\[@([^\]]+)\]\(mention:([^)]+)\)/g, '<span data-type="mention" data-person-id="$2" data-name="$1">@$1</span>');
 
   const result = marked.parse(html, { async: false });
   const output = typeof result === "string" ? result : "";

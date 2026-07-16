@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { IconFolder, IconAlertCircle, IconLoader2, IconCheck } from "@tabler/icons-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { IconFolder, IconAlertCircle, IconLoader2, IconCheck, IconUserPlus, IconX } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -19,6 +19,7 @@ import {
   useLazyGetPeopleQuery,
   useSyncNoteFromIcsMutation,
   useUnlinkPersonFromNoteMutation,
+  useLinkPeopleToNoteMutation,
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
@@ -59,12 +60,49 @@ export default function NoteEditorPage() {
   const [removeNoteTag] = useRemoveNoteTagMutation();
   const [uploadFile] = useUploadFileMutation();
   const [triggerGetPeople] = useLazyGetPeopleQuery();
+  const [linkPeopleToNote] = useLinkPeopleToNoteMutation();
+  const [unlinkPerson] = useUnlinkPersonFromNoteMutation();
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const titleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isInitialLoadRef = useRef(false);
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [newTag, setNewTag] = useState("");
+  const editorRef = useRef<any>(null);
+  const idRef = useRef(id);
+  const [peoplePickerOpen, setPeoplePickerOpen] = useState<"organizer" | "attendee" | null>(null);
+  const [peopleSearch, setPeopleSearch] = useState("");
+  const [peopleResults, setPeopleResults] = useState<{ personId: string; name: string; email: string | null }[]>([]);
+  const [peopleSearchLoading, setPeopleSearchLoading] = useState(false);
+  const peopleSearchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handlePeopleSearch = useCallback(
+    (query: string) => {
+      setPeopleSearch(query);
+      if (peopleSearchTimerRef.current) clearTimeout(peopleSearchTimerRef.current);
+      if (!query.trim()) {
+        setPeopleResults([]);
+        setPeopleSearchLoading(false);
+        return;
+      }
+      setPeopleSearchLoading(true);
+      peopleSearchTimerRef.current = setTimeout(async () => {
+        try {
+          const result = await triggerGetPeople({ q: query.trim() }).unwrap();
+          setPeopleResults((result ?? []).map((p) => ({
+            personId: p.id,
+            name: p.name,
+            email: p.email,
+          })));
+        } catch {
+          setPeopleResults([]);
+        } finally {
+          setPeopleSearchLoading(false);
+        }
+      }, 200);
+    },
+    [triggerGetPeople],
+  );
 
   // Sync local title state when navigating to a different note
   useEffect(() => {
@@ -84,6 +122,14 @@ export default function NoteEditorPage() {
         name: p.name,
         email: p.email,
       }));
+    },
+    command: ({ editor, range, props }: { editor: any; range: any; props: any }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setMention({ personId: props.personId, name: props.name })
+        .run();
     },
     render: () => {
       let component: ReactRenderer | null = null;
@@ -205,10 +251,12 @@ export default function NoteEditorPage() {
       setSaveStatus("unsaved");
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        if (editor && id) {
+        const ed = editorRef.current;
+        const nId = idRef.current;
+        if (ed && nId) {
           setSaveStatus("saving");
-          const md = serializer.serialize(editor.state.doc);
-          updateNote({ id, payload: { content: md } })
+          const md = serializer.serialize(ed.state.doc);
+          updateNote({ id: nId, payload: { content: md } })
             .unwrap()
             .then(() => setSaveStatus("saved"))
             .catch(() => setSaveStatus("unsaved"));
@@ -216,6 +264,9 @@ export default function NoteEditorPage() {
       }, DEBOUNCE_MS);
     },
   });
+
+  editorRef.current = editor;
+  idRef.current = id;
 
   // Set up the upload image function that editorProps handlers use via ref
   useEffect(() => {
@@ -295,7 +346,6 @@ export default function NoteEditorPage() {
 
   const [createTemplate] = useCreateTemplateMutation();
   const [syncNoteFromIcs] = useSyncNoteFromIcsMutation();
-  const [unlinkPersonFromNote] = useUnlinkPersonFromNoteMutation();
 
   const handleSaveAsTemplate = async () => {
     if (!selectedNote) return;
@@ -509,57 +559,199 @@ export default function NoteEditorPage() {
               </div>
 
               {/* Organizer */}
-              {selectedNote.people?.filter((p) => p.role === "organizer").length ? (
-                <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
-                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organizer</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedNote.people.filter((p) => p.role === "organizer").map((p) => (
-                      <span key={p.personId} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded-full">
-                        {p.name}
-                      </span>
-                    ))}
-                  </div>
+              <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+                <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organizer</span>
+                <div className="flex flex-wrap gap-1 mt-1 items-center">
+                  {selectedNote.people?.filter((p) => p.role === "organizer").map((p) => (
+                    <span key={p.personId} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded-full">
+                      {p.name}
+                      {!selectedNote.icsUid && (
+                        <button
+                          onClick={() => {
+                            if (id) unlinkPerson({ noteId: id, personId: p.personId, role: "organizer" });
+                          }}
+                          className="ml-0.5 hover:text-red-500 transition-colors"
+                          title="Remove organizer"
+                        >
+                          <IconX size={10} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {(selectedNote.people?.filter((p) => p.role === "organizer").length ?? 0) === 0 && (
+                    peoplePickerOpen === "organizer" ? (
+                      <div className="relative">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={peopleSearch}
+                          onChange={(e) => handlePeopleSearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              setPeoplePickerOpen(null);
+                              setPeopleSearch("");
+                            }
+                          }}
+                          placeholder="Search people..."
+                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-40"
+                        />
+                        {(peopleSearchLoading || peopleResults.length > 0) && (
+                          <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                            {peopleSearchLoading ? (
+                              <div className="flex items-center justify-center py-2">
+                                <IconLoader2 className="w-3 h-3 animate-spin text-gray-400" />
+                              </div>
+                            ) : (
+                              peopleResults.map((person) => (
+                                <button
+                                  key={person.personId}
+                                  onClick={() => {
+                                    if (id) {
+                                      linkPeopleToNote({
+                                        noteId: id,
+                                        personIds: [person.personId],
+                                        role: "organizer",
+                                      });
+                                      setPeoplePickerOpen(null);
+                                      setPeopleSearch("");
+                                      setPeopleResults([]);
+                                    }
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                                >
+                                  <span className="font-medium">{person.name}</span>
+                                  {person.email && (
+                                    <span className="text-xs text-gray-400 ml-2">{person.email}</span>
+                                  )}
+                                </button>
+                              ))
+                            )}
+                            {!peopleSearchLoading && peopleResults.length === 0 && peopleSearch.trim() && (
+                              <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
+                                No people found
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setPeoplePickerOpen("organizer")}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-full transition-colors"
+                      >
+                        <IconUserPlus size={12} />
+                        Add organizer
+                      </button>
+                    )
+                  )}
                 </div>
-              ) : null}
+              </div>
 
               {/* Attendees */}
-              {selectedNote.people?.filter((p) => p.role === "attendee").length ? (
-                <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Attendees</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedNote.people.filter((p) => p.role === "attendee").map((p) => {
-                      const statusColors: Record<string, string> = {
-                        accepted: "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200",
-                        tentative: "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200",
-                        declined: "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200",
-                        "needs-action": "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
-                      };
-                      const colorClass = statusColors[p.status ?? ""] ?? "bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200";
-                      return (
-                        <span key={p.personId} className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
-                          {p.name}
-                          {p.status && (
-                            <span className="opacity-70">
-                              {p.status === "accepted" ? "✓" : p.status === "tentative" ? "~" : p.status === "declined" ? "✗" : ""}
-                            </span>
+              <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Attendees</span>
+                <div className="flex flex-wrap gap-1 mt-1 items-center">
+                  {selectedNote.people?.filter((p) => p.role === "attendee").map((p) => {
+                    const statusColors: Record<string, string> = {
+                      accepted: "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200",
+                      tentative: "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200",
+                      declined: "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200",
+                      "needs-action": "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+                    };
+                    const colorClass = statusColors[p.status ?? ""] ?? "bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200";
+                    return (
+                      <span key={p.personId} className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
+                        {p.name}
+                        {p.status && (
+                          <span className="opacity-70">
+                            {p.status === "accepted" ? "✓" : p.status === "tentative" ? "~" : p.status === "declined" ? "✗" : ""}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (id) {
+                              unlinkPerson({ noteId: id, personId: p.personId, role: "attendee" });
+                            }
+                          }}
+                          className="ml-0.5 hover:text-red-500 transition-colors"
+                          title="Remove attendee"
+                        >
+                          <IconX size={10} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                  {peoplePickerOpen === "attendee" ? (
+                    <div className="relative">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={peopleSearch}
+                        onChange={(e) => handlePeopleSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setPeoplePickerOpen(null);
+                            setPeopleSearch("");
+                          }
+                        }}
+                        placeholder="Search people..."
+                        className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-40"
+                      />
+                      {(peopleSearchLoading || peopleResults.length > 0) && (
+                        <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                          {peopleSearchLoading ? (
+                            <div className="flex items-center justify-center py-2">
+                              <IconLoader2 className="w-3 h-3 animate-spin text-gray-400" />
+                            </div>
+                          ) : (
+                            peopleResults.map((person) => (
+                              <button
+                                key={person.personId}
+                                onClick={() => {
+                                  if (id) {
+                                    linkPeopleToNote({
+                                      noteId: id,
+                                      personIds: [person.personId],
+                                      role: "attendee",
+                                      status: "needs-action",
+                                    });
+                                    setPeoplePickerOpen(null);
+                                    setPeopleSearch("");
+                                    setPeopleResults([]);
+                                  }
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                              >
+                                <span className="font-medium">{person.name}</span>
+                                {person.email && (
+                                  <span className="text-xs text-gray-400 ml-2">{person.email}</span>
+                                )}
+                              </button>
+                            ))
                           )}
-                          <button
-                            onClick={() => {
-                              if (id) {
-                                unlinkPersonFromNote({ noteId: id, personId: p.personId, role: "attendee" });
-                              }
-                            }}
-                            className="ml-0.5 hover:text-red-500 transition-colors"
-                            title="Remove attendee"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
+                          {!peopleSearchLoading && peopleResults.length === 0 && peopleSearch.trim() && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
+                              No people found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setPeoplePickerOpen("attendee");
+                        setPeopleSearch("");
+                        setPeopleResults([]);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-full transition-colors"
+                    >
+                      <IconUserPlus size={12} />
+                      Add attendee
+                    </button>
+                  )}
                 </div>
-              ) : null}
+              </div>
             </div>
           )}
 
