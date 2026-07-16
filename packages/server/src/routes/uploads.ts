@@ -42,8 +42,9 @@ export function createUploadsRouter(db: Database.Database): Router {
 
   router.get("/", (req: Request, res: Response) => {
     const stmt = db.prepare(
-      `SELECT id, filename, original_name, mime_type, size, created_at
-       FROM uploads ORDER BY created_at DESC`,
+      `SELECT u.id, u.filename, u.original_name, u.mime_type, u.size, u.created_at, u.note_id, n.title AS note_title
+       FROM uploads u LEFT JOIN notes n ON u.note_id = n.id
+       ORDER BY u.created_at DESC`,
     );
     const rows = stmt.all() as Array<{
       id: string;
@@ -52,6 +53,8 @@ export function createUploadsRouter(db: Database.Database): Router {
       mime_type: string;
       size: number;
       created_at: string;
+      note_id: string | null;
+      note_title: string | null;
     }>;
     res.json(
       rows.map((r) => ({
@@ -62,6 +65,8 @@ export function createUploadsRouter(db: Database.Database): Router {
         size: r.size,
         url: `/uploads/${r.filename}`,
         createdAt: r.created_at,
+        noteId: r.note_id,
+        noteTitle: r.note_title,
       })),
     );
   });
@@ -100,8 +105,9 @@ export function createUploadsRouter(db: Database.Database): Router {
   router.get("/:noteId", (req: Request, res: Response) => {
     const { noteId } = req.params;
     const stmt = db.prepare(
-      `SELECT id, filename, original_name, mime_type, size, created_at
-       FROM uploads WHERE note_id = ? ORDER BY created_at DESC`,
+      `SELECT u.id, u.filename, u.original_name, u.mime_type, u.size, u.created_at, u.note_id, n.title AS note_title
+       FROM uploads u LEFT JOIN notes n ON u.note_id = n.id
+       WHERE u.note_id = ? ORDER BY u.created_at DESC`,
     );
     const rows = stmt.all(noteId) as Array<{
       id: string;
@@ -110,6 +116,8 @@ export function createUploadsRouter(db: Database.Database): Router {
       mime_type: string;
       size: number;
       created_at: string;
+      note_id: string | null;
+      note_title: string | null;
     }>;
     res.json(
       rows.map((r) => ({
@@ -120,6 +128,8 @@ export function createUploadsRouter(db: Database.Database): Router {
         size: r.size,
         url: `/uploads/${r.filename}`,
         createdAt: r.created_at,
+        noteId: r.note_id,
+        noteTitle: r.note_title,
       })),
     );
   });

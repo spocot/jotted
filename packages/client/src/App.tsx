@@ -20,6 +20,7 @@ import TemplatesPage from "./pages/TemplatesPage";
 import InquiryPage from "./pages/InquiryPage";
 import PeoplePage from "./pages/PeoplePage";
 import DevToolsPage from "./pages/DevToolsPage";
+import FilesPage from "./pages/FilesPage";
 import {
   useLazyGetNoteByTitleQuery,
   useCreateNoteMutation,
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="/inquiry" element={<InquiryPage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/dev-tools" element={<DevToolsPage />} />
+        <Route path="/files" element={<FilesPage />} />
         </Routes>
       </Layout>
     </ConfirmProvider>

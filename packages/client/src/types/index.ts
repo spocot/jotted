@@ -84,6 +84,8 @@ export interface Upload {
   size: number;
   url: string;
   createdAt: string;
+  noteId?: string | null;
+  noteTitle?: string | null;
 }
 
 export type SortField = "relevance" | "updatedAt" | "title" | "createdAt";

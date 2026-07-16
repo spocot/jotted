@@ -101,6 +101,7 @@ export default function Layout({ children }: LayoutProps) {
                 <DropdownLink to="/tags" onClick={() => setMoreOpen(false)}>Tags</DropdownLink>
                 <DropdownLink to="/people" onClick={() => setMoreOpen(false)}>People</DropdownLink>
                 <DropdownLink to="/templates" onClick={() => setMoreOpen(false)}>Templates</DropdownLink>
+                <DropdownLink to="/files" onClick={() => setMoreOpen(false)}>Files</DropdownLink>
                 <DropdownLink to="/inquiry" onClick={() => setMoreOpen(false)}>Inquiry</DropdownLink>
                 <DropdownLink to="/dev-tools" onClick={() => setMoreOpen(false)}>Dev Tools</DropdownLink>
               </div>
