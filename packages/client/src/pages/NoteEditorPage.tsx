@@ -618,72 +618,6 @@ export default function NoteEditorPage() {
                 )}
               </div>
 
-              {/* Edit metadata popup */}
-              {editingMeta && (
-                <div className="mt-2 p-3 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-600 shadow-lg">
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Edit meeting details</span>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Date</span>
-                      <input
-                        type="date"
-                        value={meetingDate}
-                        onChange={(e) => setMeetingDate(e.target.value)}
-                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Time</span>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <input
-                          type="time"
-                          value={meetingStartTime}
-                          onChange={(e) => setMeetingStartTime(e.target.value)}
-                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
-                        />
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">–</span>
-                        <input
-                          type="time"
-                          value={meetingEndTime}
-                          onChange={(e) => setMeetingEndTime(e.target.value)}
-                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Location</span>
-                      <input
-                        type="text"
-                        value={meetingLocationValue}
-                        onChange={(e) => setMeetingLocationValue(e.target.value)}
-                        placeholder="Add location..."
-                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 mt-3">
-                    <button
-                      onClick={() => {
-                        setEditingMeta(false);
-                        setMeetingDate(toDateInput(selectedNote?.meetingStart));
-                        setMeetingStartTime(toTimeInput(selectedNote?.meetingStart));
-                        setMeetingEndTime(toTimeInput(selectedNote?.meetingEnd));
-                        setMeetingLocationValue(selectedNote?.meetingLocation ?? "");
-                      }}
-                      className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveMeta}
-                      className="px-3 py-1 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Organizer — inline */}
               <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800 flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Organizer:</span>
@@ -873,6 +807,87 @@ export default function NoteEditorPage() {
                     Add
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Edit meeting metadata modal */}
+          {editingMeta && selectedNote?.noteType === "meeting" && !selectedNote.icsUid && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setEditingMeta(false);
+                  setMeetingDate(toDateInput(selectedNote?.meetingStart));
+                  setMeetingStartTime(toTimeInput(selectedNote?.meetingStart));
+                  setMeetingEndTime(toTimeInput(selectedNote?.meetingEnd));
+                  setMeetingLocationValue(selectedNote?.meetingLocation ?? "");
+                }
+              }}
+            >
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 w-full max-w-sm mx-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                  Edit meeting details
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={meetingDate}
+                      onChange={(e) => setMeetingDate(e.target.value)}
+                      className="block w-full text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Time</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="time"
+                        value={meetingStartTime}
+                        onChange={(e) => setMeetingStartTime(e.target.value)}
+                        className="text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-32"
+                      />
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">–</span>
+                      <input
+                        type="time"
+                        value={meetingEndTime}
+                        onChange={(e) => setMeetingEndTime(e.target.value)}
+                        className="text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-32"
+                      />
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={meetingLocationValue}
+                      onChange={(e) => setMeetingLocationValue(e.target.value)}
+                      placeholder="Add location..."
+                      className="block w-full text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => {
+                      setEditingMeta(false);
+                      setMeetingDate(toDateInput(selectedNote?.meetingStart));
+                      setMeetingStartTime(toTimeInput(selectedNote?.meetingStart));
+                      setMeetingEndTime(toTimeInput(selectedNote?.meetingEnd));
+                      setMeetingLocationValue(selectedNote?.meetingLocation ?? "");
+                    }}
+                    className="px-4 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveMeta}
+                    className="px-4 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
           )}
