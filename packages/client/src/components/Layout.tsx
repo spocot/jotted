@@ -30,6 +30,7 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
+    try { localStorage.setItem("jotted_dark_mode", String(darkMode)); } catch { /* ignore */ }
   }, [darkMode]);
 
   useEffect(() => {

@@ -11,10 +11,18 @@ export interface UiState {
   darkMode: boolean;
 }
 
+function getInitialDarkMode(): boolean {
+  try {
+    const stored = localStorage.getItem("jotted_dark_mode");
+    if (stored !== null) return stored === "true";
+  } catch { /* ignore */ }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
 const initialState: UiState = {
   sidebarOpen: true,
   sidebarWidth: SIDEBAR_DEFAULT,
-  darkMode: false,
+  darkMode: getInitialDarkMode(),
 };
 
 const uiSlice = createSlice({
