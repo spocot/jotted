@@ -12,9 +12,22 @@ import {
 import type { Person } from "../types";
 import { useConfirm } from "../hooks/useConfirm";
 
+const ROLE_LABELS: Record<string, string> = {
+  organizer: "Organizer",
+  attendee: "Attendee",
+  mentioned: "Mentioned",
+};
+
 const PAGE_SIZE = 20;
 
-type PersonDetailTab = "organized" | "attending" | "mentioned" | "all";
+type PersonDetailTab = "organizer" | "attendee" | "mentioned" | "all";
+
+const TAB_CONFIG: { key: PersonDetailTab; label: string; role?: string }[] = [
+  { key: "organizer", label: "Organized", role: "organizer" },
+  { key: "attendee", label: "Attending", role: "attendee" },
+  { key: "mentioned", label: "Mentioned", role: "mentioned" },
+  { key: "all", label: "All" },
+];
 
 export default function PeoplePage() {
   const navigate = useNavigate();
@@ -148,7 +161,7 @@ export default function PeoplePage() {
           No people found.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
           {people.map((person) => (
             <div
               key={person.id}
@@ -197,9 +210,11 @@ export default function PeoplePage() {
               ) : (
                 <>
                   <button
-                    onClick={() =>
-                      setExpandedId(expandedId === person.id ? null : person.id)
-                    }
+                    onClick={() => {
+                      const nextId = expandedId === person.id ? null : person.id;
+                      setExpandedId(nextId);
+                      if (nextId) setActiveTab("all");
+                    }}
                     className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
                   >
                     <div className="flex items-center gap-2">
@@ -269,27 +284,23 @@ interface PersonDetailProps {
 
 function PersonDetail({ personId, activeTab, onTabChange, onNavigate }: PersonDetailProps) {
   const { data: person } = useGetPersonQuery(personId);
+  const tabConfig = TAB_CONFIG.find((t) => t.key === activeTab);
   const { data: notesResult } = useGetPersonNotesQuery({
     personId,
-    role: activeTab === "all" ? undefined : activeTab,
+    role: tabConfig?.role,
     limit: PAGE_SIZE,
     offset: 0,
   });
-
-  const tabs: { key: PersonDetailTab; label: string }[] = [
-    { key: "organized", label: "Organized" },
-    { key: "attending", label: "Attending" },
-    { key: "mentioned", label: "Mentioned" },
-    { key: "all", label: "All" },
-  ];
 
   const roleCounts = person?.roleCounts ?? [];
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700">
       <div className="flex gap-1 px-2 py-2 border-b border-gray-100 dark:border-gray-750">
-        {tabs.map((tab) => {
-          const count = roleCounts.find((rc) => rc.role === tab.key);
+        {TAB_CONFIG.map((tab) => {
+          const count = tab.role
+            ? roleCounts.find((rc) => rc.role === tab.role)?.count ?? 0
+            : roleCounts.reduce((sum, rc) => sum + rc.count, 0);
           return (
             <button
               key={tab.key}
@@ -301,7 +312,7 @@ function PersonDetail({ personId, activeTab, onTabChange, onNavigate }: PersonDe
               }`}
             >
               {tab.label}
-              {count && <span className="ml-1 opacity-70">({count.count})</span>}
+              {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
             </button>
           );
         })}
@@ -323,7 +334,7 @@ function PersonDetail({ personId, activeTab, onTabChange, onNavigate }: PersonDe
               </div>
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {note.path && note.path !== "/" && `${note.path} · `}
-                {note.role}
+                {ROLE_LABELS[note.role] || note.role}
               </div>
             </button>
           ))
