@@ -183,7 +183,7 @@ export function createNotesRouter(
       const existing = noteRepo.getById(id);
       if (!existing) throw new NotFound("Note not found");
 
-      const { title, content, path } = req.body;
+      const { title, content, path, meetingLocation, meetingStart, meetingEnd } = req.body;
 
       if (title !== undefined && title !== existing.title && noteRepo.titleExists(title, id)) {
         throw new Conflict(`A note with the title "${title}" already exists`);
@@ -200,6 +200,11 @@ export function createNotesRouter(
 
       const note = noteRepo.update(id, { title, content, path });
       if (!note) throw new NotFound("Note not found");
+
+      // Apply meeting field updates
+      if (meetingLocation !== undefined || meetingStart !== undefined || meetingEnd !== undefined) {
+        noteRepo.updateMeetingFields(id, { meetingLocation, meetingStart, meetingEnd });
+      }
 
       syncNoteRelations(note.id, note.content, noteRepo, tagRepo, linkRepo, peopleRepo);
 

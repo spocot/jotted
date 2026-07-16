@@ -27,6 +27,9 @@ export interface NoteUpdatePayload {
   title?: string;
   content?: string;
   path?: string;
+  meetingLocation?: string;
+  meetingStart?: string;
+  meetingEnd?: string;
 }
 
 export interface EnrichedNote extends Note {

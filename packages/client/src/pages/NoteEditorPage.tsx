@@ -104,6 +104,51 @@ export default function NoteEditorPage() {
     [triggerGetPeople],
   );
 
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingStartTime, setMeetingStartTime] = useState("");
+  const [meetingEndTime, setMeetingEndTime] = useState("");
+  const [meetingLocationValue, setMeetingLocationValue] = useState("");
+
+  const toDateInput = (iso: string | null | undefined) => {
+    if (!iso) return "";
+    try { return new Date(iso).toISOString().slice(0, 10); } catch { return ""; }
+  };
+  const toTimeInput = (iso: string | null | undefined) => {
+    if (!iso) return "";
+    try { return new Date(iso).toTimeString().slice(0, 5); } catch { return ""; }
+  };
+
+  useEffect(() => {
+    if (selectedNote) {
+      setMeetingDate(toDateInput(selectedNote.meetingStart));
+      setMeetingStartTime(toTimeInput(selectedNote.meetingStart));
+      setMeetingEndTime(toTimeInput(selectedNote.meetingEnd));
+      setMeetingLocationValue(selectedNote.meetingLocation ?? "");
+    }
+  }, [selectedNote?.id]);
+
+  const saveMeetingField = useCallback(
+    (field: string, value: string) => {
+      if (!id) return;
+      const payload: Record<string, string | undefined> = {};
+      if (field === "date" || field === "start" || field === "end") {
+        if (meetingDate && meetingStartTime) {
+          payload.meetingStart = `${meetingDate}T${meetingStartTime}:00`;
+        }
+        if (meetingDate && meetingEndTime) {
+          payload.meetingEnd = `${meetingDate}T${meetingEndTime}:00`;
+        }
+      }
+      if (field === "location") {
+        payload.meetingLocation = value || undefined;
+      }
+      if (Object.keys(payload).length > 0) {
+        updateNote({ id, payload });
+      }
+    },
+    [id, meetingDate, meetingStartTime, meetingEndTime, updateNote],
+  );
+
   // Sync local title state when navigating to a different note
   useEffect(() => {
     setTitle(selectedNote?.title ?? "");
@@ -526,35 +571,89 @@ export default function NoteEditorPage() {
 
               {/* Meeting details */}
               <div className="grid grid-cols-2 gap-2 text-sm">
-                {selectedNote.meetingStart && (
-                  <div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
-                    <p className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedNote.meetingStart).toLocaleDateString("en-US", {
-                        weekday: "long", year: "numeric", month: "long", day: "numeric",
-                      })}
-                    </p>
-                  </div>
-                )}
-                {selectedNote.meetingStart && selectedNote.meetingEnd && (
-                  <div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
-                    <p className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedNote.meetingStart).toLocaleTimeString("en-US", {
-                        hour: "numeric", minute: "2-digit",
-                      })}{" "}
-                      –{" "}
-                      {new Date(selectedNote.meetingEnd).toLocaleTimeString("en-US", {
-                        hour: "numeric", minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                )}
-                {selectedNote.meetingLocation && (
-                  <div className="col-span-2">
-                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedNote.meetingLocation}</p>
-                  </div>
+                {selectedNote.icsUid ? (
+                  <>
+                    {selectedNote.meetingStart && (
+                      <div>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
+                        <p className="text-gray-900 dark:text-gray-100">
+                          {new Date(selectedNote.meetingStart).toLocaleDateString("en-US", {
+                            weekday: "long", year: "numeric", month: "long", day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {selectedNote.meetingStart && selectedNote.meetingEnd && (
+                      <div>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
+                        <p className="text-gray-900 dark:text-gray-100">
+                          {new Date(selectedNote.meetingStart).toLocaleTimeString("en-US", {
+                            hour: "numeric", minute: "2-digit",
+                          })}{" "}
+                          –{" "}
+                          {new Date(selectedNote.meetingEnd).toLocaleTimeString("en-US", {
+                            hour: "numeric", minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {selectedNote.meetingLocation && (
+                      <div className="col-span-2">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
+                        <p className="text-gray-900 dark:text-gray-100">{selectedNote.meetingLocation}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Date</span>
+                      <input
+                        type="date"
+                        value={meetingDate}
+                        onChange={(e) => {
+                          setMeetingDate(e.target.value);
+                          saveMeetingField("date", e.target.value);
+                        }}
+                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <input
+                          type="time"
+                          value={meetingStartTime}
+                          onChange={(e) => {
+                            setMeetingStartTime(e.target.value);
+                            saveMeetingField("start", e.target.value);
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
+                        />
+                        <span className="text-gray-400 dark:text-gray-500 text-xs">–</span>
+                        <input
+                          type="time"
+                          value={meetingEndTime}
+                          onChange={(e) => {
+                            setMeetingEndTime(e.target.value);
+                            saveMeetingField("end", e.target.value);
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400 w-28"
+                        />
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</span>
+                      <input
+                        type="text"
+                        value={meetingLocationValue}
+                        onChange={(e) => setMeetingLocationValue(e.target.value)}
+                        onBlur={(e) => saveMeetingField("location", e.target.value)}
+                        placeholder="Add location..."
+                        className="block w-full mt-0.5 text-xs px-2 py-1 rounded border border-purple-300 dark:border-purple-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
 
