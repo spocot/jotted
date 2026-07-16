@@ -145,6 +145,8 @@ export const apiSlice = createApi({
         { type: "NoteVersions", id },
         "NoteList",
         "Graph",
+        "TagList",
+        "Folder",
       ],
     }),
 
@@ -164,7 +166,7 @@ export const apiSlice = createApi({
         method: "POST",
         body: payload,
       }),
-      invalidatesTags: ["NoteList", "Folder", "Graph", "Calendar"],
+      invalidatesTags: ["NoteList", "Folder", "Graph", "Calendar", "PersonList", "TagList"],
     }),
 
     syncNoteFromIcs: builder.mutation<EnrichedNote, { id: string; payload: CreateNoteFromEventPayload }>({
@@ -176,6 +178,7 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Note", id },
         "NoteList",
+        "PersonList",
       ],
     }),
 
@@ -187,6 +190,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
+        "PersonList",
       ],
     }),
 
@@ -197,6 +201,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
+        "PersonList",
       ],
     }),
 
@@ -359,6 +364,8 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
         "Graph",
+        "TagList",
+        "NoteList",
       ],
     }),
 
@@ -373,6 +380,8 @@ export const apiSlice = createApi({
       invalidatesTags: (_result, _error, { noteId }) => [
         { type: "Note", id: noteId },
         "Graph",
+        "TagList",
+        "NoteList",
       ],
     }),
 
