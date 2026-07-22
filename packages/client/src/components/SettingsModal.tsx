@@ -50,21 +50,19 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
             onClick={() => setTab("connection")}
-            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              tab === "connection"
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "connection"
                 ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+              }`}
           >
             Connection
           </button>
           <button
             onClick={() => setTab("integrations")}
-            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              tab === "integrations"
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "integrations"
                 ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+              }`}
           >
             Integrations
           </button>
@@ -288,7 +286,7 @@ function IntegrationsTab() {
       )}
 
       {/* Config form */}
-      {!needsUnlock && (
+      {!needsUnlock && !hasConfig && (
         <>
           <div>
             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
@@ -367,16 +365,17 @@ function IntegrationsTab() {
               Clear
             </button>
           )}
-          {!hasConfig && <div />}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving || !domain || !email || !apiToken}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Configuration"}
-            </button>
-          </div>
+          {!hasConfig && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || !domain || !email || !apiToken}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Configuration"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
