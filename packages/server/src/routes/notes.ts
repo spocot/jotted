@@ -73,7 +73,20 @@ export function createNotesRouter(
       if (meetingStart !== undefined) payload.meetingStart = meetingStart || undefined;
       if (meetingEnd !== undefined) payload.meetingEnd = meetingEnd || undefined;
 
-      const note = noteRepo.create(payload);
+      let note: ReturnType<typeof noteRepo.create>;
+      try {
+        note = noteRepo.create(payload);
+      } catch (err) {
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: string }).code === "SQLITE_CONSTRAINT_UNIQUE"
+        ) {
+          throw new Conflict(`A note with the title "${title || ""}" already exists`);
+        }
+        throw err;
+      }
       syncNoteRelations(note.id, content ?? "", noteRepo, tagRepo, linkRepo, peopleRepo);
 
       if (noteType === "meeting" && tagRepo) {
@@ -186,10 +199,6 @@ export function createNotesRouter(
 
       const { title, content, path, meetingLocation, meetingStart, meetingEnd } = req.body;
 
-      if (title !== undefined && title !== existing.title && noteRepo.titleExists(title, id)) {
-        throw new Conflict(`A note with the title "${title}" already exists`);
-      }
-
       if (path !== undefined && (typeof path !== "string" || !path.startsWith("/"))) {
         throw new BadRequest("path must be a string starting with /");
       }
@@ -199,7 +208,20 @@ export function createNotesRouter(
         versionRepo.create(id, existing.title, existing.content);
       }
 
-      const note = noteRepo.update(id, { title, content, path });
+      let note: ReturnType<typeof noteRepo.update>;
+      try {
+        note = noteRepo.update(id, { title, content, path });
+      } catch (err) {
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: string }).code === "SQLITE_CONSTRAINT_UNIQUE"
+        ) {
+          throw new Conflict(`A note with the title "${title ?? ""}" already exists`);
+        }
+        throw err;
+      }
       if (!note) throw new NotFound("Note not found");
 
       // Apply meeting field updates

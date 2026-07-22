@@ -528,4 +528,9 @@ function initSchema(database: Database.Database): void {
       CREATE INDEX IF NOT EXISTS idx_il_external ON integration_links(integration_type, external_id);
     `);
   }
+
+  // Migration v19: enforce unique non-empty note titles
+  database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_unique_title ON notes(title) WHERE title != '';
+  `);
 }
