@@ -651,3 +651,75 @@
 - [ ] `CommandPalette.tsx` — merge plugin commands into palette search
 - [ ] Error boundaries per plugin — crash isolation
 - [ ] Tests: PluginManager lifecycle, API registration hooks, plugin enable/disable
+
+## Phase 47: Slash Commands (`/` Menu) ⬜
+
+- [ ] TipTap Suggestion extension (`extensions/SlashCommand.ts`) with `/` trigger
+- [ ] Command registry: headings (h1-h6), lists (bullet/ordered/task), callout, code block, blockquote, horizontal rule, image, note embed, mermaid, table
+- [ ] Filterable inline popup with icon + description per command
+- [ ] Arrow key navigation + Enter to apply + Escape to dismiss
+- [ ] Block insertion logic: replace empty paragraph, insert after current block, or lift + replace node type
+- [ ] Integration in NoteEditorPage
+
+## Phase 48: Rich Table Editing ⬜
+
+- [ ] Install `@tiptap/extension-table` + row/cell/header packages
+- [ ] TipTap table extension config (`extensions/TableExtension.ts`)
+- [ ] `TableBubbleMenu.tsx` — floating toolbar (add/delete row/col, toggle header, alignment, cell bg color)
+- [ ] Grid picker for table insertion (drag N×M, up to 10×10) in toolbar
+- [ ] Slash `/table` command → insert default 3×3
+- [ ] GFM table markdown serialization (pipe tables with alignment markers)
+- [ ] GFM table markdown deserialization (pre-processing before `marked`)
+- [ ] Import and register table extensions in NoteEditorPage
+
+## Phase 49: Mermaid/Diagram Rendering in Notes ⬜
+
+- [ ] Install `mermaid` npm package
+- [ ] TipTap MermaidBlock extension (`extensions/MermaidBlock.ts`) with ReactNodeViewRenderer
+- [ ] `MermaidBlockView.tsx` — React NodeView with edit/preview toggle
+- [ ] Edit mode: textarea for raw Mermaid source
+- [ ] Preview mode: `mermaid.render()` → SVG with zoom/scroll
+- [ ] Error state: red-bordered box with "Syntax Error" badge
+- [ ] Markdown serialization: ` ```mermaid ... ``` ` code fence
+- [ ] Markdown deserialization: pre-process ` ```mermaid ``` ` blocks
+- [ ] Slash `/mermaid` command → insert empty block in edit mode
+- [ ] Toolbar "Insert" dropdown option for Mermaid Diagram
+- [ ] Import and register MermaidBlock in NoteEditorPage
+
+## Phase 50: Favorites / Pinned Notes ⬜
+
+- [ ] DB: `favorites` table migration (id, note_id UNIQUE, position, timestamps)
+- [ ] `FavoriteRepository` — list/add/remove/reorder/isFavorite
+- [ ] `GET /api/favorites` — list favorites with note metadata
+- [ ] `POST /api/favorites` — add favorite
+- [ ] `DELETE /api/favorites/:noteId` — remove favorite
+- [ ] `PUT /api/favorites/reorder` — reorder via `{ orderedNoteIds }`
+- [ ] Client types: `Favorite` interface
+- [ ] RTK Query: favorites CRUD endpoints + `Favorite`/`FavoriteList` tag types
+- [ ] `FavoritesList.tsx` — sidebar section with drag-to-reorder
+- [ ] Sidebar integration: FavoritesList at top above recent notes
+- [ ] Star toggle button in NoteEditorPage toolbar/breadcrumb
+- [ ] Empty state: "Pin notes for quick access" hint
+
+## Phase 51: Bulk Note Operations ⬜
+
+- [ ] Select mode toggle in sidebar header ("Select" / "Done")
+- [ ] Checkbox on sidebar note items (visible on hover or persistent in select mode)
+- [ ] Shift+click range selection, select all / deselect all
+- [ ] `BulkActionBar.tsx` — toolbar shown when items selected ("N selected" + action buttons)
+- [ ] Batch delete: confirmation dialog with note previews, sequential delete with progress toast
+- [ ] Batch move to folder: folder dropdown, batch updateNote
+- [ ] Batch add tag: tag autocomplete, batch addNoteTag
+- [ ] Batch remove tag: tag chip list from union, batch removeNoteTag
+- [ ] Partial failure handling: "X succeeded, Y failed" toast
+
+## Phase 52: Duplicate Note ⬜
+
+- [ ] `POST /api/notes/:id/duplicate` — clone note with title/content/tags/folder
+- [ ] Title generation: `{originalTitle} (Copy)` with increment for collisions
+- [ ] Copy tags, meeting metadata (but unset `ics_uid`), people (reset attendee statuses)
+- [ ] Do NOT copy: links, versions, favorites, ICS sync metadata
+- [ ] Client RTK Query: `useDuplicateNoteMutation`
+- [ ] "Duplicate" action in sidebar note context menu
+- [ ] "Duplicate" button in note editor page actions dropdown
+- [ ] Toast on success + navigate to new note

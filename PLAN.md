@@ -1421,3 +1421,320 @@ Server serves plugin static assets via: `app.use("/plugins", express.static(plug
 | `client/src/pages/NoteEditorPage.tsx` | Merge plugin extensions into editor config |
 | `client/src/components/Sidebar.tsx` | Render plugin sidebar panels |
 | `client/src/components/CommandPalette.tsx` | Merge plugin commands into palette actions |
+
+---
+
+### Phase 47: Slash Commands (`/` Menu)
+
+Notion-style inline command menu triggered by typing `/` in the editor. Provides
+fast keyboard-driven block insertion without leaving the keyboard or reaching for
+the toolbar.
+
+**TipTap Extension (`extensions/SlashCommand.ts`):**
+- Uses `@tiptap/suggestion` plugin (same pattern as `#tag` and `@mention` extensions)
+- Trigger character: `/` — opens inline popup at cursor position
+- Rendered as a custom suggestion list overlay (positioned via `useCallback + getClientRect`)
+- Filterable: typing after `/` filters the command list by label or keywords
+- Enter to apply, Escape to dismiss, arrow keys to navigate
+
+**Command Registry & Categories:**
+
+| Category | Commands |
+|---|---|
+| **Headings** | Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6 |
+| **Lists** | Bullet List, Ordered List, Task List |
+| **Blocks** | Paragraph, Blockquote, Callout, Code Block (with language picker), Horizontal Rule |
+| **Media** | Image, Note Embed (`![[`), File Attachment |
+| **Data** | Mermaid Diagram, DataView Block (when Phase 25 is done) |
+| **Advanced** | Table |
+
+**Behavior:**
+- At the start of an empty paragraph: replaces the `/` text and inserts the chosen block
+- Mid-paragraph: inserts the new block after the current block
+- On a non-empty block: lifts the current node and replaces it with the new type (for headings/lists/callouts — same as block-type switching)
+- Each command stores an icon and description shown in the popup alongside the label
+
+**Integration Points:**
+- `NoteEditorPage.tsx` — import and register the SlashCommand extension
+- Reuses TipTap's existing block commands for headings, lists, blockquote, code block, callout, horizontal rule
+- Table insertion: inserts a 3×3 starter table via the Table extension (Phase 48)
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `client/src/extensions/SlashCommand.ts` | **New** — `/` suggestion extension with command registry |
+| `client/src/pages/NoteEditorPage.tsx` | Import and register SlashCommand extension |
+| `client/src/types/index.ts` | (optional) `SlashCommandItem` interface if needed |
+
+---
+
+### Phase 48: Rich Table Editing
+
+Full GFM-style table editing via TipTap's table extensions. Users can insert,
+edit, and format tables with row/column management and cell alignment.
+
+**TipTap Extensions:**
+- `@tiptap/extension-table` — core table node
+- `@tiptap/extension-table-row` — row node
+- `@tiptap/extension-table-cell` — cell node with background color support
+- `@tiptap/extension-table-header` — header cell node (rendered as `<th>`)
+
+**Table Bubble Menu (`components/TableBubbleMenu.tsx`):**
+- Floating toolbar that appears when cursor is inside a table
+- Row actions: Add row above / Add row below / Delete row
+- Column actions: Add column left / Add column right / Delete column
+- Toggle header row (first row becomes `<th>`)
+- Toggle header column (first column becomes `<th>`)
+- Cell alignment: left / center / right
+- Cell background color picker (6 preset colors + none)
+
+**Table Insertion:**
+- Toolbar button: "Insert Table" with a grid picker (drag to select N×M, up to 10×10)
+- Slash command: `/table` → inserts a default 3×3 table
+- Markdown paste: if pasted text looks like a GFM table, parse and insert as table nodes
+
+**Markdown Round-Trip:**
+- **Serialization** (`serializer.ts`): Render table as GFM pipe table:
+  ```
+  | Header 1 | Header 2 |
+  |----------|----------|
+  | Cell 1   | Cell 2   |
+  ```
+  Alignment marks: `|:---|` (left), `|---:|` (right), `|:---:|` (center)
+- **Deserialization** (`markdown.ts`): Pre-process GFM table blocks before `marked`, replace with TipTap table HTML, then let TipTap's `parseHTML` handle the rest
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `client/src/extensions/TableExtension.ts` | **New** — TipTap table node extensions (re-exports bundled config) |
+| `client/src/components/TableBubbleMenu.tsx` | **New** — floating table toolbar |
+| `client/src/lib/serializer.ts` | Add `table`, `tableRow`, `tableCell`, `tableHeader` serialization |
+| `client/src/lib/markdown.ts` | Add GFM table pre-processing |
+| `client/src/pages/NoteEditorPage.tsx` | Import table extensions + TableBubbleMenu |
+| `client/package.json` | Add `@tiptap/extension-table`, `@tiptap/extension-table-row`, `@tiptap/extension-table-cell`, `@tiptap/extension-table-header` |
+
+---
+
+### Phase 49: Mermaid/Diagram Rendering in Notes
+
+Render Mermaid diagram code blocks as live SVG diagrams inline in the editor.
+Uses a custom TipTap extension with a React NodeView that toggles between
+source (edit) and rendered (preview) mode.
+
+**TipTap Extension (`extensions/MermaidBlock.ts`):**
+- `Node.create({ name: "mermaidBlock", group: "block", atom: true })`
+- Attribute: `content` (the raw Mermaid diagram source text)
+- Uses `ReactNodeViewRenderer(MermaidBlockView)` — renders the diagram
+- `parseHTML`: matches `<div data-mermaid data-content="...">`
+- Double-clicking the rendered diagram switches to edit mode (code block overlay)
+
+**React Node View (`components/MermaidBlockView.tsx`):**
+- Two modes with toggle:
+  - **Preview mode** (default): Renders Mermaid diagram as SVG using `mermaid.render()` → `dangerouslySetInnerHTML`. Shows a "Edit" button on hover.
+  - **Edit mode**: Shows a `<textarea>` with the Mermaid source. "Render" button to switch back.
+- States:
+  - **Loading**: Skeleton placeholder during `mermaid.render()` (async)
+  - **Rendered**: Zoomable SVG (inline scroll on overflow-x)
+  - **Error**: Red-bordered box with "Syntax Error" badge and the raw source for debugging
+- The `node.attrs.content` is the source of truth; diagram is re-rendered on content change
+
+**Mermaid Library:**
+- Install `mermaid` (npm package)
+- Configure with clean default theme: `{ theme: "default", securityLevel: "loose" }`
+- Render via `mermaid.render(id, content)` which returns SVG string
+- Use a unique ID per block (component instance or content hash) to avoid DOM conflicts
+
+**Markdown Round-Trip:**
+- **Serialization**: Output as fenced code block:
+  ````markdown
+  ```mermaid
+  graph TD
+    A --> B
+  ```
+  ````
+- **Deserialization** (`markdown.ts`): Pre-process ` ```mermaid ... ``` ` blocks before `marked`, replace with `<div data-mermaid ...>`, pass content through as the attribute
+
+**Integration Points:**
+- Toolbar "Insert" dropdown: "Mermaid Diagram" option (or via slash `/mermaid`)
+- Slash command: `/mermaid` — inserts an empty Mermaid block in edit mode
+- Support in callouts, lists, and other block containers (anywhere a code block can go)
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `client/src/extensions/MermaidBlock.ts` | **New** — TipTap Mermaid block node |
+| `client/src/components/MermaidBlockView.tsx` | **New** — React NodeView with edit/preview toggle |
+| `client/src/extensions/index.ts` | Add export |
+| `client/src/lib/serializer.ts` | Add `mermaidBlock` serialization (code fence) |
+| `client/src/lib/markdown.ts` | Add ` ```mermaid ``` ` pre-processing |
+| `client/src/pages/NoteEditorPage.tsx` | Import MermaidBlock extension |
+| `client/package.json` | Add `mermaid` dependency |
+
+---
+
+### Phase 50: Favorites / Pinned Notes
+
+Pin important notes to a "Favorites" section at the top of the sidebar for quick
+access. Order is user-controlled via drag-and-drop. Starred state is visible on
+the note editor page.
+
+**Data Model:**
+
+```sql
+CREATE TABLE IF NOT EXISTS favorites (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  position REAL NOT NULL DEFAULT 0.0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(note_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_favorites_position ON favorites(position);
+```
+
+**Backend — `FavoriteRepository` (`db/favorite-repository.ts`):**
+- `list()` — all favorites joined with `notes` for title/updatedAt, ordered by `position`
+- `add(noteId)` — insert with position after the last favorite
+- `remove(noteId)` — delete by note_id
+- `reorder(orderedIds: string[])` — update positions for a list of favorite IDs (batch update)
+- `isFavorite(noteId): boolean` — check if a note is starred
+
+**Backend — Routes (`routes/favorites.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/favorites` | List favorites (with note title + updatedAt) |
+| `POST` | `/api/favorites` | Add a favorite `{ noteId }` |
+| `DELETE` | `/api/favorites/:noteId` | Remove a favorite (by note ID) |
+| `PUT` | `/api/favorites/reorder` | Reorder `{ orderedNoteIds: string[] }` |
+
+**Client — RTK Query:**
+- Tag types: `"Favorite"`, `"FavoriteList"`
+- Queries: `useGetFavoritesQuery`
+- Mutations: `useAddFavoriteMutation`, `useRemoveFavoriteMutation`, `useReorderFavoritesMutation`
+- `addFavorite` invalidates `"FavoriteList"`; `removeFavorite` invalidates both `"FavoriteList"` and `{ type: "Note", id }` (so the star button state updates)
+
+**Frontend — Components:**
+
+**`FavoritesList.tsx` (Sidebar integration):**
+- New section at the top of the sidebar, above Recent Notes and Folder Tree
+- Header: "Favorites" with star icon
+- Each item: star icon + note title + remove button on hover
+- Empty state: "Pin notes for quick access" hint text (not shown in collapsed sidebar)
+- Drag-and-drop reorder via HTML5 DnD `onDragStart/onDragOver/onDrop`
+  - On drop: calls `reorderFavorites` with updated IDs array
+- Click → navigates to note
+- Active state: highlights when viewing that note
+
+**Star button in Note Editor:**
+- Star / star-outline icon button in the editor toolbar or breadcrumb area
+- Toggles the note's favorite status
+- Visual feedback: filled star (favorited) vs outline star (not favorited)
+- No confirmation — instant toggle
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/db/index.ts` | Add `favorites` table migration |
+| `server/src/db/favorite-repository.ts` | **New** — repository |
+| `server/src/routes/favorites.ts` | **New** — route factory |
+| `server/src/index.ts` | Instantiate repo + mount router |
+| `client/src/types/index.ts` | Add `Favorite` interface |
+| `client/src/store/redux/api.ts` | Add favorites endpoints + tag types |
+| `client/src/components/FavoritesList.tsx` | **New** — sidebar favorites section |
+| `client/src/components/Sidebar.tsx` | Integrate FavoritesList at top |
+| `client/src/pages/NoteEditorPage.tsx` | Add star toggle button |
+
+---
+
+### Phase 51: Bulk Note Operations
+
+Select multiple notes in the sidebar and apply batch actions: delete, move to
+folder, add/remove tags. Includes a selection toolbar that appears when any
+notes are selected.
+
+**Selection Model (client-side only, no server changes):**
+- Checkbox on each sidebar note list item (visible on hover, or persistent in a "select mode")
+- Select mode toggle button in sidebar header ("Select" / "Done")
+- In select mode: checkbox always visible on each note, current count shown in toolbar
+- Select all / deselect all toggle
+- Clicking a note name in select mode toggles its selection (not navigation)
+- Shift+click: select range between last clicked and current
+- Selection state managed in a local `useState<Set<string>>` in the sidebar
+
+**Batch Operations Toolbar:**
+- Appears at the top of the sidebar when `selectedNoteIds.size > 0`
+- Shows: "N selected" count + action buttons:
+  - **Delete** (trash icon) → confirmation dialog → calls `deleteNote` for each → clear selection
+  - **Move to folder** → dropdown of existing folders + "No folder" option → calls `updateNote({ folder })` for each
+  - **Add tag** → tag autocomplete input → calls `addNoteTag` for each selected note
+  - **Remove tag** → tag chip list (from union of selected notes' tags) → calls `removeNoteTag` for each
+
+**Confirmation:**
+- Delete: "Delete N notes? This cannot be undone." with note title previews (first 3 + "and N more...")
+- Folder/tag changes: no confirmation needed (reversible)
+- All operations show a progress toast ("Moving 5 notes..." → "Moved 5 notes")
+
+**Loading & Error States:**
+- Operations run sequentially with a simple `for` loop + progress tracking
+- On partial failure: "3 notes moved, 2 failed" toast with error details
+- Notes that fail (e.g., already deleted) are skipped and reported
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `client/src/components/NoteListItem.tsx` | Add checkbox + selection state |
+| `client/src/components/BulkActionBar.tsx` | **New** — selection toolbar component |
+| `client/src/components/Sidebar.tsx` | Add select mode state, integration with BulkActionBar |
+| `client/src/store/redux/api.ts` | No new endpoints — uses existing mutations in batch |
+
+---
+
+### Phase 52: Duplicate Note
+
+Clone an existing note with all its content, tags, and metadata. Creates a new
+note with a "(Copy)" suffix appended to the title.
+
+**Backend — Endpoint (`routes/notes.ts`):**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/notes/:id/duplicate` | Clone note: copy title/content/tags/folder, return new note |
+
+**Server Logic:**
+1. Fetch the source note by ID (404 if not found)
+2. Generate a new UUID for the clone
+3. Determine the new title:
+   - Base: `{originalTitle} (Copy)`
+   - If a note with that title already exists, increment: `{originalTitle} (Copy 2)`, `(Copy 3)`, etc.
+4. Insert new note row with:
+   - New ID, new title, same content, same folder, same `note_type`
+   - For meeting notes: copy `meeting_location`, `meeting_start`, `meeting_end` but set `ics_uid = NULL` and `ics_last_synced = NULL` (the copy is a standalone note, not linked to ICS)
+5. Copy tags: insert `note_tags` rows for all tags from the source note
+6. Copy people (meeting notes): insert `note_people` rows for organizer + attendees (same people, reset to "needs-action" for attendees)
+7. Do NOT copy: links, versions, favorites, ICS sync metadata
+8. Insert a version snapshot for the new note (initial state)
+9. Return the full new note object
+
+**Client — Context Menu:**
+- "Duplicate" action in note sidebar context menu (right-click or ... button)
+- "Duplicate" button in note editor breadcrumb area (page-level actions dropdown)
+- On success: toast "Note duplicated" + navigate to the new note
+
+**Client — RTK Query:**
+- Mutation: `useDuplicateNoteMutation` → `POST /api/notes/:id/duplicate`
+- Invalidates `"NoteList"` (new note appears in list)
+
+**File Changes:**
+
+| File | Change |
+|---|---|
+| `server/src/routes/notes.ts` | Add `POST /api/notes/:id/duplicate` handler |
+| `client/src/store/redux/api.ts` | Add `duplicateNote` mutation |
+| `client/src/components/NoteListItem.tsx` | Add "Duplicate" to context menu |
+| `client/src/pages/NoteEditorPage.tsx` | Add "Duplicate" to page actions dropdown |
