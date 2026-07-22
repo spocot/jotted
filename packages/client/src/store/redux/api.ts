@@ -105,6 +105,7 @@ export const apiSlice = createApi({
     "SmartFolder",
     "SmartFolderList",
     "IntegrationLink",
+    "AtlassianStatus",
   ],
   endpoints: (builder) => ({
     // ---- Notes ----
@@ -640,6 +641,7 @@ export const apiSlice = createApi({
     // ---- Atlassian Integrations ----
     getAtlassianStatus: builder.query<AtlassianStatus, void>({
       query: () => "/integrations/atlassian/status",
+      providesTags: ["AtlassianStatus"],
     }),
 
     configureAtlassian: builder.mutation<
@@ -651,6 +653,7 @@ export const apiSlice = createApi({
         method: "POST",
         body: payload,
       }),
+      invalidatesTags: ["AtlassianStatus"],
     }),
 
     deleteAtlassianConfig: builder.mutation<{ message: string }, void>({
@@ -658,6 +661,7 @@ export const apiSlice = createApi({
         url: "/integrations/atlassian/config",
         method: "DELETE",
       }),
+      invalidatesTags: ["AtlassianStatus"],
     }),
 
     unlockAtlassian: builder.mutation<
@@ -669,6 +673,7 @@ export const apiSlice = createApi({
         method: "POST",
         body: payload,
       }),
+      invalidatesTags: ["AtlassianStatus"],
     }),
 
     getJiraIssue: builder.query<JiraIssueInfo, string>({
