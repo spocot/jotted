@@ -24,7 +24,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const ALLOWED_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|bmp|ico|pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf|zip|tar|gz|bz2|7z|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp|h|json|ya?ml|xml|html|css|sql|sh|toml|mp[34]|wav|ogg|webm|mov|avi|flac|epub|mobi)$/i;
+const ALLOWED_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|bmp|ico|pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf|zip|tar|gz|bz2|7z|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp|h|json|ya?ml|xml|html|css|sql|sh|toml|mp[34]|wav|ogg|webm|mov|avi|flac|epub|mobi|msg|eml)$/i;
 
 const BLOCKED_EXTENSIONS = /\.(exe|dll|so|dylib|bat|cmd|ps1|msi|app|dmg|scr|php|aspx?|jsp|cgi|pl)$/i;
 

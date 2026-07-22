@@ -9,7 +9,7 @@ import {
 } from "../store/redux/api";
 import type { Upload } from "../types";
 import { useConfirm } from "../hooks/useConfirm";
-import { getFileIcon, formatFileSize, getFileExtension } from "../lib/file-utils";
+import { getFileIcon, formatFileSize, getFileExtension, extractFileFromDrag, tryCreateEmailFileFromDrag } from "../lib/file-utils";
 
 interface AttachmentsPanelProps {
   noteId: string;
@@ -36,8 +36,15 @@ export default function AttachmentsPanel({ noteId }: AttachmentsPanelProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    const file = extractFileFromDrag(e.dataTransfer);
+    if (file) {
+      handleFile(file);
+      return;
+    }
+    const emailFile = tryCreateEmailFileFromDrag(e.dataTransfer);
+    if (emailFile) {
+      handleFile(emailFile);
+    }
   };
 
   const handleDelete = async (upload: Upload) => {

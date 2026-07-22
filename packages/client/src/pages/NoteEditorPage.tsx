@@ -27,6 +27,7 @@ import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES, Not
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
+import { extractFileFromDrag, tryCreateEmailFileFromDrag } from "../lib/file-utils";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import EditorSidePanel from "../components/EditorSidePanel";
 import MentionList from "../components/MentionList";
@@ -174,6 +175,7 @@ export default function NoteEditorPage() {
 
   const dispatch = useAppDispatch();
   const uploadImageRef = useRef<(file: File) => Promise<void>>(async () => {});
+  const handleFileUploadRef = useRef<(file: File) => void>(() => {});
   const triggerGetPeopleRef = useRef(triggerGetPeople);
   triggerGetPeopleRef.current = triggerGetPeople;
 
@@ -286,20 +288,37 @@ export default function NoteEditorPage() {
       },
       handleDOMEvents: {
         drop: (view, event) => {
-          const hasFiles = event.dataTransfer?.files?.length;
-          if (!hasFiles) return false;
-          const file = event.dataTransfer!.files[0];
-          if (!file.type.startsWith("image/")) return false;
-          event.preventDefault();
-          const pos = view.posAtCoords({
-            left: event.clientX,
-            top: event.clientY,
-          });
-          if (pos) {
-            view.dispatch(view.state.tr.setSelection(view.state.selection));
+          if (!event.dataTransfer) return false;
+
+          const file = extractFileFromDrag(event.dataTransfer);
+
+          if (file && file.type.startsWith("image/")) {
+            event.preventDefault();
+            const pos = view.posAtCoords({
+              left: event.clientX,
+              top: event.clientY,
+            });
+            if (pos) {
+              view.dispatch(view.state.tr.setSelection(view.state.selection));
+            }
+            uploadImageRef.current(file);
+            return true;
           }
-          uploadImageRef.current(file);
-          return true;
+
+          if (file) {
+            event.preventDefault();
+            handleFileUploadRef.current!(file);
+            return true;
+          }
+
+          const emailFile = tryCreateEmailFileFromDrag(event.dataTransfer);
+          if (emailFile) {
+            event.preventDefault();
+            handleFileUploadRef.current!(emailFile);
+            return true;
+          }
+
+          return false;
         },
         paste: (_view, event) => {
           const items = event.clipboardData?.items;
@@ -310,6 +329,14 @@ export default function NoteEditorPage() {
               const file = item.getAsFile();
               if (file) uploadImageRef.current(file);
               return true;
+            }
+            if (item.kind === "file") {
+              const file = item.getAsFile();
+              if (file) {
+                event.preventDefault();
+                handleFileUploadRef.current!(file);
+                return true;
+              }
             }
           }
           return false;
@@ -348,6 +375,30 @@ export default function NoteEditorPage() {
       } catch {
         dispatch(addToast("Failed to upload image", "error"));
       }
+    };
+    handleFileUploadRef.current = (file: File) => {
+      const nid = idRef.current;
+      const ed = editorRef.current;
+      if (!nid) return;
+      const isEmail = /\.(eml|msg)$/i.test(file.name) ||
+        file.type === "message/rfc822" ||
+        file.type === "application/vnd.ms-outlook";
+      uploadFile({ noteId: nid, file })
+        .unwrap()
+        .then((upload) => {
+          dispatch(addToast(isEmail ? "Email attached" : "File attached", "success"));
+          if (ed) {
+            const displayName = upload.originalName.replace(/\.[^.]+$/, "");
+            ed.chain().focus().insertContent({
+              type: "paragraph",
+              content: [
+                { type: "text", text: `${isEmail ? "Email" : "File"}: ` },
+                { type: "text", marks: [{ type: "link", attrs: { href: upload.url, target: "_blank" } }], text: displayName },
+              ],
+            }).run();
+          }
+        })
+        .catch(() => dispatch(addToast("Failed to upload file", "error")));
     };
   }, [id, editor, addToast, uploadFile]);
 
