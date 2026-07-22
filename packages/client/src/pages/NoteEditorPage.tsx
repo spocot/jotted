@@ -23,7 +23,7 @@ import {
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES, NoteEmbed } from "../extensions";
+import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES, NoteEmbed, SlashCommand } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
@@ -269,6 +269,7 @@ export default function NoteEditorPage() {
       Tag,
       Callout,
       NoteEmbed,
+      SlashCommand,
       Mention.configure({ suggestion: mentionSuggestion }),
     ],
     editorProps: {

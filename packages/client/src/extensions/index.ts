@@ -8,3 +8,4 @@ export { default as CodeBlockHighlight, SUPPORTED_LANGUAGES } from "./CodeBlockH
 export { Callout, CALLOUT_TYPES } from "./Callout";
 export type { CalloutType } from "./Callout";
 export { NoteEmbed } from "./NoteEmbed";
+export { SlashCommand } from "./SlashCommand";
