@@ -221,6 +221,34 @@ export const SlashCommand = Extension.create({
             }
           };
 
+          const MAX_HEIGHT = 320;
+          const MIN_WIDTH = 260;
+          const PADDING = 8;
+
+          const clampPosition = (rect: DOMRect) => {
+            const vh = window.innerHeight;
+            const vw = window.innerWidth;
+            const spaceBelow = vh - rect.bottom;
+            const spaceAbove = rect.top;
+
+            let top: number;
+            let above = false;
+            if (spaceBelow >= MAX_HEIGHT || spaceBelow >= spaceAbove) {
+              top = rect.bottom + 4;
+            } else {
+              above = true;
+              top = Math.max(PADDING, rect.top - MAX_HEIGHT - 4);
+            }
+
+            let left = rect.left;
+            const estimatedRight = left + MIN_WIDTH;
+            if (estimatedRight > vw - PADDING) {
+              left = Math.max(PADDING, vw - MIN_WIDTH - PADDING);
+            }
+
+            return { top, left, above };
+          };
+
           return {
             onStart: (props: { items: SlashCommandItem[]; command: (item: SlashCommandItem) => void; clientRect?: () => DOMRect | null }) => {
               selectedIndex = 0;
@@ -229,11 +257,12 @@ export const SlashCommand = Extension.create({
               popup = document.createElement("div");
               popup.className =
                 "fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto min-w-[260px] py-1";
-              popup.style.maxHeight = "320px";
+              popup.style.maxHeight = `${MAX_HEIGHT}px`;
               const rect = props.clientRect?.();
               if (rect) {
-                popup.style.top = `${rect.bottom + 4}px`;
-                popup.style.left = `${rect.left}px`;
+                const pos = clampPosition(rect);
+                popup.style.top = `${pos.top}px`;
+                popup.style.left = `${pos.left}px`;
               }
               document.body.appendChild(popup);
               renderItems();
@@ -245,8 +274,9 @@ export const SlashCommand = Extension.create({
               currentCommand = props.command;
               const rect = props.clientRect?.();
               if (popup && rect) {
-                popup.style.top = `${rect.bottom + 4}px`;
-                popup.style.left = `${rect.left}px`;
+                const pos = clampPosition(rect);
+                popup.style.top = `${pos.top}px`;
+                popup.style.left = `${pos.left}px`;
               }
               renderItems();
             },
