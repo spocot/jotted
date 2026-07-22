@@ -23,13 +23,14 @@ import {
 } from "../store/redux/api";
 import { useAppDispatch } from "../store/redux/hooks";
 import { addToast } from "../store/redux/toastSlice";
-import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES, NoteEmbed, SlashCommand } from "../extensions";
+import { Wikilink, Tag, Mention, CodeBlockHighlight, Callout, CALLOUT_TYPES, NoteEmbed, SlashCommand, Table, TableRow, TableCell, TableHeader } from "../extensions";
 import { markdownToHtml } from "../lib/markdown";
 import { serializer } from "../lib/serializer";
 import { getServerUrl } from "../lib/server-config";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import EditorSidePanel from "../components/EditorSidePanel";
 import MentionList from "../components/MentionList";
+import TableBubbleMenu from "../components/TableBubbleMenu";
 import { EditorSkeleton } from "../components/Skeleton";
 
 // Give TaskList higher parse priority than BulletList so that
@@ -111,6 +112,9 @@ export default function NoteEditorPage() {
   const [editingMeta, setEditingMeta] = useState(false);
   const [calloutDropdownOpen, setCalloutDropdownOpen] = useState(false);
   const calloutDropdownRef = useRef<HTMLDivElement>(null);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
+  const [tableGridSize, setTableGridSize] = useState({ rows: 0, cols: 0 });
+  const tablePickerRef = useRef<HTMLDivElement>(null);
 
   const toDateInput = (iso: string | null | undefined) => {
     if (!iso) return "";
@@ -270,6 +274,10 @@ export default function NoteEditorPage() {
       Callout,
       NoteEmbed,
       SlashCommand,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
       Mention.configure({ suggestion: mentionSuggestion }),
     ],
     editorProps: {
@@ -473,12 +481,16 @@ export default function NoteEditorPage() {
       if (calloutDropdownRef.current && !calloutDropdownRef.current.contains(e.target as Node)) {
         setCalloutDropdownOpen(false);
       }
+      if (tablePickerRef.current && !tablePickerRef.current.contains(e.target as Node)) {
+        setTablePickerOpen(false);
+        setTableGridSize({ rows: 0, cols: 0 });
+      }
     };
-    if (calloutDropdownOpen) {
+    if (calloutDropdownOpen || tablePickerOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [calloutDropdownOpen]);
+  }, [calloutDropdownOpen, tablePickerOpen]);
 
   if (!id) {
     return <div className="text-gray-400 dark:text-gray-500">Select a note</div>;
@@ -1049,6 +1061,67 @@ export default function NoteEditorPage() {
                 )}
               </div>
 
+              <div className="relative" ref={tablePickerRef}>
+                <button
+                  onClick={() => setTablePickerOpen(!tablePickerOpen)}
+                  title="Insert table"
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    editor.isActive("table")
+                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    ⊞ Table
+                  </span>
+                </button>
+                {tablePickerOpen && (
+                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 p-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 px-1">
+                      {tableGridSize.rows > 0 && tableGridSize.cols > 0
+                        ? `${tableGridSize.rows}\u00D7${tableGridSize.cols}`
+                        : "Drag to size"}
+                    </div>
+                    <div
+                      className="grid gap-0.5"
+                      onMouseLeave={() => setTableGridSize({ rows: 0, cols: 0 })}
+                    >
+                      {Array.from({ length: 8 }, (_, ri) => (
+                        <div key={ri} className="flex gap-0.5">
+                          {Array.from({ length: 8 }, (_, ci) => {
+                            const active = ri < tableGridSize.rows && ci < tableGridSize.cols;
+                            return (
+                              <div
+                                key={ci}
+                                className={`w-5 h-5 rounded-sm border cursor-pointer transition-colors ${
+                                  active
+                                    ? "bg-blue-200 border-blue-400 dark:bg-blue-800 dark:border-blue-500"
+                                    : "border-gray-300 dark:border-gray-600"
+                                }`}
+                                onMouseEnter={() =>
+                                  setTableGridSize({ rows: ri + 1, cols: ci + 1 })
+                                }
+                                onClick={() => {
+                                  const rows = ri + 1;
+                                  const cols = ci + 1;
+                                  editor
+                                    .chain()
+                                    .focus()
+                                    .insertTable({ rows, cols, withHeaderRow: true })
+                                    .run();
+                                  setTablePickerOpen(false);
+                                  setTableGridSize({ rows: 0, cols: 0 });
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <span className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
 
               <ToolbarButton
@@ -1082,7 +1155,12 @@ export default function NoteEditorPage() {
           )}
 
           {/* Editor */}
-          {editor && <EditorContent editor={editor} />}
+          {editor && (
+            <>
+              <EditorContent editor={editor} />
+              <TableBubbleMenu editor={editor} />
+            </>
+          )}
 
           {!editor && (
             <div className="text-gray-400 dark:text-gray-500">Loading editor...</div>

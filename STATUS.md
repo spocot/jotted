@@ -663,16 +663,16 @@
 - [x] Integration in NoteEditorPage
 - [x] Export from extensions/index.ts
 
-## Phase 48: Rich Table Editing ⬜
+## Phase 48: Rich Table Editing ✅
 
-- [ ] Install `@tiptap/extension-table` + row/cell/header packages
-- [ ] TipTap table extension config (`extensions/TableExtension.ts`)
-- [ ] `TableBubbleMenu.tsx` — floating toolbar (add/delete row/col, toggle header, alignment, cell bg color)
-- [ ] Grid picker for table insertion (drag N×M, up to 10×10) in toolbar
-- [ ] Slash `/table` command → insert default 3×3
-- [ ] GFM table markdown serialization (pipe tables with alignment markers)
-- [ ] GFM table markdown deserialization (pre-processing before `marked`)
-- [ ] Import and register table extensions in NoteEditorPage
+- [x] Install `@tiptap/extension-table` + row/cell/header packages
+- [x] TipTap table extension config (`extensions/TableExtension.ts`) — re-exports Table, TableRow, TableCell, TableHeader
+- [x] `TableBubbleMenu.tsx` — floating toolbar (add/delete row/col, toggle header, alignment, cell bg color picker, delete table)
+- [x] Grid picker for table insertion (8×8 grid, drag to select size) in toolbar
+- [x] Slash `/table` command → insert default 3×3 with header row
+- [x] GFM table markdown serialization (pipe tables with alignment markers)
+- [x] GFM table markdown deserialization (pre-processing before `marked`)
+- [x] Import and register table extensions in NoteEditorPage with resizable tables
 
 ## Phase 49: Mermaid/Diagram Rendering in Notes ⬜
 

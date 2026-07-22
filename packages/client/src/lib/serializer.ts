@@ -82,6 +82,93 @@ const nodes: Record<string, (state: MarkdownSerializerState, node: Node, parent:
     state.ensureNewLine();
     state.wrapBlock("> ", null, node, () => state.renderContent(node));
   },
+  table(state, node) {
+    const rows: { text: string; align: string }[][] = [];
+
+    for (let ri = 0; ri < node.childCount; ri++) {
+      const row = node.child(ri);
+      const cells: { text: string; align: string }[] = [];
+      for (let ci = 0; ci < row.childCount; ci++) {
+        const cell = row.child(ci);
+        cells.push({
+          text: cell.textContent.replace(/\|/g, "\\|"),
+          align: cell.attrs.textAlign ?? "left",
+        });
+      }
+      rows.push(cells);
+    }
+
+    if (rows.length === 0) return;
+
+    const colCount = rows[0].length;
+    const colWidths = Array.from({ length: colCount }, (_, ci) => {
+      let maxW = 3;
+      for (const row of rows) {
+        if (ci < row.length) maxW = Math.max(maxW, row[ci].text.length);
+      }
+      return maxW;
+    });
+
+    for (let ri = 0; ri < rows.length; ri++) {
+      state.write("|");
+      for (let ci = 0; ci < colCount; ci++) {
+        const cell = rows[ri][ci];
+        const text = cell?.text ?? "";
+        const align = cell?.align ?? "left";
+        const w = colWidths[ci];
+        const pad = w - text.length;
+
+        state.write(" ");
+        if (align === "right") {
+          state.write(state.repeat(" ", Math.max(0, pad)));
+          state.write(text);
+        } else if (align === "center") {
+          const left = Math.floor(pad / 2);
+          state.write(state.repeat(" ", Math.max(0, left)));
+          state.write(text);
+          state.write(state.repeat(" ", Math.max(0, pad - left)));
+        } else {
+          state.write(text);
+          state.write(state.repeat(" ", Math.max(0, pad)));
+        }
+        state.write(" |");
+      }
+      state.ensureNewLine();
+
+      if (ri === 0) {
+        state.write("|");
+        for (let ci = 0; ci < colCount; ci++) {
+          const cell = rows[0][ci];
+          const align = cell?.align ?? "left";
+          const w = Math.max(3, colWidths[ci] + 2);
+
+          state.write(" ");
+          if (align === "center") {
+            state.write(":" + state.repeat("-", Math.max(1, w - 2)) + ":");
+          } else if (align === "right") {
+            state.write(state.repeat("-", Math.max(1, w - 1)) + ":");
+          } else {
+            state.write(state.repeat("-", w));
+          }
+          state.write(" |");
+        }
+        state.ensureNewLine();
+      }
+    }
+
+    if (rows.length > 0) {
+      state.ensureNewLine();
+    }
+  },
+  tableRow(state, node) {
+    state.renderContent(node);
+  },
+  tableHeader(state, node) {
+    state.renderInline(node);
+  },
+  tableCell(state, node) {
+    state.renderInline(node);
+  },
 };
 
 function isPlainUrl(mark: Mark): boolean {

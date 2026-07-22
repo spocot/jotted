@@ -9,3 +9,4 @@ export { Callout, CALLOUT_TYPES } from "./Callout";
 export type { CalloutType } from "./Callout";
 export { NoteEmbed } from "./NoteEmbed";
 export { SlashCommand } from "./SlashCommand";
+export { Table, TableRow, TableCell, TableHeader } from "./TableExtension";

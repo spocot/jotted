@@ -125,6 +125,14 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     keywords: ["hr", "line", "horizontal", "separator", "rule"],
     action: (c) => c.setHorizontalRule(),
   },
+  {
+    category: "Blocks",
+    label: "Table",
+    description: "Insert a table",
+    icon: "⊞",
+    keywords: ["grid", "spreadsheet", "rows", "columns"],
+    action: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
+  },
 ];
 
 const slashSuggestionPluginKey = new PluginKey("slash-command-suggestion");
