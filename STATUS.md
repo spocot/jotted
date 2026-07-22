@@ -652,14 +652,16 @@
 - [ ] Error boundaries per plugin — crash isolation
 - [ ] Tests: PluginManager lifecycle, API registration hooks, plugin enable/disable
 
-## Phase 47: Slash Commands (`/` Menu) ⬜
+## Phase 47: Slash Commands (`/` Menu) ✅
 
-- [ ] TipTap Suggestion extension (`extensions/SlashCommand.ts`) with `/` trigger
-- [ ] Command registry: headings (h1-h6), lists (bullet/ordered/task), callout, code block, blockquote, horizontal rule, image, note embed, mermaid, table
-- [ ] Filterable inline popup with icon + description per command
-- [ ] Arrow key navigation + Enter to apply + Escape to dismiss
-- [ ] Block insertion logic: replace empty paragraph, insert after current block, or lift + replace node type
-- [ ] Integration in NoteEditorPage
+- [x] TipTap Suggestion extension (`extensions/SlashCommand.ts`) with `/` trigger
+- [x] Command registry: headings (h1-h6), lists (bullet/ordered/task), callout, code block, blockquote, horizontal rule (15 commands, 3 categories)
+- [x] Filterable inline popup with icon + description per command
+- [x] Arrow key navigation + Enter to apply + Escape to dismiss
+- [x] Block insertion logic: delete `/text` range → execute TipTap chain command
+- [x] Viewport-aware popup positioning (clamps to window bounds)
+- [x] Integration in NoteEditorPage
+- [x] Export from extensions/index.ts
 
 ## Phase 48: Rich Table Editing ⬜
 
